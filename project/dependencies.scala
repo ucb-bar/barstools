@@ -13,4 +13,5 @@ object Dependencies {
   val executionoptionsDependencies: Seq[ModuleID] = Seq(
     scopt
   )
+  val logToolsDependencies: Seq[ModuleID] = Seq.empty
 }

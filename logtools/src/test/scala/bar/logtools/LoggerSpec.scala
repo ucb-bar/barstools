@@ -2,6 +2,10 @@
 
 package bar.logtools
 
-class LoggerSpec {
+import org.scalatest.{FreeSpec, Matchers}
 
+class LoggerSpec extends FreeSpec with Matchers {
+  "test" in {
+    7 should be (7)
+  }
 }

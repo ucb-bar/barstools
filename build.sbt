@@ -14,3 +14,9 @@ lazy val executionoptions = (project in file("executionoptions"))
   .settings(
     libraryDependencies ++= executionoptionsDependencies
   )
+
+lazy val logtools = (project in file("logtools"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= logToolsDependencies
+  )
