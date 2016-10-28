@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-package logger
+package bar.logtools
 
 import java.io.{PrintStream, File, FileOutputStream}
 
@@ -53,6 +53,9 @@ object Logger {
 
   var stream: PrintStream = System.out
 
+  def setStream(newStream: PrintStream): Unit = {
+    stream = newStream
+  }
   def setOutput(fileName: String): Unit = {
     stream = new PrintStream(new FileOutputStream(new File(fileName)))
   }
