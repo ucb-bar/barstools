@@ -41,7 +41,7 @@ object Logger {
   var logClassNames = false
 
   def showMessage(level: LogLevel.Value, className: String, message: => String): Unit = {
-    if(globalLevel == level || (classLevels.nonEmpty && classLevels.getOrElse(className, LogLevel.Error) >= level)) {
+    if(globalLevel >= level || (classLevels.nonEmpty && classLevels.getOrElse(className, LogLevel.Error) >= level)) {
       if(logClassNames) {
         stream.println(s"[$level:$className] $message")
       }
@@ -61,6 +61,9 @@ object Logger {
   }
   def setConsole(): Unit = {
     stream = Console.out
+  }
+  def setGlobalLevel(newLevel: LogLevel.Value): Unit = {
+    globalLevel = newLevel
   }
   def setClassLogLevels(namesToLevel: Map[String, LogLevel.Value]): Unit = {
     classLevels ++= namesToLevel
