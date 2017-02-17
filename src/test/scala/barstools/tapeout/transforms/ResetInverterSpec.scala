@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-package barstools.tapeout
+package barstools.tapeout.transforms
 
 import chisel3._
 import chisel3.util.RegInit
