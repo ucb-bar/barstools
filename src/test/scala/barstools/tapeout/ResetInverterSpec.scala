@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-package tapeout
+package barstools.tapeout
 
 import chisel3._
 import chisel3.util.RegInit
@@ -32,9 +32,6 @@ class ResetNSpec extends FreeSpec with Matchers {
         firrtl should include ("input reset_n :")
         firrtl should include ("node reset = not(reset_n)")
         firrtl should not include "input reset :"
-
-        // println(s"Chirrtl:\n$chirrtl") //scalastyle:off regex
-        // println(s"Firrtl:\n$firrtl") //scalastyle:off regex
       case _ =>
         // bad
     }

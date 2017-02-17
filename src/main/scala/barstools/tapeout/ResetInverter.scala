@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-package tapeout
+package barstools.tapeout
 
 import chisel3.internal.InstanceId
 import firrtl.PrimOps.Not
