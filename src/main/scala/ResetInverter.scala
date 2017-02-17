@@ -1,9 +1,8 @@
 // See LICENSE for license details.
 
-package dsptools.firrtltools
+package tapeout
 
 import chisel3.internal.InstanceId
-import dsptools.DspException
 import firrtl.PrimOps.Not
 import firrtl.annotations.{Annotation, CircuitName, ModuleName, Named}
 import firrtl.ir.{Input, UIntType, IntWidth, Module, Port, DefNode, NoInfo, Reference, DoPrim, Block, Circuit}
@@ -49,11 +48,11 @@ class ResetInverterTransform extends Transform {
 
   override def execute(state: CircuitState): CircuitState = {
     getMyAnnotations(state) match {
-      case Nil => state
+      case Nil => CircuitState(state.circuit, LowForm)
       case Seq(ResetInverterAnnotation(ModuleName(state.circuit.main, CircuitName(_)))) =>
         CircuitState(ResetN.run(state.circuit), LowForm)
       case annotations =>
-        throw DspException(s"There should be only one InvertReset annotation: got ${annotations.mkString(" -- ")}")
+        throw new Exception(s"There should be only one InvertReset annotation: got ${annotations.mkString(" -- ")}")
     }
   }
 }

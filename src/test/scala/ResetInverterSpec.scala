@@ -1,10 +1,9 @@
 // See LICENSE for license details.
 
-package dsptools
+package tapeout
 
 import chisel3._
 import chisel3.util.RegInit
-import dsptools.firrtltools.ResetInverter
 import firrtl._
 import org.scalatest.{FreeSpec, Matchers}
 
