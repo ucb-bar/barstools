@@ -22,3 +22,4 @@ lazy val tapeout = (project in file("tapeout"))
       dep: String => "edu.berkeley.cs" %% dep % sys.props.getOrElse(dep + "Version", defaultVersions(dep))
     }
   )
+  .settings(scalacOptions in Test ++= Seq("-language:reflectiveCalls"))
