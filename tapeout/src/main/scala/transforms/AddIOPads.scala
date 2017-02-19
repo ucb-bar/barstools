@@ -4,10 +4,59 @@ package barstools.tapeout.transforms
 
 import chisel3.internal.InstanceId
 import firrtl.annotations.{Annotation, CircuitName, ModuleName, Named}
-import firrtl.ir._ //{Input, UIntType, IntWidth, Module, Port, DefNode, NoInfo, Reference, DoPrim, Block, Circuit}
+import firrtl.ir._
 import firrtl._
 import firrtl.passes.Pass
 import firrtl.{CircuitForm, CircuitState, LowForm, Transform}
+
+import net.jcazevedo.moultingyaml._
+import java.io.File
+
+// Analog is like UInt, SInt; it's not a direction (which is kind of weird)
+// WARNING: Analog type is associated with Verilog InOut! i.e. even if digital pads are tri-statable, b/c tristate
+// requires an additional ctrl signal, digital pads must be operated in a single "static" condition here; Analog will
+// be paired with analog pads
+
+trait PadOrientation
+object Horizontal extends PadOrientation
+object Vertical extends PadOrientation
+
+// Template should include choice of input/output, horizontal/vertical -- see resources folder for an example
+
+abstract class PadType {
+  def name: String
+}
+case class Digital(name: String) extends PadType
+//case class Analog(name: String) extends PadType
+case class Supply(name: String) extends PadType
+
+// TODO: Supply pads? should be separate pass!
+
+// Get pads associated with tech from Yaml config file
+case class IOPad(
+    //tpe: PadType,      
+    // TODO: Do I need handlebars?, annotation propagation needs . -> _ ?   
+    verilogTemplate: String
+)
+
+object IOPadsYamlProtocol extends DefaultYamlProtocol {
+  //implicit val _tpe = yamlFormat1(PadType)
+  implicit val _pad = yamlFormat1(IOPad)
+}
+
+class IOYamlFileReader(file: String) {
+  import IOPadsYamlProtocol._
+  def parse[A](implicit reader: YamlReader[A]) : Seq[A] = {
+    if (new File(file).exists) {
+      val yamlString = scala.io.Source.fromFile(file).getLines.mkString("\n")
+      yamlString.parseYamls flatMap (x =>
+        try Some(reader read x)
+        catch { case e: Exception => None }
+      )
+    }
+    else error("Yaml file doesn't exist!")
+  }
+}
 
 object HasIOPadsAnnotation {
   def apply(target: ModuleName, padTemplateFile: String): Annotation = Annotation(target, classOf[AddIOPadsTransform], padTemplateFile)
@@ -17,14 +66,7 @@ object HasIOPadsAnnotation {
   }
 }
 
-case class Pad(
-    tpe: String,          // Digital, Fast Analog, Slow Analog, Vdd, Vss, Vddpst, Vsspst, etc.
-    direction: String,    // Input, Output, InOut
-    orientation: String,  // Vertical, Horizontal
-    verilog: String
-)
-
-class AddIOPads(pads: Seq[Pad]) extends Pass {
+class AddIOPads(pads: Seq[IOPad]) extends Pass {
   def name: String = "IOPads"
 
   def addIOPads(mod: Module): Seq[Module] = {
@@ -109,6 +151,7 @@ class AddIOPadsTransform extends Transform with SimpleRun {
         // TODO: Do I need to rerun resolve types, etc.?
         val passSeq = Seq(
           Legalize,
+          ResolveGenders,
           new AddIOPads(Seq()),
           RemoveEmpty,
           CheckInitialization,
@@ -127,7 +170,7 @@ class AddIOPadsTransform extends Transform with SimpleRun {
 trait HasIOPads {
   self: chisel3.Module =>
   // TODO: Submodule tapeout secret resources
-  def createPads(component: InstanceId, padTemplateFile: String = "/ExamplePads.yaml"): Unit = {
+  def createPads(component: InstanceId, padTemplateFile: String = "/Pads.yaml"): Unit = {
     annotate(chisel3.experimental.ChiselAnnotation(component, classOf[AddIOPadsTransform], padTemplateFile))
   }
   createPads(this)
