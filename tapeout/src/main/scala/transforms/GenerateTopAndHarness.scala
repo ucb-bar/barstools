@@ -7,10 +7,15 @@ import firrtl.ir._
 import firrtl.annotations._
 import firrtl.passes.Pass
 
+import java.io.File
+import firrtl.annotations.AnnotationYamlProtocol._
+import net.jcazevedo.moultingyaml._
+
 object GenerateTopAndHarness extends App {
   var input: Option[String] = None
   var topOutput: Option[String] = None
   var harnessOutput: Option[String] = None
+  var annoFile: Option[String] = None
   var synTop: Option[String] = None
   var harnessTop: Option[String] = None
   var seqMemFlags: Option[String] = Some("-o:unused.confg")
@@ -29,6 +34,10 @@ object GenerateTopAndHarness extends App {
       }
       case "--harness-o" => {
         harnessOutput = Some(args(i+1))
+        usedOptions = usedOptions | Set(i+1)
+      }
+      case "--anno-file" => {
+        annoFile = Some(args(i+1))
         usedOptions = usedOptions | Set(i+1)
       }
       case "--syn-top" => {
@@ -51,6 +60,19 @@ object GenerateTopAndHarness extends App {
         if (! (usedOptions contains i)) {
           error("Unknown option " + arg)
         }
+      }
+    }
+  }
+  //Load annotations from file
+  val annotationArray = annoFile match {
+    case None => Array[Annotation]()
+    case Some(fileName) => {
+      val annotations = new File(fileName)
+      if(annotations.exists) {
+        val annotationsYaml = io.Source.fromFile(annotations).getLines().mkString("\n").parseYaml
+        annotationsYaml.convertTo[Array[Annotation]]
+      } else {
+        Array[Annotation]()
       }
     }
   }
@@ -79,7 +101,7 @@ object GenerateTopAndHarness extends App {
       passes.memlib.ReplSeqMemAnnotation(
         s"-c:${synTop.get}:${seqMemFlags.get}"
       )
-    ))
+    ) ++ annotationArray)
   )
 
   //Harness Generation
