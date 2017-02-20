@@ -1,0 +1,53 @@
+# Pad types must be one of Digital, Analog, or Supply; pad names must be unique!
+# Note the indentation required for yaml parsing to work!
+# This just shows you how you can template things with {{}}, if/else,  and the following parameters:
+# isInput: Boolean (each pad entry should be configurable between both input and output)
+# isHorizontal: Boolean (each pad entry should be configurable between both horizontal and vertical, if necessary)
+---
+tpe: analog
+name: slow_foundry
+verilogTemplate: |
+  // Foundry Analog Pad Example
+  // Pad Type: {{tpe}}
+  // Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
+  // Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  module {{name}}(
+    input in,
+    output out
+  );
+    always @* begin
+      out = in;
+    end
+  end module
+---
+tpe: analog
+name: fast_custom
+verilogTemplate: |
+  // Custom Analog Pad Example
+  // Pad Type: {{tpe}}
+  // Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
+  // Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  module {{name}}(
+    input in,
+    output out
+  );
+    always @* begin
+      out = in;
+    end
+  end module
+---
+tpe: digital
+name: from_tristate_foundry
+verilogTemplate: |
+  // Digital Pad Example
+  // Pad Type: {{tpe}}
+  // Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
+  // Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  module {{name}}(
+    input in,
+    output out
+  );
+    always @* begin
+      out = in;
+    end
+  end module
