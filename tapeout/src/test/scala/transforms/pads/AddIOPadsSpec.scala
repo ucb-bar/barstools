@@ -47,8 +47,8 @@ class ExampleTopModuleWithBB extends TopModule {
   })
 
   annotatePad(io.v, Right, "easy_digital")
-  annotatePad(io.analog1, Left, "fast_analog_custom")
-  annotatePad(io.analog2, Bottom, "slow_analog_foundry")
+  annotatePad(io.analog1, Left, "fast_custom")
+  annotatePad(io.analog2, Bottom, "slow_foundry")
   Seq(io.a, io.b, io.c, io.x, io.y) foreach { x => annotatePad(x, Left) }
 
   val bb = Module(new BB())

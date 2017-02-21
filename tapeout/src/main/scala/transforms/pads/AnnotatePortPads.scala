@@ -13,7 +13,8 @@ case class PortIOPad(
     case Left | Right => Horizontal
     case Top | Bottom => Vertical
   }
-  def createVerilog(): String = pad.createVerilog(dir, orient)
+  def createPadInline(): String = s"inline\n${getPadName}.v\n${pad.createVerilog(dir, orient)}"
+  def getPadName(): String = pad.getTemplateParams(dir, orient).name
 }
 
 // Note: Not a pass b/c pass doesn't return Annotations (and we need to add more annotations)
@@ -64,6 +65,20 @@ object AnnotatePortPads {
       }
       PortIOPad(port.name, usedPad, portSide, port.direction)
     }
+
+    // Rather than getting unique names, check for name space collision and error out
+    val namespace = Namespace(c)
+    pads.foreach { x => { 
+      val testNames = Seq(
+        x.getTemplateParams(Input, Horizontal).name,
+        x.getTemplateParams(Input, Vertical).name,
+        x.getTemplateParams(Output, Horizontal).name,
+        x.getTemplateParams(Output, Vertical).name
+      )
+      testNames.foreach { n => 
+        require(namespace tryName n, "Pad name can't already be found in the circuit!")
+      } 
+    }}
 
     // Top MUST be internal module
     c.modules.map {
