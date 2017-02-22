@@ -57,6 +57,8 @@ class ExampleTopModuleWithBB extends TopModule(padTemplateFile = "", defaultPadS
   Seq(io.a, io.b, io.c, io.x) foreach { x => annotatePad(x, Left) }
   // Some signals might not want pads associated with them
   noPad(io.y)
+  // Clk might come directly from bump
+  noPad(clock)
 
   val bb = Module(new BB())
   bb.io.c := io.c
@@ -104,6 +106,7 @@ class IOPadSpec extends FlatSpec with Matchers {
   it should "create proper IO pads + black box in low firrtl" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(compilerName = "low")
+      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/LoFirrtl")
       //commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
     }
     val success = chisel3.Driver.execute(optionsManager, () => new ExampleTopModuleWithBB) match {
@@ -119,7 +122,8 @@ class IOPadSpec extends FlatSpec with Matchers {
   it should "create proper IO pads + black box in verilog" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(compilerName = "verilog")
-      commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
+      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/Verilog")
+      //commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
     }
     val success = chisel3.Driver.execute(optionsManager, () => new ExampleTopModuleWithBB) match {
       case ChiselExecutionSuccess(_, chirrtl, Some(FirrtlExecutionSuccess(_, verilog))) => 

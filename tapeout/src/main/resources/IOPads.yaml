@@ -38,7 +38,7 @@ verilogTemplate: |
   |);
   |  // Where you would normally dump your pad instance
   |  always @* begin
-  |    out <= in;
+  |    out = in;
   |  end
   |endmodule
 ---

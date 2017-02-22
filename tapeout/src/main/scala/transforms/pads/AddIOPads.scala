@@ -88,31 +88,48 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
     // Only create pad black boxes for ports that require them
     val padInsts = pads.filter(x => !x.pad.isEmpty).map(p => createInstance(p.firrtlBBName))
    
-///////////////////////// TODO BELOW
-
-    // Connect only if used
-    // If no port annotation, just connect through (for debug purposes)
-    val connects = pads map { p => 
+    // Connect to pad only if used ; otherwise leave dangling for Analog 
+    // and just connect through for digital (assumes no supplies)
+    val connects = pads.map { p => 
       val intRef = createRef(s"${p.portName}_Int") 
       val extRef = createRef(s"${p.portName}_Ext") 
-      p.port.tpe match {
-        case AnalogType(_) => 
-          EmptyStmt
-          //Attach(NoInfo, Seq(intRef, extRef))
-        case _ =>
-          val (lhs, rhs) = p.dir match {
-            case Input => (intRef, extRef)
-            case Output => (extRef, intRef)
-          }
-          Connect(NoInfo, lhs, rhs)
+      val padRef = createRef(p.firrtlBBName)
+      val padInRef = createSubField(padRef, "in")
+      val padOutRef = createSubField(padRef, "out")
+      val padIORef = createSubField(padRef, "inout")
+      p.pad match {
+        case None => p.port.tpe match {
+          case AnalogType(_) => 
+            Seq(EmptyStmt)
+          case _ =>
+            val (lhs, rhs) = p.dir match {
+              case Input => (intRef, extRef)
+              case Output => (extRef, intRef)
+            }
+            Seq(Connect(NoInfo, lhs, rhs))
+        }
+        case Some(x) => p.port.tpe match {
+          case AnalogType(_) =>
+            Seq(Attach(NoInfo, Seq(padIORef, extRef)))
+          case _ => 
+            val (rhsPadIn, lhsPadOut) = p.dir match {
+              case Input => (extRef, intRef)
+              case Output => (intRef, extRef)
+            }
+            Seq(
+              Connect(NoInfo, padInRef, rhsPadIn),
+              Connect(NoInfo, lhsPadOut, padOutRef))
+        }
       }
-    }   
+    }.flatten   
     Module(NoInfo, padFrameName, ports = intPorts ++ extPorts, body = Block(padInsts ++ connects))
   }
 
 }
 
+// what to do with clock? there is clk type required!!!: check analog, ground, clk
 // don't connect nopad stuff -- just connect through for digital; nothing for analog
 // check that pin is on right layer!!
 // needs to convert between uint and sint types for bb interface
 // add supply -- group by requirements ie 3 vdd together
+// add pad.io format

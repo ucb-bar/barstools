@@ -26,16 +26,16 @@ case class PortIOPad(
   def isDigital(): Boolean = padType == "digital"
   private def io(): String = padType match {
     case "digital" => 
-      """|  input [WIDTH-1:0] i,
-         |  output reg [WIDTH-1:0] o""".stripMargin
+      """|  input [WIDTH-1:0] in,
+         |  output reg [WIDTH-1:0] out""".stripMargin
     case "analog" => "  inout [WIDTH-1:0] io"
     case "supply" | "" => ""
   }
 
   private def assignIO(): String = padType match {
     case "digital" => 
-      """|    .i(i),
-         |    .o(o)""".stripMargin
+      """|    .in(in),
+         |    .out(out)""".stripMargin
     case "analog" => "    .io(io)"
     case "supply" | "" => "" 
   }
