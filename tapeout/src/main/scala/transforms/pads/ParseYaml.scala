@@ -29,9 +29,15 @@ case class IOPad(
   case class TemplateParams(
       isInput: Boolean,
       isHorizontal: Boolean) {
-    val dir = if (isInput) "in" else "out"
-    val orient = if (isHorizontal) "h" else "v"
-    val name = s"${moduleNamePrefix}_${orient}_${dir}"
+    private val dir = tpe match {
+      case "analog" => "inout"
+      case "supply" => "none"
+      case "digital" => if (isInput) "in" else "out"
+    }
+    private val orient = if (isHorizontal) "H" else "V"
+    // Only digital (not analog, supply) has multiple directions
+    private val nameSuffix = if (tpe == "digital") s"_${dir}" else ""
+    val name = s"${moduleNamePrefix}_${orient}${nameSuffix}"
   }
 
   def getTemplateParams(dir: Direction, orient: PadOrientation): TemplateParams = 

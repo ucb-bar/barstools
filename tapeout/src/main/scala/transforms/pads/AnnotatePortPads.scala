@@ -6,15 +6,60 @@ import firrtl.ir._
 
 case class PortIOPad(
     portName: String,
-    pad: IOPad,
+    pad: Option[IOPad],
     side: PadSide,
     dir: Direction) {
+
+  def padType(): String = pad match {
+    case None => ""
+    case Some(x) => x.tpe 
+  }
+
   def orient(): PadOrientation = side match {
     case Left | Right => Horizontal
     case Top | Bottom => Vertical
   }
-  def createPadInline(): String = s"inline\n${getPadName}.v\n${pad.createVerilog(dir, orient)}"
-  def getPadName(): String = pad.getTemplateParams(dir, orient).name
+  def isDigital(): Boolean = padType == "digital"
+  private def io(): String = padType match {
+    case "digital" => 
+      """|  input [WIDTH-1:0] i,
+         |  output reg [WIDTH-1:0] o""".stripMargin
+    case "analog" => "  inout [WIDTH-1:0] io"
+    case "supply" | "" => ""
+  }
+
+  private def assignIO(): String = padType match {
+    case "digital" => 
+      """|    .i(i),
+         |    .o(o)""".stripMargin
+    case "analog" => "    .io(io)"
+    case "supply" | "" => "" 
+  }
+
+  private def getPadVerilog(): String = pad match {
+    case None => ""
+    case Some(x) => x.createVerilog(dir, orient)
+  }
+
+  // Note: This includes both the pad wrapper + an additional wrapper for n-bit wide to 
+  // multiple pad conversion!
+  def createPadInline(): String = s"""inline\n${getPadName}.v\n${getPadVerilog}
+module ${getPadName}_array #(
+  parameter int WIDTH=1
+)(
+${io}
+);
+  ${getPadName} ${getPadName}[WIDTH-1:0](
+${assignIO}
+  );  
+endmodule
+""".stripMargin
+
+  def getPadName(): String = pad match {
+    case None => ""
+    case Some(x) => x.getTemplateParams(dir, orient).name
+  }
+
 }
 
 // Note: Not a pass b/c pass doesn't return Annotations (and we need to add more annotations)
@@ -36,34 +81,43 @@ object AnnotatePortPads {
       }}
     }
 
+    // Make annotations match low form
+    val annos = lowerAnnotations()
+
     def getPortIOPad(port: Port): PortIOPad = {
-      val annos = lowerAnnotations()
-      val portAnnos = annos.filter { _.targetName == port.name } 
-      val portSideAnno = portAnnos.filter { _.tpe == PadSideAnno }.map { x =>
-        HasIOPadsAnnotation.getSideFromAnno(x.txt) }
+      val portAnnos = annos.filter(_.targetName == port.name)
+      val portSideAnno = portAnnos.filter(_.tpe == PadSideAnno).map(x =>
+        HasIOPadsAnnotation.getSideFromAnno(x.txt))
       require(portSideAnno.length <= 1, "No more than 1 side can be specified per port")
       // If no side specified, use module default
       val portSide = if (portSideAnno.length == 0) defaultSide else portSideAnno.head
-      val portPadNameAnno = portAnnos.filter { _.tpe == PadNameAnno}.map { x => x.txt }
+      val portPadNameAnno = portAnnos.filter(_.tpe == PadNameAnno).map(x => x.txt)
       require(portPadNameAnno.length <= 1, "No more than 1 pad name can be specified per port")
       // Ports can only be digital or analog
       val portKind = port.tpe match {
         case AnalogType(_) => "analog"
         case e => "digital"
       }
-      val validPadTypes = pads.filter { _.tpe == portKind }
+      val validPadTypes = pads.filter(_.tpe == portKind)
       require(validPadTypes.length > 0, s"No $portKind pads specified in the config yaml file!")
       val usedPad = {
         // If no name specified, just use the first pad that matches the digital/analog type!
         if (portPadNameAnno.length == 0) validPadTypes.head
         else {
           // If a name match is found, use that! Otherwise, again use the first pad that matches the type!
-          val possiblePadNameMatches = validPadTypes.filter { _.name == portPadNameAnno.head }
+          val possiblePadNameMatches = validPadTypes.filter(_.name == portPadNameAnno.head)
           if (possiblePadNameMatches.length == 0) validPadTypes.head
           else possiblePadNameMatches.head
         }
       }
-      PortIOPad(port.name, usedPad, portSide, port.direction)
+      // Check if no pad is meant to be used
+      val numNoPadAnnos = portAnnos.filter(_.tpe == NoPadAnno).length
+      val noPad = numNoPadAnnos >= 1
+      if (noPad) 
+        require(
+          portAnnos.length == numNoPadAnnos, 
+          "Port should not have other pad annotations if no pads are to be used")
+      PortIOPad(port.name, if (noPad) None else Some(usedPad), portSide, port.direction)
     }
 
     // Rather than getting unique names, check for name space collision and error out
@@ -73,8 +127,14 @@ object AnnotatePortPads {
         x.getTemplateParams(Input, Horizontal).name,
         x.getTemplateParams(Input, Vertical).name,
         x.getTemplateParams(Output, Horizontal).name,
-        x.getTemplateParams(Output, Vertical).name
-      )
+        x.getTemplateParams(Output, Vertical).name,
+        // For Analog bit extraction black box (b/c it's not supported in firrtl)
+        // In general, this seems cleaner than using FIRRTL to do any bit extraction/concatenation
+        x.getTemplateParams(Input, Horizontal).name + "_array",
+        x.getTemplateParams(Input, Vertical).name + "_array",
+        x.getTemplateParams(Output, Horizontal).name + "_array",
+        x.getTemplateParams(Output, Vertical).name + "_array"
+      ).distinct
       testNames.foreach { n => 
         require(namespace tryName n, "Pad name can't already be found in the circuit!")
       } 

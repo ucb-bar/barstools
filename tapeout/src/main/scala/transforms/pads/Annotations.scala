@@ -4,6 +4,7 @@ import chisel3.internal.InstanceId
 import chisel3.experimental._
 import firrtl.annotations._
 import chisel3._
+import chisel3.util.HasBlackBoxInline
 
 trait PadSide
 object Left extends PadSide
@@ -34,6 +35,7 @@ abstract class TopModule(
     }
   }
 
+  // Chisel annotations (different from Firrtl!)
   // Annotate IO with side + pad name
   def annotatePad(sig: InstanceId, name: String): Unit = 
     annotate(ChiselAnnotation(sig, classOf[AddIOPadsTransform], HasIOPadsAnnotation.genPadNameAnno(name)))
@@ -43,6 +45,7 @@ abstract class TopModule(
     annotatePad(sig, name)
     annotatePad(sig, side)
   }
+
   def annotatePad(sig: Aggregate, name: String): Unit = 
     extractElements(sig) foreach { x => annotatePad(x, name) }
   def annotatePad(sig: Aggregate, side: PadSide): Unit = 
@@ -50,13 +53,37 @@ abstract class TopModule(
   def annotatePad(sig: Aggregate, side: PadSide, name: String): Unit = 
     extractElements(sig) foreach { x => annotatePad(x, side, name) } 
 
+  // There may be cases where pads were inserted elsewhere. If that's the case, allow certain IO to 
+  // not have pads auto added. 
+  def noPad(sig: InstanceId): Unit = 
+    annotate(ChiselAnnotation(sig, classOf[AddIOPadsTransform], HasIOPadsAnnotation.noPadAnno()))
+  def noPad(sig: Aggregate): Unit = 
+    extractElements(sig) foreach { x => noPad(x) }
+
+  // Since this is a super class, this should be the first thing that gets run 
+  // (at least when the module is actually at the top -- currently no guarantees otherwise :( firrtl limitation)
   createPads(this, padTemplateFile, defaultPadSide)
+
+  // Make sure that the BlackBoxHelper stuff is run (and after createPads to populate black box Verilog files)
+  // by making a fake black box that should then be deleted
+  val fakeBBPlaceholder = Module(new FakeBBPlaceholder)
+  class FakeBBPlaceholder extends BlackBox with HasBlackBoxInline {
+    val io = IO(new Bundle)
+    setInline("FakeBBPlaceholder.v",
+      s"""
+        |module FakeBBPlaceholder(
+        |);
+        |endmodule
+      """.stripMargin)
+  }
+
 }
 
 trait PadAnnotationType
 object PadSideAnno extends PadAnnotationType
 object PadNameAnno extends PadAnnotationType
 object PadTemplateAnno extends PadAnnotationType
+object NoPadAnno extends PadAnnotationType
 
 case class PadAnnotation(
     target: Named,
@@ -77,6 +104,7 @@ object HasIOPadsAnnotation {
     }
     s"padSide:$sideAnno"
   }
+  def noPadAnno(): String = s"noPad:##"
   def genPadNameAnno(name: String): String = s"padName:$name"
   def genTemplateFileAnno(padTemplateFile: String): String = s"padTemplateFile:$padTemplateFile"
 
@@ -88,6 +116,9 @@ object HasIOPadsAnnotation {
     Annotation(target, classOf[AddIOPadsTransform], genSideAnno(side))
   def apply(target: ComponentName, name: String): Annotation = 
     Annotation(target, classOf[AddIOPadsTransform], genPadNameAnno(name))
+
+  def noPadApply(target: ComponentName): Annotation = 
+    Annotation(target, classOf[AddIOPadsTransform], noPadAnno)
 
   def getSideFromAnno(a: String): PadSide = a match {
     case "Left" => Left
@@ -105,6 +136,7 @@ object HasIOPadsAnnotation {
         case "padSide" => PadSideAnno
         case "padName" => PadNameAnno
         case "padTemplateFile" => PadTemplateAnno
+        case "noPad" => NoPadAnno
         case _ => throw new Exception("Illegal pad annotation!")
       }
       // If the annotation is a 0-length string, keep the 0-length annotation
@@ -112,6 +144,3 @@ object HasIOPadsAnnotation {
     case _ => None
   }
 }
-
-
-

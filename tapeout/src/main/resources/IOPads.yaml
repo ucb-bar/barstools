@@ -1,44 +1,52 @@
 # Pad types must be one of digital, analog, or supply; pad names must be unique!
-# Note the indentation required for yaml parsing to work!
 # This just shows you how you can template things with {{}}, if/else,  and the following parameters:
-# isInput: Boolean (each pad entry should be configurable between both input and output)
+# isInput: Boolean (each pad entry should be configurable between both input and output, as necessary)
 # isHorizontal: Boolean (each pad entry should be configurable between both horizontal and vertical, if necessary)
-# NOTE: Expects in/out to be named in/out, 1 bit for digital; and io, 1 bit for analog
-# Expects module name to be obtained from {{name}} which is derived from yaml name, tpe
+# NOTE: Expects 1-bit in/out to be named in/out for digital; and 1-bit io for analog (supplies don't have ports)
+# Expects module name to be obtained from {{name}} which is derived from yaml name, tpe in the Firrtl pass
+# Pipe is used for stripping margins, but indentation is required before the pipe for the yaml reader to work
 ---
 tpe: analog
 name: slow_foundry
 verilogTemplate: |
-  // Foundry Analog Pad Example
-  // Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
-  // Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
-  module {{name}}(
-    inout io
-  );
-  end module
+  |// Foundry Analog Pad Example
+  |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |module {{name}}(
+  |  inout io
+  |);
+  |endmodule
 ---
 tpe: analog
 name: fast_custom
 verilogTemplate: |
-  // Custom Analog Pad Example
-  // Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
-  // Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
-  module {{name}}(
-    inout io
-  );
-  end module
+  |// Custom Analog Pad Example
+  |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |module {{name}}(
+  |  inout io
+  |);
+  |endmodule
 ---
 tpe: digital
 name: from_tristate_foundry
 verilogTemplate: |
-  // Digital Pad Example
-  // Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
-  // Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
-  module {{name}}(
-    input in,
-    output out
-  );
-    always @* begin
-      out = in;
-    end
-  end module
+  |// Digital Pad Example
+  |// Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
+  |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |module {{name}}(
+  |  input in,
+  |  output reg out
+  |);
+  |  // Where you would normally dump your pad instance
+  |  always @* begin
+  |    out <= in;
+  |  end
+  |endmodule
+---
+tpe: supply
+name: vdd
+verilogTemplate: |
+  |// VDD Pad Example (No IO)
+  |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |module {{name}}(
+  |);
+  |endmodule

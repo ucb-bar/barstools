@@ -43,7 +43,7 @@ class AddIOPadsTransform extends Transform with SimpleRun {
         case PadAnnotation(ModuleName(_, _), PadTemplateAnno, _) => true 
         case _ => false
       }
-      require(templateFileAnno.length <= 1, "Can only specify pad yaml file once!")
+      require(templateFileAnno.length == 1, "Can only specify pad yaml file once!")
       
       // Get top module to add pads too
       val topMod = defaultModuleSideAnno.head.target.name

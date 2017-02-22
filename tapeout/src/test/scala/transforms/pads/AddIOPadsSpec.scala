@@ -9,31 +9,33 @@ import chisel3.experimental._
 import chisel3.util.HasBlackBoxInline
 import chisel3.iotesters._
 
-class BB extends BlackBox with HasBlackBoxInline{
+class BB extends BlackBox with HasBlackBoxInline {
   val io = IO(new Bundle {
     val c = Input(SInt(16.W))
     val z = Output(SInt(16.W))
     val analog1 = Analog(3.W)
     val analog2 = analog1.chiselCloneType  
   })
+  // Generates a "FakeBB.v" file with the following Verilog module
   setInline("FakeBB.v",
     s"""
-      module BB(
-        input [15:0] c,
-        output [15:0] z,
-        inout [2:0] analog1,
-        inout [2:0] analog2
-      );
-        always @* begin
-          z = 2 * c;
-          analog2 = analog1 + 1;
-        end
-      endmodule
+      |module BB(
+      |  input [15:0] c,
+      |  output [15:0] z,
+      |  inout [2:0] analog1,
+      |  inout [2:0] analog2
+      |);
+      |  always @* begin
+      |    z <= 2 * c;
+      |    analog2 <= analog1 + 1;
+      |  end
+      |endmodule
     """.stripMargin)
 }
 
-// TODO: H, V, Analog on Analog, Analog on Digital which has direction (from annotation)
-class ExampleTopModuleWithBB extends TopModule {
+// If no template file is provided, it'll use the default one (example) in the resource folder
+// Default pad side is Top if no side is specified for a given IO
+class ExampleTopModuleWithBB extends TopModule(padTemplateFile = "", defaultPadSide = Top) {
   val io = IO(new Bundle {
     val a = Input(UInt(16.W))
     val b = a.chiselCloneType
@@ -46,10 +48,15 @@ class ExampleTopModuleWithBB extends TopModule {
     val v = Output(Vec(3, UInt(5.W)))
   })
 
+  // Can annotate aggregates with pad side location + pad name (should be a name in the yaml template)
   annotatePad(io.v, Right, "easy_digital")
+  // Can annotate individual elements
   annotatePad(io.analog1, Left, "fast_custom")
   annotatePad(io.analog2, Bottom, "slow_foundry")
-  Seq(io.a, io.b, io.c, io.x, io.y) foreach { x => annotatePad(x, Left) }
+  // Looks for a pad that matches the IO type (digital in, digital out, analog) if no name is specified
+  Seq(io.a, io.b, io.c, io.x) foreach { x => annotatePad(x, Left) }
+  // Some signals might not want pads associated with them
+  noPad(io.y)
 
   val bb = Module(new BB())
   bb.io.c := io.c
@@ -84,9 +91,20 @@ class IOPadSpec extends FlatSpec with Matchers {
 
   behavior of "top module with blackbox"
 
+  it should "pass simple testbench" in {
+    val optionsManager = new TesterOptionsManager {
+      firrtlOptions = firrtlOptions.copy(compilerName = "verilog")
+      testerOptions = testerOptions.copy(isVerbose = true, backendName = "verilator", displayBase = 10)
+    }
+    iotesters.Driver.execute(() => new ExampleTopModuleWithBB, optionsManager) { c =>
+      new SimpleTopModuleTester(c)
+    } should be (true)
+  }
+
   it should "create proper IO pads + black box in low firrtl" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(compilerName = "low")
+      //commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
     }
     val success = chisel3.Driver.execute(optionsManager, () => new ExampleTopModuleWithBB) match {
       case ChiselExecutionSuccess(_, chirrtl, Some(FirrtlExecutionSuccess(_, firrtl))) =>
@@ -98,9 +116,10 @@ class IOPadSpec extends FlatSpec with Matchers {
     success should be (true)
   } 
 
-  /*it should "create proper IO pads + black box in verilog" in {
+  it should "create proper IO pads + black box in verilog" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(compilerName = "verilog")
+      commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
     }
     val success = chisel3.Driver.execute(optionsManager, () => new ExampleTopModuleWithBB) match {
       case ChiselExecutionSuccess(_, chirrtl, Some(FirrtlExecutionSuccess(_, verilog))) => 
@@ -109,15 +128,5 @@ class IOPadSpec extends FlatSpec with Matchers {
     } 
     success should be (true)
   } 
-
-  it should "pass simple testbench" in {
-    val optionsManager = new TesterOptionsManager {
-      firrtlOptions = firrtlOptions.copy(compilerName = "verilog")
-      testerOptions = testerOptions.copy(isVerbose = true, backendName = "verilator", displayBase = 10)
-    }
-    iotesters.Driver.execute(() => new ExampleTopModuleWithBB, optionsManager) { c =>
-      new SimpleTopModuleTester(c)
-    } should be (true)
-  }*/
 
 }
