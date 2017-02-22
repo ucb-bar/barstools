@@ -10,53 +10,61 @@ object CreatePadBBs {
   // Get annotations for black box inlining of pad info + add black boxes for pads into circuit
   def apply(
       c: Circuit,
-      topMod: String, 
       portPads: Seq[PortIOPad]): (Circuit, Seq[Annotation]) = {
 
-    val (modsT, bbAnnosT) = c.modules.map {
-      case mod: Module if mod.name == topMod => addPadBBs(mod, portPads, c)
-      case other => (Seq(other), Seq())
-    }.unzip
+    // Only add (parameterized) unique pad modules once to annotations
+    val uniqueBBsNoName = scala.collection.mutable.ArrayBuffer[PortIOPad]()
+    val uniqueBBsNameProto = scala.collection.mutable.ArrayBuffer[PortIOPad]()
 
-    val mods = modsT.flatten
-    val bbAnnos = bbAnnosT.flatten
-    (c.copy(modules = mods), bbAnnos)
-  }
-
-  def addPadBBs(mod: Module, portPads: Seq[PortIOPad], c: Circuit): (Seq[DefModule], Seq[Annotation]) = {
-    // Only add unique pad modules
-    val uniqueBBs = scala.collection.mutable.ArrayBuffer[PortIOPad]()
-    mod.ports foreach { p => 
-      val correspondingPad = portPads.filter(x => x.portName == p.name).head
+    portPads foreach { correspondingPad => 
       // L&R, T&B all use the same pads
       val fakeSide = correspondingPad.side match {
         case Left | Right => Left
         case Top | Bottom => Top
       }
-      val correspondingPadNoName = correspondingPad.copy(portName = "", side = fakeSide)
-      if (!uniqueBBs.contains(correspondingPadNoName)) {
-        uniqueBBs += correspondingPadNoName
+      // Analog is always InOut (not a Chisel thing)
+      val fakeDir = if (correspondingPad.isDigital) correspondingPad.dir else Input
+      // For uniqueness, don't care about everything that is overriden below
+      val fakePad = correspondingPad.copy(portName = "", side = fakeSide, dir = fakeDir, portWidth = 1)
+      // Only add pad if port needs pad
+      if (!uniqueBBsNoName.contains(fakePad) && !correspondingPad.pad.isEmpty) {
+        uniqueBBsNoName += fakePad
+        uniqueBBsNameProto += correspondingPad
       }
     }
 
-    // Analog pads only have 1 port ; create black boxes
-    val bbs = uniqueBBs.map { x => 
-      val ports = x.pad.tpe match {
-        case "analog" => Seq(Port(NoInfo, "io", Input, AnalogType(IntWidth(1))))
-        case "digital" => Seq(
-          Port(NoInfo, "in", Input, UIntType(IntWidth(1))),
-          Port(NoInfo, "out", Output, UIntType(IntWidth(1)))
-        )
-        case _ => throw new Exception("Pad must be analog/digital type!")
+    val namespace = Namespace(c)
+    // Note: Firrtl is silly and doesn't implement true parameterization -- each module with 
+    // parameterization that potentially affects # of IO needs to be uniquely identified 
+    // (but only in Firrtl)
+    val bbs = portPads.map(x => x.pad match {
+      // Don't add black box for port that doesn't require a pad
+      case None => None
+      case Some(_) => {
+        val ports = x.padType match {
+          case "analog" => Seq(Port(NoInfo, "io", Input, AnalogType(IntWidth(x.portWidth))))
+          case "digital" => Seq(
+            Port(NoInfo, "in", Input, UIntType(IntWidth(x.portWidth))),
+            Port(NoInfo, "out", Output, UIntType(IntWidth(x.portWidth)))
+          )
+          case _ => throw new Exception("Port pad must be analog/digital type!")
+        }
+        val firrtlBBName = s"${x.getPadName}_array_${x.portName}"
+        require(namespace tryName firrtlBBName, "ExtModule pad name can't already be found in the circuit!")
+        Some(ExtModule(NoInfo, firrtlBBName, ports, s"${x.getPadName}_array", Seq(IntParam("WIDTH", x.portWidth))))
       }
-      ExtModule(NoInfo, x.getPadName, ports, x.getPadName, Seq.empty)
-    }.toSeq
+    }).toSeq.flatten
+
+    // Remove black box source helper placeholder module (doesn't do anything)
+    val newMods = c.modules.filterNot(_.name == "FakeBBPlaceholder") ++ bbs
 
     // Add annotations to black boxes to inline Verilog from template
-    val annos = uniqueBBs.map { x => 
-      BlackBoxSourceAnnotation(ModuleName(x.getPadName, CircuitName(c.main)), x.createPadInline)
+    // Again, note the weirdness in parameterization
+    val annos = uniqueBBsNameProto.map { x => 
+      val firrtlBBName = s"${x.getPadName}_array_${x.portName}"
+      BlackBoxSourceAnnotation(ModuleName(firrtlBBName, CircuitName(c.main)), x.createPadInline)
     }.toSeq
-    (bbs :+ mod, annos)
+    (c.copy(modules = newMods), annos)
   }
 
 }

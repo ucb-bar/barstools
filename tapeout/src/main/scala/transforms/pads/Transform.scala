@@ -71,7 +71,7 @@ class AddIOPadsTransform extends Transform with SimpleRun {
       case None => CircuitState(state.circuit, LowForm)
       case Some(x) => {
         val portPads = AnnotatePortPads(state.circuit, x.topMod, x.foundryPads, x.componentAnnos, x.defaultSide)
-        val (circuitWithBBs, bbAnnotations) = CreatePadBBs(state.circuit, x.topMod, portPads)
+        val (circuitWithBBs, bbAnnotations) = CreatePadBBs(state.circuit, portPads)
 
         val passSeq = Seq(
           Legalize,

@@ -3,9 +3,11 @@ package barstools.tapeout.transforms.pads
 import firrtl.annotations._
 import firrtl._
 import firrtl.ir._
+import firrtl.passes._
 
 case class PortIOPad(
     portName: String,
+    portWidth: Int,
     pad: Option[IOPad],
     side: PadSide,
     dir: Direction) {
@@ -43,7 +45,7 @@ case class PortIOPad(
 
   // Note: This includes both the pad wrapper + an additional wrapper for n-bit wide to 
   // multiple pad conversion!
-  def createPadInline(): String = s"""inline\n${getPadName}.v\n${getPadVerilog}
+  def createPadInline(): String = s"""inline\n${getPadName}_array.v\n${getPadVerilog}
 module ${getPadName}_array #(
   parameter int WIDTH=1
 )(
@@ -117,7 +119,7 @@ object AnnotatePortPads {
         require(
           portAnnos.length == numNoPadAnnos, 
           "Port should not have other pad annotations if no pads are to be used")
-      PortIOPad(port.name, if (noPad) None else Some(usedPad), portSide, port.direction)
+      PortIOPad(port.name, bitWidth(port.tpe).intValue, if (noPad) None else Some(usedPad), portSide, port.direction)
     }
 
     // Rather than getting unique names, check for name space collision and error out
@@ -141,12 +143,6 @@ object AnnotatePortPads {
     }}
 
     // Top MUST be internal module
-    c.modules.map {
-      case mod: Module if mod.name == topMod => {
-        mod.ports map { x => getPortIOPad(x) }
-      }
-      case other => Seq()
-    }.flatten
-
+    c.modules.filter(_.name == topMod).head.ports.map(x => getPortIOPad(x))
   }
 }

@@ -11,7 +11,7 @@ import chisel3.iotesters._
 
 class BB extends BlackBox with HasBlackBoxInline {
   val io = IO(new Bundle {
-    val c = Input(SInt(16.W))
+    val c = Input(SInt(14.W))
     val z = Output(SInt(16.W))
     val analog1 = Analog(3.W)
     val analog2 = analog1.chiselCloneType  
@@ -37,9 +37,9 @@ class BB extends BlackBox with HasBlackBoxInline {
 // Default pad side is Top if no side is specified for a given IO
 class ExampleTopModuleWithBB extends TopModule(padTemplateFile = "", defaultPadSide = Top) {
   val io = IO(new Bundle {
-    val a = Input(UInt(16.W))
+    val a = Input(UInt(15.W))
     val b = a.chiselCloneType
-    val c = Input(SInt(16.W))
+    val c = Input(SInt(14.W))
     val x = Output(UInt(16.W))
     val y = x.chiselCloneType
     val z = Output(SInt(16.W))
