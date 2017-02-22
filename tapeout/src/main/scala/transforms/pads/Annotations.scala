@@ -67,16 +67,16 @@ abstract class TopModule(
   // Make sure that the BlackBoxHelper stuff is run (and after createPads to populate black box Verilog files)
   // by making a fake black box that should then be deleted
   val fakeBBPlaceholder = Module(new FakeBBPlaceholder)
-  class FakeBBPlaceholder extends BlackBox with HasBlackBoxInline {
-    val io = IO(new Bundle)
-    setInline("FakeBBPlaceholder.v",
-      s"""
-        |module FakeBBPlaceholder(
-        |);
-        |endmodule
-      """.stripMargin)
-  }
+}
 
+private[barstools] class FakeBBPlaceholder extends BlackBox with HasBlackBoxInline {
+  val io = IO(new Bundle)
+  setInline("FakeBBPlaceholder.v",
+    s"""
+    |module FakeBBPlaceholder(
+    |);
+    |endmodule
+    """.stripMargin)
 }
 
 trait PadAnnotationType

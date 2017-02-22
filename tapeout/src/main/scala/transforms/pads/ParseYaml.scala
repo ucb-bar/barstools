@@ -38,6 +38,7 @@ case class IOPad(
     // Only digital (not analog, supply) has multiple directions
     private val nameSuffix = if (tpe == "digital") s"_${dir}" else ""
     val name = s"${moduleNamePrefix}_${orient}${nameSuffix}"
+    val arrayName = s"${name}_array"
   }
 
   def getTemplateParams(dir: Direction, orient: PadOrientation): TemplateParams = 

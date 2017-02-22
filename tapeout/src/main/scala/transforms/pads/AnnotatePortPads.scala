@@ -6,11 +6,13 @@ import firrtl.ir._
 import firrtl.passes._
 
 case class PortIOPad(
-    portName: String,
-    portWidth: Int,
     pad: Option[IOPad],
     side: PadSide,
-    dir: Direction) {
+    port: Port) {
+
+  def portName = port.name
+  def portWidth = bitWidth(port.tpe).intValue
+  def dir = port.direction
 
   def padType(): String = pad match {
     case None => ""
@@ -61,6 +63,13 @@ endmodule
     case None => ""
     case Some(x) => x.getTemplateParams(dir, orient).name
   }
+
+  def getPadArrayName(): String = pad match {
+    case None => ""
+    case Some(x) => x.getTemplateParams(dir, orient).arrayName
+  }
+
+  def firrtlBBName = s"${getPadArrayName}_${portName}"
 
 }
 
@@ -119,7 +128,7 @@ object AnnotatePortPads {
         require(
           portAnnos.length == numNoPadAnnos, 
           "Port should not have other pad annotations if no pads are to be used")
-      PortIOPad(port.name, bitWidth(port.tpe).intValue, if (noPad) None else Some(usedPad), portSide, port.direction)
+      PortIOPad(if (noPad) None else Some(usedPad), portSide, port)
     }
 
     // Rather than getting unique names, check for name space collision and error out
@@ -132,10 +141,10 @@ object AnnotatePortPads {
         x.getTemplateParams(Output, Vertical).name,
         // For Analog bit extraction black box (b/c it's not supported in firrtl)
         // In general, this seems cleaner than using FIRRTL to do any bit extraction/concatenation
-        x.getTemplateParams(Input, Horizontal).name + "_array",
-        x.getTemplateParams(Input, Vertical).name + "_array",
-        x.getTemplateParams(Output, Horizontal).name + "_array",
-        x.getTemplateParams(Output, Vertical).name + "_array"
+        x.getTemplateParams(Input, Horizontal).arrayName,
+        x.getTemplateParams(Input, Vertical).arrayName,
+        x.getTemplateParams(Output, Horizontal).arrayName,
+        x.getTemplateParams(Output, Vertical).arrayName
       ).distinct
       testNames.foreach { n => 
         require(namespace tryName n, "Pad name can't already be found in the circuit!")

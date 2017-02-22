@@ -76,7 +76,7 @@ class AddIOPadsTransform extends Transform with SimpleRun {
         val passSeq = Seq(
           Legalize,
           ResolveGenders,
-          new AddIOPads(portPads),
+          new AddIOPads(x.topMod, portPads),
           RemoveEmpty,
           CheckInitialization,
           InferTypes,
