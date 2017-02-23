@@ -26,7 +26,7 @@ class BB extends BlackBox with HasBlackBoxInline {
       |  inout [2:0] analog2
       |);
       |  always @* begin
-      |    z <= 2 * c;
+      |    z = 2 * c;
       |    analog2 = analog1 + 1;
       |  end
       |endmodule

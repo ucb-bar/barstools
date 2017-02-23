@@ -49,7 +49,7 @@ object CreatePadBBs {
         )
         case _ => throw new Exception("Port pad must be analog/digital type!")
       }
-      require(namespace tryName x.firrtlBBName, "ExtModule pad name can't already be found in the circuit!")
+      require(!namespace.contains(x.firrtlBBName), "ExtModule pad name can't already be found in the circuit!")
       Some(ExtModule(NoInfo, x.firrtlBBName, ports, x.getPadArrayName, Seq(IntParam("WIDTH", x.portWidth))))
     } ).toSeq.flatten
 
@@ -58,7 +58,7 @@ object CreatePadBBs {
     // Add annotations to black boxes to inline Verilog from template
     // Again, note the weirdness in parameterization
     val annos = uniqueBBsNameProto.map { x => 
-      Annotation(ModuleName(x.firrtlBBName, CircuitName(c.main)), classOf[BlackBoxSourceHelper], x.createPadInline)
+      BlackBoxSourceAnnotation(ModuleName(x.firrtlBBName, CircuitName(c.main)), x.createPadInline)
     }.toSeq
     (c.copy(modules = newMods), annos)
   }

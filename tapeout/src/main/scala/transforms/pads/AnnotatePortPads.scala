@@ -147,7 +147,7 @@ object AnnotatePortPads {
         x.getTemplateParams(Output, Vertical).arrayName
       ).distinct
       testNames.foreach { n => 
-        require(namespace tryName n, "Pad name can't already be found in the circuit!")
+        require(!namespace.contains(n), "Pad name can't already be found in the circuit!")
       } 
     }}
 

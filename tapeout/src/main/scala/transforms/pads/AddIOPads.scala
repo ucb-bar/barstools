@@ -16,8 +16,6 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
 
   def name: String = "Add Padframe"
 
-  private def createInstance(name: String): WDefInstance = WDefInstance(NoInfo, name, name, UnknownType)
-
   def run(c: Circuit): Circuit = {
     val namespace = Namespace(c)
     val padFrameName = namespace newName s"${topMod}_PadFrame"
@@ -49,15 +47,15 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
   def buildTopWrapper(topInternalName: String, padFrameName: String): Module = {
     // outside -> padframe -> internal
     // Top (with same name) contains 1) padframe + 2) internal signals
-    val padFrameInst = createInstance(padFrameName)
-    val topInternalInst = createInstance(topInternalName)
-    val padFrameRef = createRef(padFrameName)  
-    val topInternalRef = createRef(topInternalName)
+    val padFrameInst = WDefInstance(padFrameName, padFrameName)
+    val topInternalInst = WDefInstance(topInternalName, topInternalName)
+    val padFrameRef = WRef(padFrameName)  
+    val topInternalRef = WRef(topInternalName)
     val connects = pads.map { p => 
-      val io = createRef(p.portName)
-      val intIo = createSubField(topInternalRef, p.portName) 
-      val padFrameIntIo = createSubField(padFrameRef, s"${p.portName}_Int")  
-      val padFrameExtIo = createSubField(padFrameRef, s"${p.portName}_Ext")  
+      val io = WRef(p.portName)
+      val intIo = WSubField(topInternalRef, p.portName) 
+      val padFrameIntIo = WSubField(padFrameRef, s"${p.portName}_Int")  
+      val padFrameExtIo = WSubField(padFrameRef, s"${p.portName}_Ext")  
       p.port.tpe match {
         case AnalogType(_) => 
           // Analog pads only have 1 port
@@ -86,18 +84,19 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
     }).flatten
     val extPorts = pads.map(p => p.port.copy(name = s"${p.portName}_Ext"))
     // Only create pad black boxes for ports that require them
-    val padInsts = pads.filter(x => !x.pad.isEmpty).map(p => createInstance(p.firrtlBBName))
+    val padInsts = pads.filter(x => !x.pad.isEmpty).map(p => WDefInstance(p.firrtlBBName, p.firrtlBBName))
    
     // Connect to pad only if used ; otherwise leave dangling for Analog 
     // and just connect through for digital (assumes no supplies)
     val connects = pads.map { p => 
-      val intRef = createRef(s"${p.portName}_Int") 
-      val extRef = createRef(s"${p.portName}_Ext") 
-      val padRef = createRef(p.firrtlBBName)
-      val padInRef = createSubField(padRef, "in")
-      val padOutRef = createSubField(padRef, "out")
-      val padIORef = createSubField(padRef, "inout")
+      val intRef = WRef(s"${p.portName}_Int") 
+      val extRef = WRef(s"${p.portName}_Ext") 
+      val padRef = WRef(p.firrtlBBName)
+      val padInRef = WSubField(padRef, "in")
+      val padOutRef = WSubField(padRef, "out")
+      val padIORef = WSubField(padRef, "inout")
       p.pad match {
+        // No pad needed -- just connect through
         case None => p.port.tpe match {
           case AnalogType(_) => 
             Seq(EmptyStmt)
@@ -108,6 +107,7 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
             }
             Seq(Connect(NoInfo, lhs, rhs))
         }
+        // Add pad
         case Some(x) => p.port.tpe match {
           case AnalogType(_) =>
             Seq(Attach(NoInfo, Seq(padIORef, extRef)))
@@ -133,3 +133,4 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
 // needs to convert between uint and sint types for bb interface
 // add supply -- group by requirements ie 3 vdd together
 // add pad.io format
+// multiclock mux, clock divider
