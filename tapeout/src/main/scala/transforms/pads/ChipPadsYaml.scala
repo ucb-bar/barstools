@@ -69,7 +69,7 @@ case class ChipPad(
 }
 
 object ChipPadsYaml extends DefaultYamlProtocol {
-  val exampleResource "/ChipPads.yaml"
+  val exampleResource = "/ChipPads.yaml"
   implicit val _pad = yamlFormat3(ChipPad)
   def parse(file: String = ""): Seq[ChipPad] = {
     val out = (new YamlFileReader(exampleResource)).parse[ChipPad](file)

@@ -35,7 +35,13 @@ class BB extends BlackBox with HasBlackBoxInline {
 
 // If no template file is provided, it'll use the default one (example) in the resource folder
 // Default pad side is Top if no side is specified for a given IO
-class ExampleTopModuleWithBB extends TopModule(padTemplateFile = "", defaultPadSide = Top) {
+// You can designate the number of different supply pads on each chip side
+class ExampleTopModuleWithBB extends TopModule(
+    padTemplateFile = "", 
+    defaultPadSide = Top, 
+    supplyAnnos = Seq(
+      SupplyAnnotation(padName = "vdd", leftSide = 3, bottomSide = 2),
+      SupplyAnnotation(padName = "vss", rightSide = 1))) {
   val io = IO(new Bundle {
     val a = Input(UInt(15.W))
     val b = a.chiselCloneType
@@ -84,7 +90,7 @@ class SimpleTopModuleTester(c: ExampleTopModuleWithBB) extends PeekPokeTester(c)
     expect(c.io.x, ax(i) + 1)
     expect(c.io.y, bx(i) - 1)
     expect(c.io.z, 2 * cx(i))
-    c.io.v foreach {out => expect(out, ax(i))}
+    c.io.v foreach { out => expect(out, ax(i)) }
   }
   // Analog can't be peeked + poked 
 }  
