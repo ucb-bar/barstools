@@ -4,6 +4,7 @@ import net.jcazevedo.moultingyaml._
 
 import firrtl._
 import firrtl.ir._
+import barstools.tapeout.transforms._
 
 case class ChipPad(
     tpe: String, 
