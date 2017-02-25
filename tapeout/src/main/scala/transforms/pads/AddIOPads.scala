@@ -59,7 +59,9 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
       p.port.tpe match {
         case AnalogType(_) => 
           // Analog pads only have 1 port
-          Seq(Attach(NoInfo, Seq(io, padFrameExtIo)), Attach(NoInfo, Seq(io, intIo)))
+          val analogAttachInt = Seq(Attach(NoInfo, Seq(io, intIo)))
+          if (p.pad.isEmpty) analogAttachInt
+          else analogAttachInt :+ Attach(NoInfo, Seq(io, padFrameExtIo))
         case _ => p.dir match {
           case Input => 
             // input to padframe ; padframe to internal
@@ -82,7 +84,11 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
       case AnalogType(_) => None
       case _ => Some(p.port.copy(name = s"${p.portName}_Int", direction = Utils.swap(p.dir)))
     }).flatten
-    val extPorts = pads.map(p => p.port.copy(name = s"${p.portName}_Ext"))
+    val extPorts = pads.map(p => p.port.tpe match {
+      // If an analog port doesn't have a pad associated with it, don't add it to the padframe
+      case AnalogType(_) if p.pad.isEmpty => None
+      case _ => Some(p.port.copy(name = s"${p.portName}_Ext"))
+    } ).flatten
     // Only create pad black boxes for ports that require them
     val padInsts = pads.filter(x => !x.pad.isEmpty).map(p => WDefInstance(p.firrtlBBName, p.firrtlBBName))
    
@@ -109,16 +115,20 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
         }
         // Add pad
         case Some(x) => p.port.tpe match {
+          // Analog type has 1:1 mapping to inout
           case AnalogType(_) =>
             Seq(Attach(NoInfo, Seq(padIORef, extRef)))
+          // Normal verilog in/out can be mapped to uint, sint, or clocktype, so need cast
           case _ => 
             val (rhsPadIn, lhsPadOut) = p.dir match {
               case Input => (extRef, intRef)
               case Output => (intRef, extRef)
             }
+            // Pad inputs are treated as UInts, so need to do type conversion
+            // from type to UInt pad input; from pad output to type 
             Seq(
-              Connect(NoInfo, padInRef, rhsPadIn),
-              Connect(NoInfo, lhsPadOut, padOutRef))
+              Connect(NoInfo, padInRef, castRhs(UIntType(getWidth(p.port.tpe)), rhsPadIn)),
+              Connect(NoInfo, lhsPadOut, castRhs(p.port.tpe, padOutRef)))
         }
       }
     }.flatten   
@@ -126,11 +136,3 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
   }
 
 }
-
-// what to do with clock? there is clk type required!!!: check analog, ground, clk
-// don't connect nopad stuff -- just connect through for digital; nothing for analog
-// check that pin is on right layer!!
-// needs to convert between uint and sint types for bb interface
-// add supply -- group by requirements ie 3 vdd together
-// add pad.io format
-// multiclock mux, clock divider
