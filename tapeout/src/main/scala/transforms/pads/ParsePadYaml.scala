@@ -15,24 +15,24 @@ case class ChipPad(
 
   val padType = tpe match {
     case "digital" => 
-      require(verilogTemplate.contains("in"), "Digital pad template must contain input called 'in'")
-      require(verilogTemplate.contains("out"), "Digital pad template must contain output called 'out'")
-      require(verilogTemplate.contains("{{#if isInput}}"), "Digital pad template must contain '{{#if isInput}}'")
+      require(verilog.contains("in"), "Digital pad template must contain input called 'in'")
+      require(verilog.contains("out"), "Digital pad template must contain output called 'out'")
+      require(verilog.contains("{{#if isInput}}"), "Digital pad template must contain '{{#if isInput}}'")
       DigitalPad
     case "analog" => 
-      require(verilogTemplate.contains("io"), "Analog pad template must contain inout called 'io'")
-      require(!verilogTemplate.contains("{{#if isInput}}"), "Analog pad template must not contain '{{#if isInput}}'")
+      require(verilog.contains("io"), "Analog pad template must contain inout called 'io'")
+      require(!verilog.contains("{{#if isInput}}"), "Analog pad template must not contain '{{#if isInput}}'")
       AnalogPad
     case "supply" => 
       // Supply pads don't have IO
-      require(!verilogTemplate.contains("{{#if isInput}}"), "Supply pad template must not contain '{{#if isInput}}'")
+      require(!verilog.contains("{{#if isInput}}"), "Supply pad template must not contain '{{#if isInput}}'")
       SupplyPad
     case _ => throw new Exception("Illegal pad type in config!")
   }
 
   import com.gilt.handlebars.scala.binding.dynamic._
   import com.gilt.handlebars.scala.Handlebars
-  private val template = Handlebars(verilogTemplate)
+  private val template = Handlebars(verilog)
 
   // Make sure names don't have spaces in Verilog!
   private[barstools] val correctedName = name.replace(" ", "_")
