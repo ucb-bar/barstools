@@ -31,6 +31,7 @@ case class IOPadAnnotation(padSide: String, padName: String) extends IOAnnotatio
 case class NoIOPadAnnotation(noPad: String = "") extends IOAnnotation {
   import PadAnnotationsYaml._
   def serialize: String = this.toYaml.prettyPrint
+  def field = "noPad:"          
 }
 // Firrtl version
 case class TargetIOPadAnnoF(target: ComponentName, anno: IOAnnotation) extends FirrtlPadTransformAnnotation {
@@ -83,18 +84,18 @@ object HasPadAnnotation {
   import PadAnnotationsYaml._
 
   def getSide(a: String): PadSide = a match {
-    case "Left" => Left
-    case "Right" => Right
-    case "Top" => Top
-    case "Bottom" => Bottom
-    case _ => throw new Exception("Not a valid pad side annotation!")
+    case i if i == Left.serialize => Left
+    case i if i == Right.serialize => Right
+    case i if i == Top.serialize => Top
+    case i if i == Bottom.serialize => Bottom
+    case _ => throw new Exception(s" $a not a valid pad side annotation!")
   }
 
   def unapply(a: Annotation): Option[FirrtlPadTransformAnnotation] = a match {
     case Annotation(f, t, s) if t == classOf[AddIOPadsTransform] => f match {
       case m: ModuleName => 
         Some(TargetModulePadAnnoF(m, s.parseYaml.convertTo[ModulePadAnnotation]))
-      case c: ComponentName if s.contains("noPad:") => 
+      case c: ComponentName if s.contains(NoIOPadAnnotation().field) => 
         Some(TargetIOPadAnnoF(c, s.parseYaml.convertTo[NoIOPadAnnotation]))
       case c: ComponentName =>
         Some(TargetIOPadAnnoF(c, s.parseYaml.convertTo[IOPadAnnotation]))
@@ -118,9 +119,9 @@ object HasPadAnnotation {
       val moduleAnnos = moduleAnnosTemp.head
       val topModName = moduleAnnos.targetName
       val componentAnnos = padAnnos.filter { 
-        case TargetIOPadAnnoF(ComponentName(_, ModuleName(topModName, _)), _) => 
+        case TargetIOPadAnnoF(ComponentName(_, ModuleName(n, _)), _) if n == topModName => 
           true
-        case TargetIOPadAnnoF(ComponentName(_, ModuleName(_, _)), _) => 
+        case TargetIOPadAnnoF(ComponentName(_, ModuleName(n, _)), _) if n != topModName => 
           throw new Exception("Pad related component annotations must all be in the same top module")
         case _ => false
       }.map(x => x.asInstanceOf[TargetIOPadAnnoF])

@@ -55,7 +55,7 @@ class ExampleTopModuleWithBB extends TopModule(
   })
 
   // Can annotate aggregates with pad side location + pad name (should be a name in the yaml template)
-  annotatePad(io.v, Right, "easy_digital")
+  annotatePad(io.v, Right, "from_tristate_foundry")
   // Can annotate individual elements
   annotatePad(io.analog1, Left, "fast_custom")
   annotatePad(io.analog2, Bottom, "slow_foundry")

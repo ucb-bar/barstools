@@ -5,87 +5,78 @@ import firrtl._
 import firrtl.ir._
 import firrtl.passes._
 
+// Pads associated with IO Ports! (Not supplies!)
 case class PortIOPad(
-    pad: Option[IOPad],
-    side: PadSide,
+    pad: Option[ChipPad],
+    padSide: PadSide,
     port: Port) {
 
   def portName = port.name
   def portWidth = bitWidth(port.tpe).intValue
-  def dir = port.direction
-
-  def padType(): String = pad match {
-    case None => ""
-    case Some(x) => x.tpe 
+  def portDirection = port.direction
+  def padOrientation = padSide.orientation
+  def padType = pad match {
+    case None => NoPad
+    case Some(x) => x.padType
   }
 
-  def orient(): PadOrientation = side match {
-    case Left | Right => Horizontal
-    case Top | Bottom => Vertical
+  def getPadName(): String = pad match {
+    case None => throw new Exception("Cannot get pad name when no pad specified!")
+    case Some(x) => x.getName(portDirection, padOrientation)
   }
-  def isDigital(): Boolean = padType == "digital"
-  private def io(): String = padType match {
-    case "digital" => 
-      """|  input [WIDTH-1:0] in,
-         |  output reg [WIDTH-1:0] out""".stripMargin
-    case "analog" => "  inout [WIDTH-1:0] io"
-    case "supply" | "" => ""
-  }
-
-  private def assignIO(): String = padType match {
-    case "digital" => 
-      """|    .in(in),
-         |    .out(out)""".stripMargin
-    case "analog" => "    .io(io)"
-    case "supply" | "" => "" 
-  }
-
-  private def getPadVerilog(): String = pad match {
-    case None => ""
-    case Some(x) => x.createVerilog(dir, orient)
-  }
+  def getPadArrayName(): String = Seq(getPadName, "array").mkString("_")
+  def firrtlBBName = Seq(getPadArrayName, portName).mkString("_")
 
   // Note: This includes both the pad wrapper + an additional wrapper for n-bit wide to 
   // multiple pad conversion!
-  def createPadInline(): String = s"""inline\n${getPadName}_array.v\n${getPadVerilog}
-module ${getPadName}_array #(
-  parameter int WIDTH=1
-)(
-${io}
-);
-  ${getPadName} ${getPadName}[WIDTH-1:0](
-${assignIO}
-  );  
-endmodule
-""".stripMargin
-
-  def getPadName(): String = pad match {
-    case None => ""
-    case Some(x) => x.getTemplateParams(dir, orient).name
+  def createPadInline(): String = {
+    // For blackboxing bit extraction/concatenation (with module arrays)
+    def io(): String = padType match {
+      case DigitalPad => 
+        """|  input [WIDTH-1:0] in,
+           |  output reg [WIDTH-1:0] out""".stripMargin
+      case AnalogPad => 
+        "  inout [WIDTH-1:0] io"
+      case _ => throw new Exception("IO pad can only be digital or analog")
+    }
+    def assignIO(): String = padType match {
+      case DigitalPad => 
+        """|    .in(in),
+           |    .out(out)""".stripMargin
+      case AnalogPad => 
+        "    .io(io)"
+      case _ => throw new Exception("IO pad can only be digital or analog") 
+    }
+    def getPadVerilog(): String = pad match {
+      case None => throw new Exception("Cannot get Verilog when no pad specified!")
+      case Some(x) => x.getVerilog(portDirection, padOrientation)
+    }
+    s"""inline
+      |${getPadArrayName}.v
+      |${getPadVerilog}
+      |module ${getPadArrayName} #(
+      |  parameter int WIDTH=1
+      |)(
+      |${io}
+      |);
+      |  ${getPadName} ${getPadName}[WIDTH-1:0](
+      |${assignIO}
+      |  );  
+      |endmodule""".stripMargin
   }
-
-  def getPadArrayName(): String = pad match {
-    case None => ""
-    case Some(x) => x.getTemplateParams(dir, orient).arrayName
-  }
-
-  def firrtlBBName = s"${getPadArrayName}_${portName}"
-
 }
 
-// Note: Not a pass b/c pass doesn't return Annotations (and we need to add more annotations)
 object AnnotatePortPads {
-
   def apply(
       c: Circuit,
       topMod: String, 
-      pads: Seq[IOPad], 
-      componentAnnos: Seq[PadAnnotation], 
+      pads: Seq[ChipPad], 
+      componentAnnos: Seq[TargetIOPadAnnoF], 
       defaultSide: PadSide): Seq[PortIOPad] = {
 
     def lowerName(s: String): String = s.replace(".", "_").replace("[", "_")replace("]", "")
 
-    def lowerAnnotations(): Seq[PadAnnotation] = {
+    def lowerAnnotations(): Seq[TargetIOPadAnnoF] = {
       componentAnnos map { x => x.target match {
         case c: ComponentName => x.copy(target = c.copy(name = lowerName(c.name)))
         case _ => throw new Exception("Not a component annotation! Can't lower!")
@@ -96,61 +87,38 @@ object AnnotatePortPads {
     val annos = lowerAnnotations()
 
     def getPortIOPad(port: Port): PortIOPad = {
-      val portAnnos = annos.filter(_.targetName == port.name)
-      val portSideAnno = portAnnos.filter(_.tpe == PadSideAnno).map(x =>
-        HasIOPadsAnnotation.getSideFromAnno(x.txt))
-      require(portSideAnno.length <= 1, "No more than 1 side can be specified per port")
-      // If no side specified, use module default
-      val portSide = if (portSideAnno.length == 0) defaultSide else portSideAnno.head
-      val portPadNameAnno = portAnnos.filter(_.tpe == PadNameAnno).map(x => x.txt)
-      require(portPadNameAnno.length <= 1, "No more than 1 pad name can be specified per port")
+      val portAnnos = annos.find(_.targetName == port.name)      
       // Ports can only be digital or analog
-      val portKind = port.tpe match {
-        case AnalogType(_) => "analog"
-        case e => "digital"
+      val padTypeRequired = port.tpe match {
+        case AnalogType(_) => AnalogPad
+        case _ => DigitalPad
       }
-      val validPadTypes = pads.filter(_.tpe == portKind)
-      require(validPadTypes.length > 0, s"No $portKind pads specified in the config yaml file!")
-      val usedPad = {
-        // If no name specified, just use the first pad that matches the digital/analog type!
-        if (portPadNameAnno.length == 0) validPadTypes.head
-        else {
-          // If a name match is found, use that! Otherwise, again use the first pad that matches the type!
-          val possiblePadNameMatches = validPadTypes.filter(_.name == portPadNameAnno.head)
-          if (possiblePadNameMatches.length == 0) validPadTypes.head
-          else possiblePadNameMatches.head
-        }
+      val validPads = pads.filter(_.padType == padTypeRequired)
+      require(validPads.length > 0, s"No ${padTypeRequired.serialize} pads specified in the config yaml file!")
+      portAnnos match {
+        case None => 
+          // If no pad-related annotation is found on a port, use defaults based off of port type
+          PortIOPad(Some(validPads.head), defaultSide, port)
+        case Some(x) =>
+          x.anno match {
+            case NoIOPadAnnotation(_) => 
+              // Some ports might not want attached pads
+              PortIOPad(None, defaultSide, port)
+            case IOPadAnnotation(padSide, padName) if padName.isEmpty => 
+              // If no pad name is used, select the first valid pad based off of port type
+              PortIOPad(Some(validPads.head), HasPadAnnotation.getSide(padSide), port)
+            case IOPadAnnotation(padSide, padName) =>
+              // If name doesn't match any provided -- maybe someone typoed?
+              validPads.find(_.name == padName) match {
+                case None => 
+                  throw new Exception(
+                    s"Pad name associated with ${port.name} doesn't match valid pad names. Did you typo?")
+                case Some(x) =>
+                  PortIOPad(Some(x), HasPadAnnotation.getSide(padSide), port)
+              }
+          }
       }
-      // Check if no pad is meant to be used
-      val numNoPadAnnos = portAnnos.filter(_.tpe == NoPadAnno).length
-      val noPad = numNoPadAnnos >= 1
-      if (noPad) 
-        require(
-          portAnnos.length == numNoPadAnnos, 
-          "Port should not have other pad annotations if no pads are to be used")
-      PortIOPad(if (noPad) None else Some(usedPad), portSide, port)
     }
-
-    // Rather than getting unique names, check for name space collision and error out
-    val namespace = Namespace(c)
-    pads.foreach { x => { 
-      val testNames = Seq(
-        x.getTemplateParams(Input, Horizontal).name,
-        x.getTemplateParams(Input, Vertical).name,
-        x.getTemplateParams(Output, Horizontal).name,
-        x.getTemplateParams(Output, Vertical).name,
-        // For Analog bit extraction black box (b/c it's not supported in firrtl)
-        // In general, this seems cleaner than using FIRRTL to do any bit extraction/concatenation
-        x.getTemplateParams(Input, Horizontal).arrayName,
-        x.getTemplateParams(Input, Vertical).arrayName,
-        x.getTemplateParams(Output, Horizontal).arrayName,
-        x.getTemplateParams(Output, Vertical).arrayName
-      ).distinct
-      testNames.foreach { n => 
-        require(!namespace.contains(n), "Pad name can't already be found in the circuit!")
-      } 
-    }}
-
     // Top MUST be internal module
     c.modules.filter(_.name == topMod).head.ports.map(x => getPortIOPad(x))
   }
