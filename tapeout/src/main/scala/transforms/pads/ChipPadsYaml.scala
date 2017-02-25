@@ -65,8 +65,6 @@ case class ChipPad(
   }
 
   def getName(dir: Direction, orient: PadOrientation): String = getTemplateParams(dir, orient).name
-  def getArrayName(dir: Direction, orient: PadOrientation): String = 
-    Seq(getName(dir, orient), "array").mkString("_")
 }
 
 object ChipPadsYaml extends DefaultYamlProtocol {
