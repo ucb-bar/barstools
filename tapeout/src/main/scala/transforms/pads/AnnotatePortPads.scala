@@ -20,11 +20,13 @@ case class PortIOPad(
     case Some(x) => x.padType
   }
 
-  def getPadName(): String = pad match {
+  def getPadName: String = pad match {
     case None => throw new Exception("Cannot get pad name when no pad specified!")
     case Some(x) => x.getName(portDirection, padOrientation)
   }
-  def getPadArrayName(): String = Seq(getPadName, "array").mkString("_")
+  def getPadArrayName: String = Seq(getPadName, "array").mkString("_")
+  // Firrtl black box name must be unique, even though the parameterized Verilog modules don't
+  // need to have separate names
   def firrtlBBName = Seq(getPadArrayName, portName).mkString("_")
 
   // Note: This includes both the pad wrapper + an additional wrapper for n-bit wide to 
