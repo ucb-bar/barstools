@@ -113,7 +113,7 @@ class IOPadSpec extends FlatSpec with Matchers {
   it should "create proper IO pads + black box in low firrtl" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(compilerName = "low")
-      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/LoFirrtl", globalLogLevel = logger.LogLevel.Info)
+      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/LoFirrtl")
       //commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
     }
     val success = chisel3.Driver.execute(optionsManager, () => new ExampleTopModuleWithBB) match {

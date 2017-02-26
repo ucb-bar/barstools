@@ -12,7 +12,6 @@ class AddIOPadsTransform extends Transform with SimpleRun {
   override def outputForm: CircuitForm = LowForm
 
   override def execute(state: CircuitState): CircuitState = {
-
     val collectedAnnos = HasPadAnnotation(getMyAnnotations(state))
     collectedAnnos match {
       // Transform not used

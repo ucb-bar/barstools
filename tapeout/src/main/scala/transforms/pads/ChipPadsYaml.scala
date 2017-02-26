@@ -62,7 +62,7 @@ case class ChipPad(
 
   def getVerilog(dir: Direction, orient: PadOrientation): String = {
     val p = getTemplateParams(dir, orient)
-    template(p)
+    template(p).stripMargin
   }
 
   def getName(dir: Direction, orient: PadOrientation): String = getTemplateParams(dir, orient).name
