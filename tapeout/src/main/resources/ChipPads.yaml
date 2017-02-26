@@ -42,6 +42,22 @@ verilog: |
   |  end
   |endmodule
 ---
+tpe: digital
+name: fake_digital
+verilog: |
+  |// (Fake/Unused) Digital Pad Example
+  |// Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
+  |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |module {{name}}(
+  |  input in,
+  |  output reg out
+  |);
+  |  // Where you would normally dump your pad instance
+  |  always @* begin
+  |    out = in;
+  |  end
+  |endmodule
+---
 tpe: supply
 name: vdd
 verilog: |
@@ -56,6 +72,16 @@ tpe: supply
 name: vss
 verilog: |
   |// VSS Pad Example (No IO)
+  |// Can group some number together as required by the foundry
+  |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |module {{name}}(
+  |);
+  |endmodule
+---
+tpe: supply
+name: avss
+verilog: |
+  |// Analog VSS Pad Example (No IO)
   |// Can group some number together as required by the foundry
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
   |module {{name}}(

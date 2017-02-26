@@ -95,7 +95,78 @@ class SimpleTopModuleTester(c: ExampleTopModuleWithBB) extends PeekPokeTester(c)
   // Analog can't be peeked + poked 
 }  
 
+// Notes: Annotations
+// a in: left, default digital
+// b in: left, default digital
+// c in: left, default digital ; signed
+// x out: left, default digital
+// y out: NOPAD
+// clk in: NOPAD
+// analog1: left, fast_custom
+// analog2: bottom, slow_foundry
+// v (vec of 3, out): right, from_tristate_foundry
+// reset in: UNSPECIFIED: top, default digital
+// z out: UNSPECIFIED: top, default digital ; signed
+// vdd, left: 3
+// vdd, bottom: 2
+// vss, right: 1
+// Notes: Used pads
+// digital horizontal (from_tristate_foundry) 
+//  in + out
+// analog fast_custom horizontal
+// analog slow_foundry vertical
+// digital vertical (from_tristate_foundry)
+//  in + out
+// vdd horizontal
+// vdd vertical
+// vss horizontal
+
 class IOPadSpec extends FlatSpec with Matchers {
+
+  def readOutputFile(dir: String, f: String): String = 
+    scala.io.Source.fromFile(Seq(dir, f).mkString("/")).getLines.mkString("\n")
+  def readResource(resource: String): String = {
+    val stream = getClass.getResourceAsStream(resource)
+    scala.io.Source.fromInputStream(stream).mkString
+  }
+
+  def checkOutputs(dir: String) = {
+    // Show that black box source helper is run
+    readOutputFile(dir, "black_box_verilog_files.f") should include ("pad_supply_vdd_horizontal.v")
+
+    val padBBEx = s"""// Digital Pad Example
+      |// Signal Direction: Input
+      |// Pad Orientation: Horizontal
+      |module pad_digital_from_tristate_foundry_horizontal_input(
+      |  input in,
+      |  output reg out
+      |);
+      |  // Where you would normally dump your pad instance
+      |  always @* begin
+      |    out = in;
+      |  end
+      |endmodule
+      |
+      |module pad_digital_from_tristate_foundry_horizontal_input_array #(
+      |  parameter int WIDTH=1
+      |)(
+      |  input [WIDTH-1:0] in,
+      |  output reg [WIDTH-1:0] out
+      |);
+      |  pad_digital_from_tristate_foundry_horizontal_input pad_digital_from_tristate_foundry_horizontal_input[WIDTH-1:0](
+      |    .in(in),
+      |    .out(out)
+      |  );""".stripMargin
+    // Make sure black box templating is OK
+    readOutputFile(dir, "pad_digital_from_tristate_foundry_horizontal_input_array.v") should include (padBBEx) 
+
+    val verilog = readOutputFile(dir, "ExampleTopModuleWithBB.v")  
+
+    // Placeholder should've been removed
+    verilog should not include ("FakeBBPlaceholder") 
+    // Pad frame + top should be exact
+    verilog should include (readResource("/PadAnnotationVerilogPart.v"))
+  }
 
   behavior of "top module with blackbox"
 
@@ -106,10 +177,12 @@ class IOPadSpec extends FlatSpec with Matchers {
       commonOptions = commonOptions.copy(targetDirName = "test_run_dir/TB")
     }
     iotesters.Driver.execute(() => new ExampleTopModuleWithBB, optionsManager) { c =>
+      val dir = optionsManager.commonOptions.targetDirName
+      checkOutputs(dir)   
       new SimpleTopModuleTester(c)
     } should be (true)
   }
-
+/*
   it should "create proper IO pads + black box in low firrtl" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(compilerName = "low")
@@ -126,7 +199,7 @@ class IOPadSpec extends FlatSpec with Matchers {
     } 
     success should be (true)
   } 
-
+*/
   it should "create proper IO pads + black box in verilog" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(compilerName = "verilog")
@@ -139,6 +212,8 @@ class IOPadSpec extends FlatSpec with Matchers {
       case _ => false
     } 
     success should be (true)
+    val dir = optionsManager.commonOptions.targetDirName
+    checkOutputs(dir)
   } 
 
 }

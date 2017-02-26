@@ -98,8 +98,8 @@ class AddPadFrame(topMod: String, ioPads: Seq[PortIOPad], supplyPads: Seq[TopSup
     // Connect to pad only if used ; otherwise leave dangling for Analog 
     // and just connect through for digital (assumes no supplies)
     val connects = ioPads.map { p => 
-      val intRef = WRef(intName(p)) 
-      val extRef = WRef(extName(p)) 
+      val intRef = WRef(intName(p), p.port.tpe) 
+      val extRef = WRef(extName(p), p.port.tpe) 
       p.pad match {
         // No pad needed -- just connect through
         case None => p.port.tpe match {
@@ -122,8 +122,9 @@ class AddPadFrame(topMod: String, ioPads: Seq[PortIOPad], supplyPads: Seq[TopSup
               Seq(Attach(NoInfo, Seq(padIORef, extRef)))
             // Normal verilog in/out can be mapped to uint, sint, or clocktype, so need cast
             case _ => 
-              val padInRef = WSubField(padRef, DigitalPad.inName)
-              val padOutRef = WSubField(padRef, DigitalPad.outName)
+              val padBBType = UIntType(getWidth(p.port.tpe))
+              val padInRef = WSubField(padRef, DigitalPad.inName, padBBType, UNKNOWNGENDER)
+              val padOutRef = WSubField(padRef, DigitalPad.outName, padBBType, UNKNOWNGENDER)
               val (rhsPadIn, lhsPadOut) = p.portDirection match {
                 case Input => (extRef, intRef)
                 case Output => (intRef, extRef)
@@ -131,7 +132,7 @@ class AddPadFrame(topMod: String, ioPads: Seq[PortIOPad], supplyPads: Seq[TopSup
               // Pad inputs are treated as UInts, so need to do type conversion
               // from type to UInt pad input; from pad output to type 
               Seq(
-                Connect(NoInfo, padInRef, castRhs(UIntType(getWidth(p.port.tpe)), rhsPadIn)),
+                Connect(NoInfo, padInRef, castRhs(padBBType, rhsPadIn)),
                 Connect(NoInfo, lhsPadOut, castRhs(p.port.tpe, padOutRef)))
           }
       }
