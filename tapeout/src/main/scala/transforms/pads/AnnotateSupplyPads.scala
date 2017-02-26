@@ -16,6 +16,8 @@ case class TopSupplyPad(
   def padOrientation = padSide.orientation
   def getPadName = pad.getName(NoDirection, padOrientation)
   def firrtlBBName = getPadName
+  private def instNamePrefix = Seq(firrtlBBName, padSide.serialize).mkString("_")
+  def instNames = (0 until num).map(i => Seq(instNamePrefix, i.toString).mkString("_"))
 
   def createPadInline(): String = {
     def getPadVerilog(): String = pad.getVerilog(NoDirection, padOrientation)
