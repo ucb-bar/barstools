@@ -14,9 +14,12 @@ case object Vertical extends PadOrientation {
 abstract class PadType extends FirrtlNode
 case object DigitalPad extends PadType {
   def serialize: String = "digital"
+  def inName: String = "in"
+  def outName: String = "out"
 }
 case object AnalogPad extends PadType {
   def serialize: String = "analog"
+  def ioName: String = "io"
 }
 case object SupplyPad extends PadType {
   def serialize: String = "supply"

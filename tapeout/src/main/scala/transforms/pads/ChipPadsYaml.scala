@@ -16,12 +16,12 @@ case class ChipPad(
 
   val padType = tpe match {
     case "digital" => 
-      require(verilog.contains("in"), "Digital pad template must contain input called 'in'")
-      require(verilog.contains("out"), "Digital pad template must contain output called 'out'")
+      require(verilog.contains(DigitalPad.inName), "Digital pad template must contain input called 'in'")
+      require(verilog.contains(DigitalPad.outName), "Digital pad template must contain output called 'out'")
       require(verilog.contains("{{#if isInput}}"), "Digital pad template must contain '{{#if isInput}}'")
       DigitalPad
     case "analog" => 
-      require(verilog.contains("io"), "Analog pad template must contain inout called 'io'")
+      require(verilog.contains(AnalogPad.ioName), "Analog pad template must contain inout called 'io'")
       require(!verilog.contains("{{#if isInput}}"), "Analog pad template must not contain '{{#if isInput}}'")
       AnalogPad
     case "supply" => 

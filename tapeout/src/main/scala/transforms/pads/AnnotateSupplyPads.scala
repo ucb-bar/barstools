@@ -10,6 +10,7 @@ case class TopSupplyPad(
     padSide: PadSide,
     num: Int
 ) {
+  def padType = pad.padType
   require(pad.padType == SupplyPad)
 
   def padOrientation = padSide.orientation

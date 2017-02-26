@@ -12,7 +12,7 @@ import firrtl.passes._
 // requires an additional ctrl signal, digital pads must be operated in a single "static" condition here; Analog will
 // be paired with analog pads
 
-class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
+class AddPadFrame(topMod: String, ioPads: Seq[PortIOPad], supplyPads: Seq[TopSupplyPad]) extends Pass {
 
   def name: String = "Add Padframe"
 
@@ -27,7 +27,7 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
         // Remove blackbox placeholder!
         def removeFakeBBPlaceholder(s: Statement): Seq[Statement] = s match {
           case b: Block => b.stmts.map(x => removeFakeBBPlaceholder(x)).flatten
-          case WDefInstance(_, "fakeBBPlaceholder", _, _) => Seq(EmptyStmt)
+          case WDefInstance(_, n, _, _) if n == FakeBBPlaceholder.name => Seq(EmptyStmt)
           case _ => Seq(s)
         }
         val newStmts = removeFakeBBPlaceholder(mod.body)
@@ -37,12 +37,15 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
     } ++ Seq(buildPadFrame(padFrameName), buildTopWrapper(topInternalName, padFrameName))
 
     // Remove black box source helper placeholder module (doesn't do anything) -- hope Chisel kept the name
-    val newMods = newModsTemp.filterNot(_.name == "FakeBBPlaceholder")
+    val newMods = newModsTemp.filterNot(_.name == FakeBBPlaceholder.name)
 
     // Reparent so circuit top is whatever uses pads!
     // TODO: Can the top level be a blackbox?
     c.copy(modules = newMods, main = topMod)
   }
+
+  def intName(p: PortIOPad) = s"${p.portName}_Int"
+  def extName(p: PortIOPad) = s"${p.portName}_Ext"
 
   def buildTopWrapper(topInternalName: String, padFrameName: String): Module = {
     // outside -> padframe -> internal
@@ -51,18 +54,19 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
     val topInternalInst = WDefInstance(topInternalName, topInternalName)
     val padFrameRef = WRef(padFrameName)  
     val topInternalRef = WRef(topInternalName)
-    val connects = pads.map { p => 
+    val connects = ioPads.map { p => 
       val io = WRef(p.portName)
       val intIo = WSubField(topInternalRef, p.portName) 
-      val padFrameIntIo = WSubField(padFrameRef, s"${p.portName}_Int")  
-      val padFrameExtIo = WSubField(padFrameRef, s"${p.portName}_Ext")  
+      val padFrameIntIo = WSubField(padFrameRef, intName(p))  
+      val padFrameExtIo = WSubField(padFrameRef, extName(p))  
       p.port.tpe match {
         case AnalogType(_) => 
           // Analog pads only have 1 port
+          // If Analog port doesn't have associated pad, don't hook it up to the padframe
           val analogAttachInt = Seq(Attach(NoInfo, Seq(io, intIo)))
           if (p.pad.isEmpty) analogAttachInt
           else analogAttachInt :+ Attach(NoInfo, Seq(io, padFrameExtIo))
-        case _ => p.dir match {
+        case _ => p.portDirection match {
           case Input => 
             // input to padframe ; padframe to internal
             Seq(Connect(NoInfo, padFrameExtIo, io), Connect(NoInfo, intIo, padFrameIntIo))
@@ -73,41 +77,41 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
       }
     }.flatten 
     val stmts = Seq(padFrameInst, topInternalInst) ++ connects
-    val ports = pads.map(p => p.port)
+    val ports = ioPads.map(p => p.port)
     Module(NoInfo, topMod, ports = ports, body = Block(stmts))
   }
 
   def buildPadFrame(padFrameName: String): Module = {
     // Internal = connection to original RTL; External = connection to outside world
     // Note that for analog pads, since there's only 1 port, only _Ext is used
-    val intPorts = pads.map(p => p.port.tpe match {
+    val intPorts = ioPads.map(p => p.port.tpe match {
       case AnalogType(_) => None
-      case _ => Some(p.port.copy(name = s"${p.portName}_Int", direction = Utils.swap(p.dir)))
+      case _ => Some(p.port.copy(name = intName(p), direction = Utils.swap(p.portDirection)))
     }).flatten
-    val extPorts = pads.map(p => p.port.tpe match {
+    val extPorts = ioPads.map(p => p.port.tpe match {
       // If an analog port doesn't have a pad associated with it, don't add it to the padframe
       case AnalogType(_) if p.pad.isEmpty => None
-      case _ => Some(p.port.copy(name = s"${p.portName}_Ext"))
+      case _ => Some(p.port.copy(name = extName(p)))
     } ).flatten
     // Only create pad black boxes for ports that require them
-    val padInsts = pads.filter(x => !x.pad.isEmpty).map(p => WDefInstance(p.firrtlBBName, p.firrtlBBName))
+    val padInsts = ioPads.filter(x => !x.pad.isEmpty).map(p => WDefInstance(p.firrtlBBName, p.firrtlBBName))
    
     // Connect to pad only if used ; otherwise leave dangling for Analog 
     // and just connect through for digital (assumes no supplies)
-    val connects = pads.map { p => 
-      val intRef = WRef(s"${p.portName}_Int") 
-      val extRef = WRef(s"${p.portName}_Ext") 
+    val connects = ioPads.map { p => 
+      val intRef = WRef(intName(p)) 
+      val extRef = WRef(extName(p)) 
       val padRef = WRef(p.firrtlBBName)
-      val padInRef = WSubField(padRef, "in")
-      val padOutRef = WSubField(padRef, "out")
-      val padIORef = WSubField(padRef, "inout")
+      val padInRef = WSubField(padRef, DigitalPad.inName)
+      val padOutRef = WSubField(padRef, DigitalPad.outName)
+      val padIORef = WSubField(padRef, AnalogPad.ioName)
       p.pad match {
         // No pad needed -- just connect through
         case None => p.port.tpe match {
           case AnalogType(_) => 
             Seq(EmptyStmt)
           case _ =>
-            val (lhs, rhs) = p.dir match {
+            val (lhs, rhs) = p.portDirection match {
               case Input => (intRef, extRef)
               case Output => (extRef, intRef)
             }
@@ -120,7 +124,7 @@ class AddIOPads(topMod: String, pads: Seq[PortIOPad]) extends Pass {
             Seq(Attach(NoInfo, Seq(padIORef, extRef)))
           // Normal verilog in/out can be mapped to uint, sint, or clocktype, so need cast
           case _ => 
-            val (rhsPadIn, lhsPadOut) = p.dir match {
+            val (rhsPadIn, lhsPadOut) = p.portDirection match {
               case Input => (extRef, intRef)
               case Output => (intRef, extRef)
             }

@@ -20,6 +20,7 @@ case class PortIOPad(
     case Some(x) => x.padType
   }
 
+  def widthParamName = "WIDTH"
   def getPadName: String = pad match {
     case None => throw new Exception("Cannot get pad name when no pad specified!")
     case Some(x) => x.getName(portDirection, padOrientation)
@@ -35,18 +36,18 @@ case class PortIOPad(
     // For blackboxing bit extraction/concatenation (with module arrays)
     def io(): String = padType match {
       case DigitalPad => 
-        """|  input [WIDTH-1:0] in,
-           |  output reg [WIDTH-1:0] out""".stripMargin
+        s"""|  input [${widthParamName}-1:0] ${DigitalPad.inName},
+            |  output reg [${widthParamName}-1:0] ${DigitalPad.outName}""".stripMargin
       case AnalogPad => 
-        "  inout [WIDTH-1:0] io"
+        s"  inout [${widthParamName}-1:0] ${AnalogPad.ioName}"
       case _ => throw new Exception("IO pad can only be digital or analog")
     }
     def assignIO(): String = padType match {
       case DigitalPad => 
-        """|    .in(in),
-           |    .out(out)""".stripMargin
+        s"""|    .${DigitalPad.inName}(${DigitalPad.inName}),
+            |    .${DigitalPad.outName}(${DigitalPad.outName})""".stripMargin
       case AnalogPad => 
-        "    .io(io)"
+        s"    .${AnalogPad.ioName}(${AnalogPad.ioName})"
       case _ => throw new Exception("IO pad can only be digital or analog") 
     }
     def getPadVerilog(): String = pad match {
@@ -57,11 +58,11 @@ case class PortIOPad(
       |${getPadArrayName}.v
       |${getPadVerilog}
       |module ${getPadArrayName} #(
-      |  parameter int WIDTH=1
+      |  parameter int ${widthParamName}=1
       |)(
       |${io}
       |);
-      |  ${getPadName} ${getPadName}[WIDTH-1:0](
+      |  ${getPadName} ${getPadName}[${widthParamName}-1:0](
       |${assignIO}
       |  );  
       |endmodule""".stripMargin

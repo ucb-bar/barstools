@@ -55,14 +55,18 @@ abstract class TopModule(
 
   // Make sure that the BlackBoxHelper stuff is run (and after createPads to populate black box Verilog files)
   // by making a fake black box that should then be deleted
-  private val fakeBBPlaceholder = Module(new FakeBBPlaceholder)
+  private val fakeBBPlaceholder = FakeBBPlaceholder()
 }
 
+object FakeBBPlaceholder {
+  def name = "FakeBBPlaceholder"
+  def apply(): FakeBBPlaceholder = Module(new FakeBBPlaceholder)
+}
 private[barstools] class FakeBBPlaceholder extends BlackBox with HasBlackBoxInline {
   val io = IO(new Bundle)
-  setInline("FakeBBPlaceholder.v",
+  setInline(s"${FakeBBPlaceholder.name}.v",
     s"""
-    |module FakeBBPlaceholder(
+    |module ${FakeBBPlaceholder.name}(
     |);
     |endmodule
     """.stripMargin)
