@@ -1,5 +1,3 @@
-///////
-
 package barstools.tapeout.transforms.pads
 
 import firrtl._
@@ -39,7 +37,6 @@ class AddIOPadsTransform extends Transform with SimpleRun {
           ResolveKinds,
           ResolveGenders
         )
-
         // Expects BlackBox helper to be run after to inline pad Verilog!
         CircuitState(runPasses(circuitWithBBs, passSeq), LowForm, annotations = Some(AnnotationMap(bbAnnotations)))
     }

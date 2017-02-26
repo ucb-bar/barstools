@@ -71,7 +71,7 @@ object CreatePadBBs {
     val uniqueParameterizedBBs = scala.collection.mutable.ArrayBuffer[UsedPadInfo]()
     uniqueExtMods foreach { x => 
       if (uniqueParameterizedBBs.find(_.padArrayName == x.padArrayName).isEmpty)
-        uniqueExtMods += x
+        uniqueParameterizedBBs += x
     }
 
     // Note: Firrtl is silly and doesn't implement true parameterization -- each module with 

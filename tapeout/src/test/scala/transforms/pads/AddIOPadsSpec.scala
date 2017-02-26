@@ -103,6 +103,7 @@ class IOPadSpec extends FlatSpec with Matchers {
     val optionsManager = new TesterOptionsManager {
       firrtlOptions = firrtlOptions.copy(compilerName = "verilog")
       testerOptions = testerOptions.copy(isVerbose = true, backendName = "verilator", displayBase = 10)
+      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/TB")
     }
     iotesters.Driver.execute(() => new ExampleTopModuleWithBB, optionsManager) { c =>
       new SimpleTopModuleTester(c)
@@ -112,13 +113,14 @@ class IOPadSpec extends FlatSpec with Matchers {
   it should "create proper IO pads + black box in low firrtl" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(compilerName = "low")
-      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/LoFirrtl")
+      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/LoFirrtl", globalLogLevel = logger.LogLevel.Info)
       //commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
     }
     val success = chisel3.Driver.execute(optionsManager, () => new ExampleTopModuleWithBB) match {
       case ChiselExecutionSuccess(_, chirrtl, Some(FirrtlExecutionSuccess(_, firrtl))) =>
-        firrtl should include ("_PadFrame") 
-        firrtl should include ("_Internal") 
+        firrtl should include ("ExampleTopModuleWithBB_PadFrame") 
+        firrtl should include ("ExampleTopModuleWithBB_Internal")
+        firrtl should not include ("FakeBBPlaceholder") 
         true
       case _ => false
     } 
