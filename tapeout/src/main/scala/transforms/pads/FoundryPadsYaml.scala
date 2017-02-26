@@ -6,7 +6,7 @@ import firrtl._
 import firrtl.ir._
 import barstools.tapeout.transforms._
 
-case class ChipPad(
+case class FoundryPad(
     tpe: String, 
     name: String,     
     verilog: String) {
@@ -68,11 +68,11 @@ case class ChipPad(
   def getName(dir: Direction, orient: PadOrientation): String = getTemplateParams(dir, orient).name
 }
 
-object ChipPadsYaml extends DefaultYamlProtocol {
-  val exampleResource = "/ChipPads.yaml"
-  implicit val _pad = yamlFormat3(ChipPad)
-  def parse(file: String = ""): Seq[ChipPad] = {
-    val out = (new YamlFileReader(exampleResource)).parse[ChipPad](file)
+object FoundryPadsYaml extends DefaultYamlProtocol {
+  val exampleResource = "/FoundryPads.yaml"
+  implicit val _pad = yamlFormat3(FoundryPad)
+  def parse(file: String = ""): Seq[FoundryPad] = {
+    val out = (new YamlFileReader(exampleResource)).parse[FoundryPad](file)
     val padNames = out.map(x => x.correctedName)
     require(padNames.distinct.length == padNames.length, "Pad names must be unique!")
     out

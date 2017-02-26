@@ -18,10 +18,10 @@ class AddIOPadsTransform extends Transform with SimpleRun {
       case None => CircuitState(state.circuit, LowForm)
       case Some(x) => 
         // Get foundry pad templates from yaml
-        val chipPads = ChipPadsYaml.parse(x.padTemplateFile)
-        val portPads = AnnotatePortPads(state.circuit, x.topModName, chipPads, x.componentAnnos, 
+        val foundryPads = FoundryPadsYaml.parse(x.padTemplateFile)
+        val portPads = AnnotatePortPads(state.circuit, x.topModName, foundryPads, x.componentAnnos, 
           HasPadAnnotation.getSide(x.defaultPadSide))
-        val supplyPads = AnnotateSupplyPads(chipPads, x.supplyAnnos)
+        val supplyPads = AnnotateSupplyPads(foundryPads, x.supplyAnnos)
         val (circuitWithBBs, bbAnnotations) = CreatePadBBs(state.circuit, portPads, supplyPads)
         val passSeq = Seq(
           Legalize,

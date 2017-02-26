@@ -7,7 +7,7 @@ import firrtl.passes._
 
 // Pads associated with IO Ports! (Not supplies!)
 case class PortIOPad(
-    pad: Option[ChipPad],
+    pad: Option[FoundryPad],
     padSide: PadSide,
     port: Port) {
 
@@ -73,7 +73,7 @@ object AnnotatePortPads {
   def apply(
       c: Circuit,
       topMod: String, 
-      pads: Seq[ChipPad], 
+      pads: Seq[FoundryPad], 
       componentAnnos: Seq[TargetIOPadAnnoF], 
       defaultSide: PadSide): Seq[PortIOPad] = {
 

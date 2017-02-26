@@ -6,7 +6,7 @@ import firrtl.ir._
 import firrtl.passes._
 
 case class TopSupplyPad(
-    pad: ChipPad,
+    pad: FoundryPad,
     padSide: PadSide,
     num: Int
 ) {
@@ -29,7 +29,7 @@ case class TopSupplyPad(
 
 object AnnotateSupplyPads {
   def apply(
-      pads: Seq[ChipPad], 
+      pads: Seq[FoundryPad], 
       supplyAnnos: Seq[SupplyAnnotation]
   ): Seq[TopSupplyPad] = {
     supplyAnnos.map( a => 
