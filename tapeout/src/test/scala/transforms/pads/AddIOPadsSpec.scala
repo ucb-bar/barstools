@@ -217,7 +217,7 @@ class IOPadSpec extends FlatSpec with Matchers {
           new firrtl.transforms.BlackBoxSourceHelper
         )
       )
-      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/Verilog", globalLogLevel = logger.LogLevel.Info)
+      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/Verilog")
       //commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
     }
     val success = chisel3.Driver.execute(optionsManager, () => new ExampleTopModuleWithBB) match {
