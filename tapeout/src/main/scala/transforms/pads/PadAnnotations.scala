@@ -12,7 +12,7 @@ object PadAnnotationsYaml extends DefaultYamlProtocol {
   implicit val _iopad = yamlFormat2(IOPadAnnotation)
   implicit val _noiopad = yamlFormat1(NoIOPadAnnotation)
   implicit val _supplyanno = yamlFormat5(SupplyAnnotation)
-  implicit val _modulepadanno = yamlFormat3(ModulePadAnnotation)
+  implicit val _modulepadanno = yamlFormat6(ModulePadAnnotation)
 }
 
 abstract class FirrtlPadTransformAnnotation {
@@ -52,9 +52,12 @@ case class SupplyAnnotation(
     bottomSide: Int = 0)
 // The chip top should have a default pad side, a pad template file, and supply annotations
 case class ModulePadAnnotation(
-    padTemplateFile: String, 
-    defaultPadSide: String, 
-    supplyAnnos: Seq[SupplyAnnotation]) {
+    padPlacementFile: String = "",
+    padTemplateFile: String = "", 
+    defaultPadSide: String = Top.serialize, 
+    coreWidth: Int = 0, 
+    coreHeight: Int = 0,
+    supplyAnnos: Seq[SupplyAnnotation] = Seq.empty) {
   import PadAnnotationsYaml._
   def serialize: String = this.toYaml.prettyPrint
   val supplyPadNames = supplyAnnos.map(_.padName)

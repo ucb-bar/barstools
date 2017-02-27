@@ -37,11 +37,9 @@ class BB extends BlackBox with HasBlackBoxInline {
 // Default pad side is Top if no side is specified for a given IO
 // You can designate the number of different supply pads on each chip side
 class ExampleTopModuleWithBB extends TopModule(
-    padTemplateFile = "", 
-    defaultPadSide = Top, 
-    supplyAnnos = Seq(
+    ModulePadAnnotation(supplyAnnos = Seq(
       SupplyAnnotation(padName = "vdd", leftSide = 3, bottomSide = 2),
-      SupplyAnnotation(padName = "vss", rightSide = 1))) {
+      SupplyAnnotation(padName = "vss", rightSide = 1)))) {
   val io = IO(new Bundle {
     val a = Input(UInt(15.W))
     val b = a.chiselCloneType
@@ -132,7 +130,7 @@ class IOPadSpec extends FlatSpec with Matchers {
 
   def checkOutputs(dir: String) = {
     // Show that black box source helper is run
-    readOutputFile(dir, "black_box_verilog_files.f") should include ("pad_supply_vdd_horizontal.v")
+    //readOutputFile(dir, "black_box_verilog_files.f") should include ("pad_supply_vdd_horizontal.v")
 
     val padBBEx = s"""// Digital Pad Example
       |// Signal Direction: Input
@@ -161,9 +159,6 @@ class IOPadSpec extends FlatSpec with Matchers {
     readOutputFile(dir, "pad_digital_from_tristate_foundry_horizontal_input_array.v") should include (padBBEx) 
 
     val verilog = readOutputFile(dir, "ExampleTopModuleWithBB.v")  
-
-    // Placeholder should've been removed
-    verilog should not include ("FakeBBPlaceholder") 
     // Pad frame + top should be exact
     verilog should include (readResource("/PadAnnotationVerilogPart.v"))
   }
@@ -173,12 +168,7 @@ class IOPadSpec extends FlatSpec with Matchers {
   it should "pass simple testbench" in {
     val optionsManager = new TesterOptionsManager {
       firrtlOptions = firrtlOptions.copy(
-        compilerName = "verilog",
-        // Order matters!
-        customTransforms = Seq(
-          new barstools.tapeout.transforms.pads.AddIOPadsTransform,
-          new firrtl.transforms.BlackBoxSourceHelper
-        )
+        compilerName = "verilog"
       )
       testerOptions = testerOptions.copy(isVerbose = true, backendName = "verilator", displayBase = 10)
       commonOptions = commonOptions.copy(targetDirName = "test_run_dir/TB")
@@ -210,12 +200,7 @@ class IOPadSpec extends FlatSpec with Matchers {
   it should "create proper IO pads + black box in verilog" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
       firrtlOptions = firrtlOptions.copy(
-        compilerName = "verilog",
-        // Order matters!
-        customTransforms = Seq(
-          new barstools.tapeout.transforms.pads.AddIOPadsTransform,
-          new firrtl.transforms.BlackBoxSourceHelper
-        )
+        compilerName = "verilog"
       )
       commonOptions = commonOptions.copy(targetDirName = "test_run_dir/Verilog")
       //commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)

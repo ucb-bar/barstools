@@ -37,7 +37,13 @@ class AddIOPadsTransform extends Transform with SimpleRun {
           ResolveGenders
         )
         // Expects BlackBox helper to be run after to inline pad Verilog!
-        CircuitState(runPasses(circuitWithBBs, passSeq), LowForm, annotations = Some(AnnotationMap(bbAnnotations)))
+        val prevAnnos = state.annotations.getOrElse(AnnotationMap(Seq.empty)).annotations
+        val cs = CircuitState(
+          runPasses(circuitWithBBs, passSeq), 
+          LowForm, 
+          Some(AnnotationMap(prevAnnos ++ bbAnnotations))
+        )
+        (new firrtl.transforms.BlackBoxSourceHelper).execute(cs)
     }
   }
 }

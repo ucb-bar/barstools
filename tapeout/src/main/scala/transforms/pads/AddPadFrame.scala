@@ -21,23 +21,12 @@ class AddPadFrame(topMod: String, ioPads: Seq[PortIOPad], supplyPads: Seq[TopSup
     val padFrameName = namespace newName s"${topMod}_PadFrame"
     val topInternalName = namespace newName s"${topMod}_Internal"
     // New modules consist of old modules (with top renamed to internal) + padFrame + newTop
-    val newModsTemp = c.modules.map {
-      case mod: Module if mod.name == topMod => {
+    val newMods = c.modules.map {
+      case mod: Module if mod.name == topMod => 
         // Original top module is now internal module
-        // Remove blackbox placeholder!
-        def removeFakeBBPlaceholder(s: Statement): Seq[Statement] = s match {
-          case b: Block => b.stmts.map(x => removeFakeBBPlaceholder(x)).flatten
-          case WDefInstance(_, n, _, _) if n == FakeBBPlaceholder.name => Seq(EmptyStmt)
-          case _ => Seq(s)
-        }
-        val newStmts = removeFakeBBPlaceholder(mod.body)
-        mod.copy(name = topInternalName, body = Block(newStmts))
-      }
+        mod.copy(name = topInternalName)
       case m => m
     } ++ Seq(buildPadFrame(padFrameName), buildTopWrapper(topInternalName, padFrameName))
-
-    // Remove black box source helper placeholder module (doesn't do anything) -- hope Chisel kept the name
-    val newMods = newModsTemp.filterNot(_.name == FakeBBPlaceholder.name)
 
     // Reparent so circuit top is whatever uses pads!
     // TODO: Can the top level be a blackbox?
