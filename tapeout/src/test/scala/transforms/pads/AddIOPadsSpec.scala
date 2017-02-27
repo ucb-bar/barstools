@@ -172,7 +172,14 @@ class IOPadSpec extends FlatSpec with Matchers {
 
   it should "pass simple testbench" in {
     val optionsManager = new TesterOptionsManager {
-      firrtlOptions = firrtlOptions.copy(compilerName = "verilog")
+      firrtlOptions = firrtlOptions.copy(
+        compilerName = "verilog",
+        // Order matters!
+        customTransforms = Seq(
+          new barstools.tapeout.transforms.pads.AddIOPadsTransform,
+          new firrtl.transforms.BlackBoxSourceHelper
+        )
+      )
       testerOptions = testerOptions.copy(isVerbose = true, backendName = "verilator", displayBase = 10)
       commonOptions = commonOptions.copy(targetDirName = "test_run_dir/TB")
     }
@@ -202,8 +209,15 @@ class IOPadSpec extends FlatSpec with Matchers {
 */
   it should "create proper IO pads + black box in verilog" in {
     val optionsManager = new ExecutionOptionsManager("barstools") with HasChiselExecutionOptions with HasFirrtlOptions {
-      firrtlOptions = firrtlOptions.copy(compilerName = "verilog")
-      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/Verilog")
+      firrtlOptions = firrtlOptions.copy(
+        compilerName = "verilog",
+        // Order matters!
+        customTransforms = Seq(
+          new barstools.tapeout.transforms.pads.AddIOPadsTransform,
+          new firrtl.transforms.BlackBoxSourceHelper
+        )
+      )
+      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/Verilog", globalLogLevel = logger.LogLevel.Info)
       //commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
     }
     val success = chisel3.Driver.execute(optionsManager, () => new ExampleTopModuleWithBB) match {

@@ -72,7 +72,7 @@ case class FoundryPad(
 
 object FoundryPadsYaml extends DefaultYamlProtocol {
   val exampleResource = "/FoundryPads.yaml"
-  implicit val _pad = yamlFormat3(FoundryPad)
+  implicit val _pad = yamlFormat5(FoundryPad)
   def parse(file: String = ""): Seq[FoundryPad] = {
     val out = (new YamlFileReader(exampleResource)).parse[FoundryPad](file)
     val padNames = out.map(x => x.correctedName)
