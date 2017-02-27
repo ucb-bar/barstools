@@ -12,21 +12,23 @@ import firrtl.passes._
 // requires an additional ctrl signal, digital pads must be operated in a single "static" condition here; Analog will
 // be paired with analog pads
 
-class AddPadFrame(topMod: String, ioPads: Seq[PortIOPad], supplyPads: Seq[TopSupplyPad]) extends Pass {
+class AddPadFrame(
+    topMod: String, 
+    padFrameName: String, 
+    topInternalName: String, 
+    ioPads: Seq[PortIOPad], 
+    supplyPads: Seq[TopSupplyPad]) extends Pass {
 
   def name: String = "Add Padframe"
 
   def run(c: Circuit): Circuit = {
-    val namespace = Namespace(c)
-    val padFrameName = namespace newName s"${topMod}_PadFrame"
-    val topInternalName = namespace newName s"${topMod}_Internal"
     // New modules consist of old modules (with top renamed to internal) + padFrame + newTop
     val newMods = c.modules.map {
       case mod: Module if mod.name == topMod => 
         // Original top module is now internal module
         mod.copy(name = topInternalName)
       case m => m
-    } ++ Seq(buildPadFrame(padFrameName), buildTopWrapper(topInternalName, padFrameName))
+    } ++ Seq(buildPadFrame(), buildTopWrapper())
 
     // Reparent so circuit top is whatever uses pads!
     // TODO: Can the top level be a blackbox?
@@ -36,7 +38,7 @@ class AddPadFrame(topMod: String, ioPads: Seq[PortIOPad], supplyPads: Seq[TopSup
   def intName(p: PortIOPad) = s"${p.portName}_Int"
   def extName(p: PortIOPad) = s"${p.portName}_Ext"
 
-  def buildTopWrapper(topInternalName: String, padFrameName: String): Module = {
+  def buildTopWrapper(): Module = {
     // outside -> padframe -> internal
     // Top (with same name) contains 1) padframe + 2) internal signals
     val padFrameInst = WDefInstance(padFrameName, padFrameName)
@@ -70,7 +72,7 @@ class AddPadFrame(topMod: String, ioPads: Seq[PortIOPad], supplyPads: Seq[TopSup
     Module(NoInfo, topMod, ports = ports, body = Block(stmts))
   }
 
-  def buildPadFrame(padFrameName: String): Module = {
+  def buildPadFrame(): Module = {
     // Internal = connection to original RTL; External = connection to outside world
     // Note that for analog pads, since there's only 1 port, only _Ext is used
     val intPorts = ioPads.map(p => p.port.tpe match {

@@ -1,12 +1,13 @@
 # Example for Innovus: https://legacy.iis.ee.ethz.ch/~vlsi2/ex05/ex05.pdf
+---
 file: pads.io
-left: 1             # Bottom to top
-top: 2              # Left to right
-right: 3            # Bottom to top
-bottom: 4           # Left to right
+left: "1"             # Bottom to top
+top: "2"              # Left to right
+right: "3"            # Bottom to top
+bottom: "4"           # Left to right
 # Note: In your scripts, you should specify instance array styles
 # i.e. hdl_instance_array_naming_style string (For Genus)
-instanceArrayTemplate: {{signal}}[{{idx}}]
+instanceArray: "{{signal}}[{{idx}}]"
 padLine: |
   |    (inst name = "{{padInst}}")   # Side: {{side}}, Order: {{padIdx}}
 template: |

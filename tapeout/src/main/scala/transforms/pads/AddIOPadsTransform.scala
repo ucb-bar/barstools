@@ -23,12 +23,17 @@ class AddIOPadsTransform extends Transform with SimpleRun {
           HasPadAnnotation.getSide(x.defaultPadSide))
         val supplyPads = AnnotateSupplyPads(foundryPads, x.supplyAnnos)
         val (circuitWithBBs, bbAnnotations) = CreatePadBBs(state.circuit, portPads, supplyPads)
+        val namespace = Namespace(state.circuit)
+        val padFrameName = namespace newName s"${x.topModName}_PadFrame"
+        val topInternalName = namespace newName s"${x.topModName}_Internal"
+        val targetDir = barstools.tapeout.transforms.GetTargetDir(state)
+        PadPlacementFile.generate(x.padPlacementFile, targetDir, padFrameName, portPads, supplyPads)
         val passSeq = Seq(
           Legalize,
           ResolveGenders,
           // Types really need to be known...
           InferTypes,
-          new AddPadFrame(x.topModName, portPads, supplyPads),
+          new AddPadFrame(x.topModName, padFrameName, topInternalName, portPads, supplyPads),
           RemoveEmpty,
           CheckInitialization,
           InferTypes,
@@ -43,6 +48,7 @@ class AddIOPadsTransform extends Transform with SimpleRun {
           LowForm, 
           Some(AnnotationMap(prevAnnos ++ bbAnnotations))
         )
+        // TODO: *.f file is overwritten on subsequent executions, but it doesn't seem to be used anywhere?
         (new firrtl.transforms.BlackBoxSourceHelper).execute(cs)
     }
   }

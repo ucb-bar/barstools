@@ -94,20 +94,20 @@ class SimpleTopModuleTester(c: ExampleTopModuleWithBB) extends PeekPokeTester(c)
 }  
 
 // Notes: Annotations
-// a in: left, default digital
-// b in: left, default digital
-// c in: left, default digital ; signed
-// x out: left, default digital
+// a in 15: left, default digital
+// b in 15: left, default digital
+// c in 14: left, default digital ; signed
+// x out 16: left, default digital
 // y out: NOPAD
 // clk in: NOPAD
-// analog1: left, fast_custom
-// analog2: bottom, slow_foundry
-// v (vec of 3, out): right, from_tristate_foundry
+// analog1 3: left, fast_custom
+// analog2 3: bottom, slow_foundry
+// v (vec of 3 with 5, out): right, from_tristate_foundry
 // reset in: UNSPECIFIED: top, default digital
-// z out: UNSPECIFIED: top, default digital ; signed
-// vdd, left: 3
-// vdd, bottom: 2
-// vss, right: 1
+// z out 16: UNSPECIFIED: top, default digital ; signed
+// vdd, left: 3, group of 1
+// vdd, bottom: 2, group of 1
+// vss, right: 1, group of 2
 // Notes: Used pads
 // digital horizontal (from_tristate_foundry) 
 //  in + out
@@ -135,6 +135,7 @@ class IOPadSpec extends FlatSpec with Matchers {
     val padBBEx = s"""// Digital Pad Example
       |// Signal Direction: Input
       |// Pad Orientation: Horizontal
+      |// Call your instance PAD
       |module pad_digital_from_tristate_foundry_horizontal_input(
       |  input in,
       |  output reg out
@@ -161,6 +162,9 @@ class IOPadSpec extends FlatSpec with Matchers {
     val verilog = readOutputFile(dir, "ExampleTopModuleWithBB.v")  
     // Pad frame + top should be exact
     verilog should include (readResource("/PadAnnotationVerilogPart.v"))
+    // Pad Placement IO file should be exact
+    val padIO = readOutputFile(dir, "pads.io")
+    padIO should include(readResource("/PadPlacement.io"))
   }
 
   behavior of "top module with blackbox"

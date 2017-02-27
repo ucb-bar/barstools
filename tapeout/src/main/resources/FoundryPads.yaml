@@ -13,6 +13,7 @@ height: 0
 verilog: |
   |// Foundry Analog Pad Example
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |// Call your instance PAD
   |module {{name}}(
   |  inout io
   |);
@@ -25,6 +26,7 @@ height: 0
 verilog: |
   |// Custom Analog Pad Example
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |// Call your instance PAD
   |module {{name}}(
   |  inout io
   |);
@@ -38,6 +40,7 @@ verilog: |
   |// Digital Pad Example
   |// Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |// Call your instance PAD
   |module {{name}}(
   |  input in,
   |  output reg out
@@ -56,6 +59,7 @@ verilog: |
   |// (Fake/Unused) Digital Pad Example
   |// Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |// Call your instance PAD
   |module {{name}}(
   |  input in,
   |  output reg out
@@ -70,10 +74,12 @@ tpe: supply
 name: vdd
 width: 0
 height: 0
+supplySetNum: 1
 verilog: |
   |// VDD Pad Example (No IO)
   |// Can group some number together as required by the foundry
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |// Call your instance array PAD[0:0], PAD[2:0], etc.
   |module {{name}}(
   |);
   |endmodule
@@ -82,10 +88,12 @@ tpe: supply
 name: vss
 width: 0
 height: 0
+supplySetNum: 2
 verilog: |
   |// VSS Pad Example (No IO)
   |// Can group some number together as required by the foundry
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |// Call your instance array PAD[0:0], PAD[2:0], etc.
   |module {{name}}(
   |);
   |endmodule
@@ -94,10 +102,12 @@ tpe: supply
 name: avss
 width: 0
 height: 0
+supplySetNum: 1
 verilog: |
   |// Analog VSS Pad Example (No IO)
   |// Can group some number together as required by the foundry
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
+  |// Call your instance array PAD[0:0], PAD[2:0], etc.
   |module {{name}}(
   |);
   |endmodule

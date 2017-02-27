@@ -5,11 +5,19 @@ import firrtl._
 import firrtl.ir._
 import firrtl.passes._
 
+// TODO: Make some trait with commonalities between IO Pad + supply pad
+
 // Pads associated with IO Ports! (Not supplies!)
 case class PortIOPad(
     pad: Option[FoundryPad],
     padSide: PadSide,
     port: Port) {
+
+  def arrayInstNamePrefix(mod: String): String = Seq(mod, firrtlBBName, getPadName).mkString("/")
+  def arrayInstNameSuffix: String = pad match {
+    case None => throw new Exception("Port needs to use pad to get array instance name!")
+    case Some(x) => "/" + x.padInstName
+  }
 
   def portName = port.name
   def portWidth = bitWidth(port.tpe).intValue

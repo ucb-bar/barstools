@@ -10,6 +10,14 @@ case class TopSupplyPad(
     padSide: PadSide,
     num: Int
 ) {
+
+  // TODO: These should be pulled into some common trait (supply + io)!
+
+  def arrayInstNamePrefix(mod: String): Seq[String] = {
+    instNames.map(n => Seq(mod, n, pad.padInstName).mkString("/"))
+  }
+  def supplySetNum = pad.getSupplySetNum
+
   def padType = pad.padType
   require(pad.padType == SupplyPad)
 

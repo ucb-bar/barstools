@@ -10,11 +10,17 @@ case class FoundryPad(
     tpe: String, 
     name: String, 
     width: Int,             
-    height: Int,             
+    height: Int,
+    supplySetNum: Option[Int],             
     verilog: String) {
+
+  def padInstName = "PAD"
 
   require(verilog.contains("{{#if isHorizontal}}"), "All pad templates must contain '{{#if isHorizontal}}'")
   require(verilog.contains("{{name}}"), "All pad templates must contain module name '{{name}}'")
+  require(verilog.contains(padInstName), s"All pad templates should have instances called ${padInstName}")
+
+  def getSupplySetNum = supplySetNum.getOrElse(1)
 
   val padType = tpe match {
     case "digital" => 
@@ -29,6 +35,10 @@ case class FoundryPad(
     case "supply" => 
       // Supply pads don't have IO
       require(!verilog.contains("{{#if isInput}}"), "Supply pad template must not contain '{{#if isInput}}'")
+      require(
+        verilog.contains(s"${padInstName}["), "All supply pad templates should have instance arrays" +
+        " called ${padInstName}[n:0], where n = ${getSupplySetNum-1}")
+      require(supplySetNum.nonEmpty, "# of grouped supply pads 'supplySetNum' should be specified!")
       SupplyPad
     case _ => throw new Exception("Illegal pad type in config!")
   }
@@ -72,7 +82,7 @@ case class FoundryPad(
 
 object FoundryPadsYaml extends DefaultYamlProtocol {
   val exampleResource = "/FoundryPads.yaml"
-  implicit val _pad = yamlFormat5(FoundryPad)
+  implicit val _pad = yamlFormat6(FoundryPad)
   def parse(file: String = ""): Seq[FoundryPad] = {
     val out = (new YamlFileReader(exampleResource)).parse[FoundryPad](file)
     val padNames = out.map(x => x.correctedName)

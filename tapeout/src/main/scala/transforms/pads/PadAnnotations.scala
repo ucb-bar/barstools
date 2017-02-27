@@ -80,7 +80,10 @@ case class CollectedAnnos(
   def supplyAnnos = moduleAnnos.anno.supplyAnnos
   def defaultPadSide = moduleAnnos.anno.defaultPadSide
   def padTemplateFile = moduleAnnos.anno.padTemplateFile
+  def padPlacementFile = moduleAnnos.anno.padPlacementFile
   def topModName = moduleAnnos.targetName
+  def coreWidth = moduleAnnos.anno.coreWidth
+  def coreHeight = moduleAnnos.anno.coreHeight
 }
 
 object HasPadAnnotation {
