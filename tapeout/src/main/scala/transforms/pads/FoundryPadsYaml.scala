@@ -8,7 +8,9 @@ import barstools.tapeout.transforms._
 
 case class FoundryPad(
     tpe: String, 
-    name: String,     
+    name: String, 
+    width: Int,             
+    height: Int,             
     verilog: String) {
 
   require(verilog.contains("{{#if isHorizontal}}"), "All pad templates must contain '{{#if isHorizontal}}'")

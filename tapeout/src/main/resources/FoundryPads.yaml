@@ -8,6 +8,8 @@
 ---
 tpe: analog
 name: slow_foundry
+width: 0
+height: 0
 verilog: |
   |// Foundry Analog Pad Example
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
@@ -18,6 +20,8 @@ verilog: |
 ---
 tpe: analog
 name: fast_custom
+width: 0
+height: 0
 verilog: |
   |// Custom Analog Pad Example
   |// Pad Orientation: {{#if isHorizontal}}Horizontal{{else}}Vertical{{/if}}
@@ -28,6 +32,8 @@ verilog: |
 ---
 tpe: digital
 name: from_tristate_foundry
+width: 0
+height: 0
 verilog: |
   |// Digital Pad Example
   |// Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
@@ -44,6 +50,8 @@ verilog: |
 ---
 tpe: digital
 name: fake_digital
+width: 0
+height: 0
 verilog: |
   |// (Fake/Unused) Digital Pad Example
   |// Signal Direction: {{#if isInput}}Input{{else}}Output{{/if}}
@@ -60,6 +68,8 @@ verilog: |
 ---
 tpe: supply
 name: vdd
+width: 0
+height: 0
 verilog: |
   |// VDD Pad Example (No IO)
   |// Can group some number together as required by the foundry
@@ -70,6 +80,8 @@ verilog: |
 ---
 tpe: supply
 name: vss
+width: 0
+height: 0
 verilog: |
   |// VSS Pad Example (No IO)
   |// Can group some number together as required by the foundry
@@ -80,6 +92,8 @@ verilog: |
 ---
 tpe: supply
 name: avss
+width: 0
+height: 0
 verilog: |
   |// Analog VSS Pad Example (No IO)
   |// Can group some number together as required by the foundry
