@@ -1,11 +1,11 @@
 package barstools.tapeout.transforms.pads
 
 import chisel3._
-import chisel3.util.HasBlackBoxInline
 
 // NOTE: You can't really annotate outside of the module itself UNLESS you break up the compile step in 2 i.e.
 // annotate post-Chisel but pre-Firrtl (unfortunate non-generator friendly downside). 
 // It's recommended to have a Tapeout specific TopModule wrapper. 
+// LIMITATION: All signals of a bus must be on the same chip side
 
 // Chisel-y annotations
 abstract class TopModule(

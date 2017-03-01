@@ -175,7 +175,7 @@ class IOPadSpec extends FlatSpec with Matchers {
         compilerName = "verilog"
       )
       testerOptions = testerOptions.copy(isVerbose = true, backendName = "verilator", displayBase = 10)
-      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/TB")
+      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/PadsTB")
     }
     iotesters.Driver.execute(() => new ExampleTopModuleWithBB, optionsManager) { c =>
       val dir = optionsManager.commonOptions.targetDirName
@@ -206,7 +206,7 @@ class IOPadSpec extends FlatSpec with Matchers {
       firrtlOptions = firrtlOptions.copy(
         compilerName = "verilog"
       )
-      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/Verilog")
+      commonOptions = commonOptions.copy(targetDirName = "test_run_dir/PadsVerilog")
       //commonOptions = commonOptions.copy(globalLogLevel = logger.LogLevel.Info)
     }
     val success = chisel3.Driver.execute(optionsManager, () => new ExampleTopModuleWithBB) match {
