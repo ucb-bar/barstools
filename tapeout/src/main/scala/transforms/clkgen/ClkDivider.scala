@@ -66,9 +66,27 @@ object AsyncRegInit {
 }
 
 // TODO: Convert analogFile into implicit?
-class SEClkDivider(divBy: Int, phases: Seq[Int], analogFile: String = "") extends Module {
+// If syncReset = false, it's implied that reset is strobed before any clk rising edge happens
+// i.e. when this is a clkgen fed by another clkgen --> need to adjust the indexing b/c
+// you're already shifting on the first clk rising edge
+class SEClkDivider(divBy: Int, phases: Seq[Int], analogFile: String = "", syncReset: Boolean = true) 
+    extends Module with IsClkModule {
+
+  require(phases.distinct.length == phases.length, "Phases should be distinct!")
 
   val io = IO(new SEClkDividerIO(phases))
+
+  annotateClkPort(io.inClk, ClkPortAnnotation(id = "inClk", tag = Some(Sink())))
+
+  val referenceEdges = phases.map(p => Seq(2 * p, 2 * (p + 1), 2 * (p + divBy)))
+
+  val generatedClks = io.outClks.elements.zip(referenceEdges).map { case ((field, elt), edges) => 
+    val id = s"outClks_${field}"
+    annotateClkPort(elt.asInstanceOf[Element], ClkPortAnnotation(id = id)) 
+    GeneratedClk(id, Seq("inClk"), edges)
+  }.toSeq
+
+  annotateDerivedClks(ClkModAnnotation(ClkDiv.serialize, generatedClks))
 
   require(divBy >= 1, "Clk division factor must be >= 1")
 
@@ -95,7 +113,10 @@ class SEClkDivider(divBy: Int, phases: Seq[Int], analogFile: String = "") extend
       val regs = initVals.map(i => AsyncRegInit(io.inClk, io.reset, i))
       regs.head.io.in := regs.last.io.out
       regs.tail.zip(regs.init) foreach { case (lhs, rhs) => lhs.io.in := rhs.io.out }
-      phases foreach { idx => io.outClks(idx) := regs(idx).io.out.asClock }
+      phases foreach { idx => 
+        val regIdx = if (syncReset) idx else (idx + 1) % divBy
+        io.outClks(idx) := regs(regIdx).io.out.asClock 
+      }
 
     case _ =>
       if (new java.io.File(analogFile).exists) {

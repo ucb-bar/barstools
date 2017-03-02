@@ -10,11 +10,21 @@ import chisel3.iotesters._
 import chisel3.util.HasBlackBoxInline
 
 // Purely to see that clk src tagging works with BBs
-class FakeBBClk extends BlackBox with HasBlackBoxInline {
+class FakeBBClk extends BlackBox with HasBlackBoxInline with IsClkModule {
   val io = IO(new Bundle {
     val inClk = Input(Clock())
     val outClk = Output(Vec(3, Clock())) 
   })
+
+  annotateClkPort(io.inClk, ClkPortAnnotation(id = "inClk", tag = Some(Sink())))
+  val generatedClks = io.outClk.zipWithIndex.map { case (elt, idx) => 
+    val id = s"outClk_${idx}"
+    annotateClkPort(elt.asInstanceOf[Element], ClkPortAnnotation(id = id)) 
+    GeneratedClk(id, Seq("inClk"), Seq(0, 1, 2))
+  }.toSeq
+
+  annotateDerivedClks(ClkModAnnotation(ClkDiv.serialize, generatedClks))
+
   // Generates a "FakeBB.v" file with the following Verilog module
   setInline("FakeBBClk.v",
     s"""
@@ -44,21 +54,21 @@ class TestModWithNestedClkIO(numPhases: Int) extends Bundle {
   val clkDivOut = Output(Vec(numPhases, Bool()))
 }
 
-class ModWithNestedClk(divBy: Int, phases: Seq[Int]) extends Module {
+class ModWithNestedClk(divBy: Int, phases: Seq[Int], syncReset: Boolean) extends Module {
 
   val io = IO(new ModWithNestedClkIO(phases.length))
 
   val bb = Module(new FakeBBClk)
   bb.io.inClk := io.inClk
   io.bbOutClk := bb.io.outClk
-  val clkDiv = Module(new SEClkDivider(divBy, phases))
+  val clkDiv = Module(new SEClkDivider(divBy, phases, syncReset = syncReset))
   clkDiv.io.reset := reset
   clkDiv.io.inClk := io.inClk
   phases.zipWithIndex.foreach { case (phase, idx) => io.clkDivOut(idx) := clkDiv.io.outClks(phase) }
 
 }
 
-class TopModuleWithClks(divBy: Int, phases: Seq[Int]) extends Module {
+class TopModuleWithClks(val divBy: Int, val phases: Seq[Int]) extends Module {
   val io = IO(new Bundle {
     val gen1 = new TestModWithNestedClkIO(phases.length)
     val gen2 = new TestModWithNestedClkIO(phases.length) 
@@ -66,39 +76,59 @@ class TopModuleWithClks(divBy: Int, phases: Seq[Int]) extends Module {
   })
 
   // Most complicated: test chain of clock generators
-  val gen1 = Module(new ModWithNestedClk(divBy, phases))
+  val gen1 = Module(new ModWithNestedClk(divBy, phases, syncReset = true))
   io.gen1.bbOutClk := Vec(gen1.io.bbOutClk.map(x => x.asUInt))
   io.gen1.clkDivOut := Vec(gen1.io.clkDivOut.map(x => x.asUInt))
   gen1.io.inClk := clock
-  val gen2 = Module(new ModWithNestedClk(divBy, phases))
+  // ClkDiv on generated clk -> reset occurs before first input clk edge
+  val gen2 = Module(new ModWithNestedClk(divBy, phases, syncReset = false))
   io.gen2.bbOutClk := Vec(gen2.io.bbOutClk.map(x => x.asUInt))
   io.gen2.clkDivOut := Vec(gen2.io.clkDivOut.map(x => x.asUInt))
   gen2.io.inClk := gen1.io.clkDivOut.last
-  val gen3 = Module(new ModWithNestedClk(divBy, phases))
+  val gen3 = Module(new ModWithNestedClk(divBy, phases, syncReset = false))
   io.gen3.bbOutClk := Vec(gen3.io.bbOutClk.map(x => x.asUInt))
   io.gen3.clkDivOut := Vec(gen3.io.clkDivOut.map(x => x.asUInt))
   gen3.io.inClk := gen1.io.clkDivOut.last
 }
 
 class TopModuleWithClksTester(c: TopModuleWithClks) extends PeekPokeTester(c) {
+  val maxT = c.divBy * c.divBy * 4
   val numSubClkOutputs = c.io.gen1.clkDivOut.length
-  val gen1Out = Seq.fill(numSubClkOutputs)(scala.collection.mutable.ArrayBuffer[String]())
-  val gen2Out = Seq.fill(numSubClkOutputs)(scala.collection.mutable.ArrayBuffer[String]())
-  val gen3Out = Seq.fill(numSubClkOutputs)(scala.collection.mutable.ArrayBuffer[String]())
+  val gen1Out = Seq.fill(numSubClkOutputs)(scala.collection.mutable.ArrayBuffer[Int]())
+  val gen2Out = Seq.fill(numSubClkOutputs)(scala.collection.mutable.ArrayBuffer[Int]())
+  val gen3Out = Seq.fill(numSubClkOutputs)(scala.collection.mutable.ArrayBuffer[Int]())
   reset(10)
-  for (t <- 0 until 30) {
+  for (t <- 0 until maxT) {
     for (k <- 0 until numSubClkOutputs) {
-      gen1Out(k) += peek(c.io.gen1.clkDivOut(k)).toString
-      gen2Out(k) += peek(c.io.gen2.clkDivOut(k)).toString
-      gen3Out(k) += peek(c.io.gen3.clkDivOut(k)).toString
+      gen1Out(k) += peek(c.io.gen1.clkDivOut(k)).intValue
+      gen2Out(k) += peek(c.io.gen2.clkDivOut(k)).intValue
+      gen3Out(k) += peek(c.io.gen3.clkDivOut(k)).intValue
     }
     step(1)
   }
+
+  val clkCounts = (0 until maxT)
+  val clkCountsModDiv = clkCounts.map(_ % c.divBy)
   for (k <- 0 until numSubClkOutputs) {
-    println(s"gen1Out($k): ${gen1Out(k)}")
-    println(s"gen2Out($k): ${gen2Out(k)}")
-    println(s"gen3Out($k): ${gen3Out(k)}")
-  }  
+    val expected = clkCountsModDiv.map(x => if (x == c.phases(k)) 1 else 0)
+    expect(gen1Out(k) == expected, s"gen1Out($k) incorrect!")
+    println(s"gen1Out($k): \t${gen1Out(k).mkString("")}")
+  }
+
+  val gen1ClkCounts = (0 until maxT/c.divBy).map(i => Seq.fill(c.divBy)(i)).flatten
+  val gen1ClkCountsModDiv = gen1ClkCounts.map(_ % c.divBy)
+
+  for (k <- 0 until numSubClkOutputs) {
+    // Handle initial transient
+    val fillVal = if (c.phases.last == c.divBy - 1 && k == numSubClkOutputs - 1) 1 else 0
+    val expected = Seq.fill(c.phases.last)(fillVal) ++ 
+      gen1ClkCountsModDiv.map(x => if (x == c.phases(k)) 1 else 0).dropRight(c.phases.last)
+    expect(gen2Out(k) == expected, s"gen1Out($k) incorrect!")
+    println(s"gen2Out($k): \t${gen2Out(k).mkString("")}")
+    println(s"expected: \t${expected.mkString("")}")
+  }
+
+  expect(gen2Out == gen3Out, "gen2Out should equal gen3Out")
 
 }  
 
@@ -120,10 +150,15 @@ class ClkGenSpec extends FlatSpec with Matchers {
     val optionsManager = new TesterOptionsManager {
       firrtlOptions = firrtlOptions.copy(
         compilerName = "verilog"
+        /*annotations = List(passes.clocklist.ClockListAnnotation(
+          s"-c:TopModuleWithClks:-m:TopModuleWithClks:-o:test.clk"
+        )),
+        customTransforms = Seq(new passes.clocklist.ClockListTransform())*/
       )
-      testerOptions = testerOptions.copy(isVerbose = true, backendName = "verilator", displayBase = 10)
+      testerOptions = testerOptions.copy(isVerbose = false, backendName = "verilator", displayBase = 10)
       commonOptions = commonOptions.copy(targetDirName = "test_run_dir/ClkTB")
     }
+    // WARNING: TB requires that phase divBy - 1 should be at the end of the Seq to be OK during initial transient
     iotesters.Driver.execute(() => new TopModuleWithClks(4, Seq(0, 1, 3)), optionsManager) { c =>
       val dir = optionsManager.commonOptions.targetDirName
       checkOutputs(dir)   
