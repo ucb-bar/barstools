@@ -57,12 +57,16 @@ object PadPlacementFile extends DefaultYamlProtocol {
     (new YamlFileReader(exampleResource)).parse[PadPlacement](file).head
   }
   def generate(
-      file: String, 
+      techDir: String, 
       targetDir: String, 
       padFrameName: String, 
       portPads: Seq[PortIOPad], 
       supplyPads: Seq[TopSupplyPad]): Unit = {
-    val template = parse(file)
+
+    val file = techDir + exampleResource
+    if(techDir != "" && !(new java.io.File(file)).exists()) 
+        throw new Exception("Technology directory must contain PadPlacement.yaml!")
+    val template = parse(if (techDir == "") "" else file)
 
     val leftPads = scala.collection.mutable.ArrayBuffer[String]()
     val rightPads = scala.collection.mutable.ArrayBuffer[String]()

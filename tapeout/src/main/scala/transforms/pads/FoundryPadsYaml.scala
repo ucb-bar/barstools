@@ -83,8 +83,11 @@ case class FoundryPad(
 object FoundryPadsYaml extends DefaultYamlProtocol {
   val exampleResource = "/FoundryPads.yaml"
   implicit val _pad = yamlFormat6(FoundryPad)
-  def parse(file: String = ""): Seq[FoundryPad] = {
-    val out = (new YamlFileReader(exampleResource)).parse[FoundryPad](file)
+  def parse(techDir: String): Seq[FoundryPad] = {
+    val file = techDir + exampleResource
+    if(techDir != "" && !(new java.io.File(file)).exists()) 
+      throw new Exception("Technology directory must contain FoundryPads.yaml!")
+    val out = (new YamlFileReader(exampleResource)).parse[FoundryPad](if (techDir == "") "" else file)
     val padNames = out.map(x => x.correctedName)
     require(padNames.distinct.length == padNames.length, "Pad names must be unique!")
     out

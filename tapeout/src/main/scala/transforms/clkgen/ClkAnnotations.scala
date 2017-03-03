@@ -8,13 +8,13 @@ import firrtl._
 import firrtl.transforms.DedupModules
 
 object ClkAnnotationsYaml extends DefaultYamlProtocol {
-  implicit val _extclk = yamlFormat3(ExtClk)
+  implicit val _clksrc = yamlFormat3(ClkSrc)
   implicit val _sink = yamlFormat2(Sink)
   implicit val _clkport = yamlFormat2(ClkPortAnnotation)
-  implicit val _genclk = yamlFormat3(GeneratedClk)
+  implicit val _genclk = yamlFormat4(GeneratedClk)
   implicit val _clkmod = yamlFormat2(ClkModAnnotation)
 }
-case class ExtClk(period: Double, waveform: Seq[Double] = Seq(), async: Seq[String] = Seq()) {
+case class ClkSrc(period: Double, waveform: Seq[Double] = Seq(), async: Seq[String] = Seq()) {
   def getWaveform = if (waveform == Seq.empty) Seq(0, period/2) else waveform
   // async = ids of top level clocks that are async with this clk
   // Default is 50% duty cycle, period units is default
@@ -22,7 +22,7 @@ case class ExtClk(period: Double, waveform: Seq[Double] = Seq(), async: Seq[Stri
   require(getWaveform.length == 2, "Must specify time for rising edge, then time for falling edge")
 }
 
-case class Sink(src: Option[ExtClk] = None , info: String = "")
+case class Sink(src: Option[ClkSrc] = None , info: String = "")
 
 case class ClkPortAnnotation(id: String, tag: Option[Sink] = None) {
   import ClkAnnotationsYaml._
@@ -36,6 +36,9 @@ case object ClkMux extends ClkModType {
 case object ClkDiv extends ClkModType {
   def serialize: String = "div"
 }
+case object ClkGen extends ClkModType {
+  def serialize: String = "gen"
+}
 
 // Unlike typical SDC, starts at 0. 
 // Otherwise, see pg. 63 of "Constraining Designs for Synthesis and Timing Analysis" 
@@ -45,7 +48,11 @@ case object ClkDiv extends ClkModType {
 // div. by 4, 50% duty cycle --> edges = 0, 2, 4
 // --->              |-----------|___________|
 // sources = source id's
-case class GeneratedClk(id: String, sources: Seq[String], referenceEdges: Seq[Int] = Seq()) {
+case class GeneratedClk(
+    id: String, 
+    sources: Seq[String] = Seq(), 
+    referenceEdges: Seq[Int] = Seq(), 
+    period: Option[Double] = None) {
   require(referenceEdges.sorted == referenceEdges, "Edges must be in order for generated clk")
   if (referenceEdges.nonEmpty) require(referenceEdges.length % 2 == 1, "# of reference edges must be odd!")
 }
@@ -59,10 +66,19 @@ case class ClkModAnnotation(tpe: String, generatedClks: Seq[GeneratedClk]) {
       generatedClks foreach { c =>
         require(c.referenceEdges.nonEmpty, "Reference edges must be defined for clk divider!")
         require(c.sources.length == 1, "Clk divider output can only have 1 source")
+        require(c.period.isEmpty, "No period should be specified for clk divider output")
       }
     case ClkMux => 
       generatedClks foreach { c =>
         require(c.referenceEdges.isEmpty, "Reference edges must not be defined for clk mux!")
+        require(c.period.isEmpty, "No period should be specified for clk mux output")
+        require(c.sources.nonEmpty, "Clk muxes must have sources!")
+      }
+    case ClkGen =>
+      generatedClks foreach { c =>
+        require(c.referenceEdges.isEmpty, "Reference edges must not be defined for clk gen!")
+        require(c.sources.isEmpty, "Clk generators shouldn't have constrained sources")
+        require(c.period.nonEmpty, "Clk generator output period should be specified!")
       }
   }
   import ClkAnnotationsYaml._
@@ -102,6 +118,7 @@ object HasClkAnnotation {
   def modType(tpe: String): ClkModType = tpe match {
     case s: String if s == ClkMux.serialize => ClkMux
     case s: String if s == ClkDiv.serialize => ClkDiv
+    case s: String if s == ClkGen.serialize => ClkGen
     case _ => throw new Exception("Clock module annotaiton type invalid")
   }
 
@@ -152,6 +169,19 @@ trait IsClkModule {
   def annotateDerivedClks(anno: ClkModAnnotation): Unit = annotateDerivedClks(this, anno)
   def annotateDerivedClks(m: Module, anno: ClkModAnnotation): Unit = 
     annotate(TargetClkModAnnoC(m, anno).getAnno)
-  def annotateClkPort(p: Element, anno: ClkPortAnnotation): Unit = 
+  def annotateClkPort(p: Element, anno: ClkPortAnnotation): Unit = {
+    p.dir match {
+      case chisel3.core.Direction.Input => 
+        require(anno.tag.nonEmpty, "Module inputs must be clk sinks")
+      case chisel3.core.Direction.Output =>
+        require(anno.tag.isEmpty, "Module outputs must not be clk sinks (they're sources!)")
+      case _ =>
+        throw new Exception("Clk port direction must be specified!")
+    }
+    p match {
+      case _: chisel3.core.Clock =>
+      case _ => throw new Exception("Clock port must be of type Clock")
+    }
     annotate(TargetClkPortAnnoC(p, anno).getAnno)
+  }
 }

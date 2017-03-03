@@ -6,6 +6,8 @@ import firrtl.passes.clocklist._
 import firrtl.annotations._
 import firrtl.ir._
 import firrtl.Utils._
+import barstools.tapeout.transforms._
+import scala.collection.immutable.ListMap
 
 // TODO: Really should be moved out of memlib
 import firrtl.passes.memlib.AnalysisUtils._
@@ -42,15 +44,17 @@ class CreateClkConstraints(
       x -> inst.head.tail.map(x => x.name).mkString("$")
     }.toMap
 
-    def getClks(tag: Option[Sink]): Map[String, String] = clkPortAnnos.map { 
-      case TargetClkPortAnnoF(ComponentName(p, ModuleName(m, _)), ClkPortAnnotation(id, tag)) =>
-        val absPath = Seq(clkMods(m), p).mkString(".")
+    def getClks(isSink: Boolean): ListMap[String, String] = ListMap(clkPortAnnos.map { 
+      case TargetClkPortAnnoF(
+          ComponentName(p, ModuleName(m, _)), 
+          ClkPortAnnotation(id, x)) if (isSink && x.nonEmpty) || (!isSink && x.isEmpty)  =>
+        val absPath = Seq(clkMods(m), LowerName(p)).mkString(".")
         Some(absPath -> Seq(m, id).mkString("."))
       case _ => None
-    }.flatten.toMap
+    }.flatten.sortBy(_._1): _*)
 
-    val clkSinks = getClks(Some(Sink()))
-    val derivedClkSrcs = getClks(None)
+    val clkSinks = getClks(isSink = true)
+    val derivedClkSrcs = getClks(isSink = false)
 
     // Don't inline clock modules
     val modulesToInline = (c.modules.collect { 
@@ -65,7 +69,16 @@ class CreateClkConstraints(
 
     // Build a hashmap of connections to use for getOrigins
     val connects = getConnects(topModule)
- 
+
+    // Find origins of sinks
+    val sinkToSourceMap = clkSinks.map { case (absPath, sinkId) =>
+      sinkId -> getOrigin(connects, absPath).serialize
+    }
+
+    clkSinks.foreach { x => println(s"clk sink: $x")}
+    derivedClkSrcs.foreach { x => println(s"gen clk: $x")}
+    sinkToSourceMap.foreach { x => println(s"sink -> src: $x")}
+    
     c
   }
 }

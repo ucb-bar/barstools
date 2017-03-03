@@ -169,10 +169,13 @@ class IOPadSpec extends FlatSpec with Matchers {
 
   behavior of "top module with blackbox"
 
+  import barstools.tapeout.transforms._
+
   it should "pass simple testbench" in {
     val optionsManager = new TesterOptionsManager {
       firrtlOptions = firrtlOptions.copy(
         compilerName = "verilog"
+        // annotations = List(TechnologyLocation("./RealTech"))
       )
       testerOptions = testerOptions.copy(isVerbose = true, backendName = "verilator", displayBase = 10)
       commonOptions = commonOptions.copy(targetDirName = "test_run_dir/PadsTB")

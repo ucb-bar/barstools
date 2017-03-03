@@ -1,28 +1,28 @@
 module ExampleTopModuleWithBB_PadFrame(
-  output  clock_Int,
-  output  reset_Int,
+  output        clock_Int,
+  output        reset_Int,
   output [14:0] io_a_Int,
   output [14:0] io_b_Int,
   output [13:0] io_c_Int,
   input  [15:0] io_x_Int,
   input  [15:0] io_y_Int,
   input  [15:0] io_z_Int,
-  input  [4:0] io_v_0_Int,
-  input  [4:0] io_v_1_Int,
-  input  [4:0] io_v_2_Int,
-  input   clock_Ext,
-  input   reset_Ext,
+  input  [4:0]  io_v_0_Int,
+  input  [4:0]  io_v_1_Int,
+  input  [4:0]  io_v_2_Int,
+  input         clock_Ext,
+  input         reset_Ext,
   input  [14:0] io_a_Ext,
   input  [14:0] io_b_Ext,
   input  [13:0] io_c_Ext,
   output [15:0] io_x_Ext,
   output [15:0] io_y_Ext,
   output [15:0] io_z_Ext,
-  inout  [2:0] io_analog1_Ext,
-  inout  [2:0] io_analog2_Ext,
-  output [4:0] io_v_0_Ext,
-  output [4:0] io_v_1_Ext,
-  output [4:0] io_v_2_Ext
+  inout  [2:0]  io_analog1_Ext,
+  inout  [2:0]  io_analog2_Ext,
+  output [4:0]  io_v_0_Ext,
+  output [4:0]  io_v_1_Ext,
+  output [4:0]  io_v_2_Ext
 );
   wire  pad_digital_from_tristate_foundry_vertical_input_array_reset_in;
   wire  pad_digital_from_tristate_foundry_vertical_input_array_reset_out;
@@ -118,19 +118,19 @@ module ExampleTopModuleWithBB_PadFrame(
   assign pad_digital_from_tristate_foundry_horizontal_output_array_io_v_2_in = io_v_2_Int;
 endmodule
 module ExampleTopModuleWithBB(
-  input   clock,
-  input   reset,
+  input         clock,
+  input         reset,
   input  [14:0] io_a,
   input  [14:0] io_b,
   input  [13:0] io_c,
   output [15:0] io_x,
   output [15:0] io_y,
   output [15:0] io_z,
-  inout  [2:0] io_analog1,
-  inout  [2:0] io_analog2,
-  output [4:0] io_v_0,
-  output [4:0] io_v_1,
-  output [4:0] io_v_2
+  inout  [2:0]  io_analog1,
+  inout  [2:0]  io_analog2,
+  output [4:0]  io_v_0,
+  output [4:0]  io_v_1,
+  output [4:0]  io_v_2
 );
   wire  ExampleTopModuleWithBB_PadFrame_clock_Int;
   wire  ExampleTopModuleWithBB_PadFrame_reset_Int;

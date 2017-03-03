@@ -4,6 +4,7 @@ import firrtl._
 import firrtl.annotations._
 import firrtl.passes._
 import firrtl.ir._
+import barstools.tapeout.transforms._
 
 // Main Add IO Pad transform operates on low Firrtl
 class AddIOPadsTransform extends Transform with SimpleRun {
@@ -17,8 +18,9 @@ class AddIOPadsTransform extends Transform with SimpleRun {
       // Transform not used
       case None => CircuitState(state.circuit, LowForm)
       case Some(x) => 
+        val techLoc = (new TechnologyLocation).get(state)
         // Get foundry pad templates from yaml
-        val foundryPads = FoundryPadsYaml.parse(x.padTemplateFile)
+        val foundryPads = FoundryPadsYaml.parse(techLoc)
         val portPads = AnnotatePortPads(state.circuit, x.topModName, foundryPads, x.componentAnnos, 
           HasPadAnnotation.getSide(x.defaultPadSide))
         val supplyPads = AnnotateSupplyPads(foundryPads, x.supplyAnnos)
@@ -27,7 +29,7 @@ class AddIOPadsTransform extends Transform with SimpleRun {
         val padFrameName = namespace newName s"${x.topModName}_PadFrame"
         val topInternalName = namespace newName s"${x.topModName}_Internal"
         val targetDir = barstools.tapeout.transforms.GetTargetDir(state)
-        PadPlacementFile.generate(x.padPlacementFile, targetDir, padFrameName, portPads, supplyPads)
+        PadPlacementFile.generate(techLoc, targetDir, padFrameName, portPads, supplyPads)
         val passSeq = Seq(
           Legalize,
           ResolveGenders,

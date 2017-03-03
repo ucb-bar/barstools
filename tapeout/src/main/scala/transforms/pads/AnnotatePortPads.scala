@@ -4,6 +4,7 @@ import firrtl.annotations._
 import firrtl._
 import firrtl.ir._
 import firrtl.passes._
+import barstools.tapeout.transforms._
 
 // TODO: Make some trait with commonalities between IO Pad + supply pad
 
@@ -85,11 +86,9 @@ object AnnotatePortPads {
       componentAnnos: Seq[TargetIOPadAnnoF], 
       defaultSide: PadSide): Seq[PortIOPad] = {
 
-    def lowerName(s: String): String = s.replace(".", "_").replace("[", "_")replace("]", "")
-
     def lowerAnnotations(): Seq[TargetIOPadAnnoF] = {
       componentAnnos map { x => x.target match {
-        case c: ComponentName => x.copy(target = c.copy(name = lowerName(c.name)))
+        case c: ComponentName => x.copy(target = c.copy(name = LowerName(c.name)))
         case _ => throw new Exception("Not a component annotation! Can't lower!")
       }}
     }
