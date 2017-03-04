@@ -37,9 +37,10 @@ class BB extends BlackBox with HasBlackBoxInline {
 // Default pad side is Top if no side is specified for a given IO
 // You can designate the number of different supply pads on each chip side
 class ExampleTopModuleWithBB extends TopModule(
-    ModulePadAnnotation(supplyAnnos = Seq(
+    supplyAnnos = Seq(
       SupplyAnnotation(padName = "vdd", leftSide = 3, bottomSide = 2),
-      SupplyAnnotation(padName = "vss", rightSide = 1)))) {
+      SupplyAnnotation(padName = "vss", rightSide = 1)
+    )) {
   val io = IO(new Bundle {
     val a = Input(UInt(15.W))
     val b = a.chiselCloneType

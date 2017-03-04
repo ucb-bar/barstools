@@ -8,6 +8,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import chisel3.experimental._
 import chisel3.iotesters._
 import chisel3.util.HasBlackBoxInline
+import barstools.tapeout.transforms.pads.TopModule
 
 // Purely to see that clk src tagging works with BBs
 class FakeBBClk extends BlackBox with HasBlackBoxInline with IsClkModule {
@@ -16,14 +17,15 @@ class FakeBBClk extends BlackBox with HasBlackBoxInline with IsClkModule {
     val outClk = Output(Vec(3, Clock())) 
   })
 
-  annotateClkPort(io.inClk, ClkPortAnnotation(id = "inClk", tag = Some(Sink())))
-  val generatedClks = io.outClk.zipWithIndex.map { case (elt, idx) => 
-    val id = s"outClk_${idx}"
-    annotateClkPort(elt.asInstanceOf[Element], ClkPortAnnotation(id = id)) 
-    GeneratedClk(id, Seq("inClk"), Seq(0, 1, 2))
+  annotateClkPort(io.inClk, Sink())
+  val generatedClks = io.outClk.map { case elt => 
+    val id = getIOName(elt)
+    val srcId = getIOName(io.inClk)
+    annotateClkPort(elt.asInstanceOf[Element]) 
+    GeneratedClk(id, Seq(srcId), Seq(0, 1, 2))
   }.toSeq
 
-  annotateDerivedClks(ClkModAnnotation(ClkDiv.serialize, generatedClks))
+  annotateDerivedClks(ClkDiv, generatedClks)
 
   // Generates a "FakeBB.v" file with the following Verilog module
   setInline("FakeBBClk.v",
@@ -68,12 +70,22 @@ class ModWithNestedClk(divBy: Int, phases: Seq[Int], syncReset: Boolean) extends
 
 }
 
-class TopModuleWithClks(val divBy: Int, val phases: Seq[Int]) extends Module {
+class TopModuleWithClks(val divBy: Int, val phases: Seq[Int]) extends TopModule(usePads = false) {
   val io = IO(new Bundle {
     val gen1 = new TestModWithNestedClkIO(phases.length)
     val gen2 = new TestModWithNestedClkIO(phases.length) 
     val gen3 = new TestModWithNestedClkIO(phases.length)
+    val fakeClk1 = Input(Clock())
+    val fakeClk2 = Input(Clock())
   })
+
+  // TODO: Don't have to type Some
+  annotateClkPort(clock, 
+    id = "clock", // not in io bundle
+    sink = Sink(Some(ClkSrc(period = 5.0, async = Seq(getIOName(io.fakeClk1)))))
+  )
+  annotateClkPort(io.fakeClk1, Sink(Some(ClkSrc(period = 4.0))))
+  annotateClkPort(io.fakeClk2, Sink(Some(ClkSrc(period = 3.0))))
 
   // Most complicated: test chain of clock generators
   val gen1 = Module(new ModWithNestedClk(divBy, phases, syncReset = true))

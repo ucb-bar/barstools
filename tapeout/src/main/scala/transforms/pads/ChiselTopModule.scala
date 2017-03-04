@@ -1,6 +1,11 @@
 package barstools.tapeout.transforms.pads
 
 import chisel3._
+import barstools.tapeout.transforms.clkgen._
+import chisel3.experimental._
+import firrtl.transforms.DedupModules
+
+// TODO: Move out of pads
 
 // NOTE: You can't really annotate outside of the module itself UNLESS you break up the compile step in 2 i.e.
 // annotate post-Chisel but pre-Firrtl (unfortunate non-generator friendly downside). 
@@ -9,27 +14,44 @@ import chisel3._
 
 // Chisel-y annotations
 abstract class TopModule(
-    modulePadAnnotation: ModulePadAnnotation = ModulePadAnnotation(),
+    supplyAnnos: Seq[SupplyAnnotation] = Seq.empty,
+    defaultPadSide: PadSide = Top,
+    coreWidth: Int = 0,
+    coreHeight: Int = 0,
     usePads: Boolean = true,
     override_clock: Option[Clock] = None, 
-    override_reset: Option[Bool] = None) extends Module(override_clock, override_reset) {
+    override_reset: Option[Bool] = None) extends Module(override_clock, override_reset) with IsClkModule {
 
-  // TODO: Fix when Chisel has an alternative. Element = subclass of Data; get ground elements
-  def extractElements(s: Data): Seq[Element] = {
-    s match {
-      case elt: Aggregate => elt.getElements flatMap {extractElements(_)}
-      case elt: Element => Seq(elt)
-      case _ => throw new Exception("Can't extract element from aggregate")
+  override def annotateClkPort(p: Element, anno: ClkPortAnnotation): Unit = {
+    p.dir match {
+      case chisel3.core.Direction.Input => 
+        require(anno.tag.nonEmpty, "Top Module input clks must be clk sinks")
+        require(anno.tag.get.src.nonEmpty, 
+          "Top module input clks must have clk period, etc. specified")
+      case _ =>
+        throw new Exception("Clk port direction must be specified!")
     }
+    p match {
+      case _: chisel3.core.Clock =>
+      case _ => throw new Exception("Clock port must be of type Clock")
+    }
+    annotate(TargetClkPortAnnoC(p, anno).getAnno)
   }
 
-  val defaultPadSide = modulePadAnnotation.getDefaultPadSide
+  override def annotateDerivedClks(m: Module, anno: ClkModAnnotation): Unit = 
+    throw new Exception("Top module cannot be pure clock module!")
 
   // Annotate module as top module (that requires pad transform)
   // Specify the yaml file that indicates how pads are templated,
   // the default chip side that pads should be placed (if nothing is specified per IO),
   // and supply annotations: supply pad name, location, and #
   def createPads(): Unit = if (usePads) {
+    val modulePadAnnotation = ModulePadAnnotation(
+      defaultPadSide = defaultPadSide.serialize,
+      coreWidth = coreWidth,
+      coreHeight = coreHeight,
+      supplyAnnos = supplyAnnos
+    )
     annotate(TargetModulePadAnnoC(this, modulePadAnnotation).getAnno)
   }
     

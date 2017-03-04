@@ -76,17 +76,17 @@ class SEClkDivider(divBy: Int, phases: Seq[Int], analogFile: String = "", syncRe
 
   val io = IO(new SEClkDividerIO(phases))
 
-  annotateClkPort(io.inClk, ClkPortAnnotation(id = "inClk", tag = Some(Sink())))
+  annotateClkPort(io.inClk, Sink())
 
   val referenceEdges = phases.map(p => Seq(2 * p, 2 * (p + 1), 2 * (p + divBy)))
 
-  val generatedClks = io.outClks.elements.zip(referenceEdges).map { case ((field, elt), edges) => 
-    val id = s"outClks_${field}"
-    annotateClkPort(elt.asInstanceOf[Element], ClkPortAnnotation(id = id)) 
-    GeneratedClk(id, Seq("inClk"), edges)
+  val generatedClks = io.outClks.elements.zip(referenceEdges).map { case ((field, eltx), edges) =>
+    val elt = eltx.asInstanceOf[Element]
+    annotateClkPort(elt) 
+    GeneratedClk(getIOName(elt), sources = Seq(getIOName(io.inClk)), edges)
   }.toSeq
 
-  annotateDerivedClks(ClkModAnnotation(ClkDiv.serialize, generatedClks))
+  annotateDerivedClks(ClkDiv, generatedClks)
 
   require(divBy >= 1, "Clk division factor must be >= 1")
 
