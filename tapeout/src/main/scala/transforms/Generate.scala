@@ -23,7 +23,7 @@ object AllModules {
   }
 }
 
-case class ParsedInput(args: Seq[String]) {
+case class ParsedInput(args: Seq[String]) extends LazyLogging {
   var input: Option[String] = None
   var output: Option[String] = None
   var topOutput: Option[String] = None
@@ -75,7 +75,7 @@ case class ParsedInput(args: Seq[String]) {
       }
       case _ => {
         if (! (usedOptions contains i)) {
-          error("Unknown option " + arg)
+          logger.error("Unknown option " + arg)
         }
       }
     }
