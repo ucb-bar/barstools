@@ -113,7 +113,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
       new passes.clocklist.ClockListTransform()
     ) } else Seq()
 
-    return pre ++ enumerate ++ post
+    pre ++ enumerate ++ post
   }
 
   private def _getHarnessPasses(top: Boolean, harness: Boolean): Seq[Transform] = {
@@ -128,8 +128,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
 
   private def _getTopAnnotations(top: Boolean, harness: Boolean): AnnotationMap = {
 
-    if (harness) { AnnotationMap(Seq.empty) }
-    else {
+    if (top) { 
       //Load annotations from file
       val annotationArray = annoFile match {
         case None => Array[Annotation]()
@@ -156,7 +155,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
           s"-c:${synTop.get}:${seqMemFlags.get}"
         )
       ) ++ annotationArray)
-    }
+    } else { AnnotationMap(Seq.empty) }
   }
 
   // always the same for now
