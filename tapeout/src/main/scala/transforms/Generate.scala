@@ -262,13 +262,3 @@ object GenerateTopAndHarness extends GenerateTopAndHarnessApp {
   generateTopAndHarness
 }
 
-object Generator extends GenerateTopAndHarnessApp {
-  (output, topOutput, harnessOutput) match {
-    case (Some(o), None, None) => logger.error("Must specify either --top-o or --harness-o when using this generator, -o does nothing.")
-    case (_, Some(t), None)    => generateTop
-    case (_, None, Some(h))    => generateHarness
-    case (_, Some(t), Some(h)) => generateTopAndHarness
-    case (None, None, None)    => logger.error("Must specify either --top-o or --harness-o when using this generator.")
-  }
-}
-
