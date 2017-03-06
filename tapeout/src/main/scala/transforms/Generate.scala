@@ -76,7 +76,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
       }
       case _ => {
         if (! (usedOptions contains i)) {
-          error("Unknown option " + arg)
+          logger.error("Unknown option " + arg)
         }
       }
     }
@@ -184,23 +184,28 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
     // warn about unused options
     topOutput match {
       case Some(value) => logger.warn("Not using top-level output filename $value since you asked for just a test harness.")
+      case None => 
     }
     annoFile match {
       case Some(value) => logger.warn("Not using annotations file $value since you asked for just a test harness.")
+      case None => 
     }
     seqMemFlags match {
       case Some("-o:unused.confg") => 
       case Some(value) => logger.warn("Not using SeqMem flags $value since you asked for just a test harness.")
+      case None => 
     }
     listClocks match {
       case Some("-o:unused.clocks") => 
       case Some(value) => logger.warn("Not using clocks list $value since you asked for just a test harness.")
+      case None => 
     }
     harnessOutput match {
       case Some(value) => output match {
-        case Some(value) => logger.warn("Not using harness output filename $value since you asked for just a test harness and also specified output.") 
+        case Some(value2) => logger.warn("Not using generic output filename $value2 since you asked for just a test harness and also specified a generic output.") 
         case None => output = Some(value)
       }
+      case None => 
     }
 
     // generate test harness
@@ -214,12 +219,14 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
     // warn about unused options
     harnessOutput match {
       case Some(value) => logger.warn("Not using harness output filename $value since you asked for just a top-level output.")
+      case None => 
     }
     topOutput match {
       case Some(value) => output match {
-        case Some(value) => logger.warn("Not using top-level output filename $value since you asked for just a top-level output and also specified output.") 
+        case Some(value2) => logger.warn("Not using generic output filename $value2 since you asked for just a top-level output and also specified a generic output.") 
         case None => output = Some(value)
       }
+      case None => 
     }
 
     // generate top
@@ -233,6 +240,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
     // warn about unused options
     output match {
       case Some(value) => logger.warn("Not using generic output filename $value since you asked for both a top-level output and a test harness.")
+      case None => 
     }
 
     // generate both
@@ -253,3 +261,14 @@ object GenerateHarness extends GenerateTopAndHarnessApp {
 object GenerateTopAndHarness extends GenerateTopAndHarnessApp {
   generateTopAndHarness
 }
+
+object Generator extends GenerateTopAndHarnessApp {
+  (output, topOutput, harnessOutput) match {
+    case (Some(o), None, None) => logger.error("Must specify either --top-o or --harness-o when using this generator, -o does nothing.")
+    case (_, Some(t), None)    => generateTop
+    case (_, None, Some(h))    => generateHarness
+    case (_, Some(t), Some(h)) => generateTopAndHarness
+    case (None, None, None)    => logger.error("Must specify either --top-o or --harness-o when using this generator.")
+  }
+}
+
