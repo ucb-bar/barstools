@@ -23,8 +23,7 @@ object AllModules {
   }
 }
 
-
-trait GenerateTopAndHarnessApp extends App with LazyLogging {
+case class ParsedInput(args: Seq[String]) {
   var input: Option[String] = None
   var output: Option[String] = None
   var topOutput: Option[String] = None
@@ -76,11 +75,26 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
       }
       case _ => {
         if (! (usedOptions contains i)) {
-          logger.error("Unknown option " + arg)
+          error("Unknown option " + arg)
         }
       }
     }
   }
+
+}
+
+trait GenerateTopAndHarnessApp extends App with LazyLogging {
+
+  lazy val options: ParsedInput = ParsedInput(args)
+  lazy val input = options.input
+  lazy val output = options.output
+  lazy val topOutput = options.topOutput
+  lazy val harnessOutput = options.harnessOutput
+  lazy val annoFile = options.annoFile
+  lazy val synTop = options.synTop
+  lazy val harnessTop = options.harnessTop
+  lazy val seqMemFlags = options.seqMemFlags
+  lazy val listClocks = options.listClocks
 
   private def _getTopPasses(top: Boolean, harness: Boolean): Seq[Transform] = {
 
@@ -90,7 +104,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
     )
 
     val enumerate = if (harness) { Seq(
-      new EnumerateModules( { m => if (m.name != synTop.get) { AllModules.add(m.name) } } )
+      new EnumerateModules( { m => if (m.name != options.synTop.get) { AllModules.add(m.name) } } )
     ) } else Seq()
 
     val post = if (top) { Seq(
@@ -203,7 +217,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
     harnessOutput match {
       case Some(value) => output match {
         case Some(value2) => logger.warn("Not using generic output filename $value2 since you asked for just a test harness and also specified a generic output.") 
-        case None => output = Some(value)
+        case None => 
       }
       case None => 
     }
@@ -224,7 +238,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
     topOutput match {
       case Some(value) => output match {
         case Some(value2) => logger.warn("Not using generic output filename $value2 since you asked for just a top-level output and also specified a generic output.") 
-        case None => output = Some(value)
+        case None =>
       }
       case None => 
     }
