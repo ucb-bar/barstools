@@ -6,6 +6,7 @@ import scala.collection.immutable.ListMap
 final class CustomBundle(elts: (String, Data)*) extends Record {
   val elements = ListMap(elts map { case (field, elt) => field -> elt.chiselCloneType }: _*)
   def apply(elt: String): Data = elements(elt)
+  def apply(elt: Int): Data = elements(elt.toString)
   override def cloneType = (new CustomBundle(elements.toList: _*)).asInstanceOf[this.type]
 }
 
