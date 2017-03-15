@@ -13,8 +13,8 @@ final class CustomBundle[T <: Data](elts: (String, T)*) extends Record {
 final class CustomIndexedBundle[T <: Data](elts: (Int, T)*) extends Record {
   // Must be String, Data
   val elements = ListMap(elts map { case (field, elt) => field.toString -> elt.chiselCloneType }: _*)
-  // TODO: Make an equivalent to the below work
-  // def indexedElements = ListMap(elts map { case (field, elt) => field -> elt.chiselCloneType }: _*)
+  // TODO: Make an equivalent to the below work publicly
+  private def indexedElements = ListMap(elts map { case (field, elt) => field -> elt.chiselCloneType }: _*)
   def apply(elt: Int): T = elements(elt.toString)
   override def cloneType = (new CustomIndexedBundle(indexedElements.toList: _*)).asInstanceOf[this.type]
 }
