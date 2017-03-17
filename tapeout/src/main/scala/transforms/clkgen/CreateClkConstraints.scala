@@ -117,7 +117,7 @@ class CreateClkConstraints(
         // sources of sinks are generated clks or top level clk inputs
         if (clkSrcsFlip.contains(sourceAbsPath)) clkSrcsFlip(sourceAbsPath)
         else if (topClksFlip.contains(sourceAbsPath)) topClksFlip(sourceAbsPath)
-        else throw new Exception(s"Absolute path of clk source for $sinkId not found!")
+        else throw new Exception(s"Absolute path $sourceAbsPath of clk source for $sinkId not found!")
       }
       sinkId -> sourceId
     }
