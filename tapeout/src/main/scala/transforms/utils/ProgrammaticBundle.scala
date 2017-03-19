@@ -3,14 +3,14 @@ package barstools.tapeout.transforms
 import chisel3._
 import scala.collection.immutable.ListMap
 
-final class CustomBundle[T <: Data](elts: (String, T)*) extends Record {
+class CustomBundle[T <: Data](elts: (String, T)*) extends Record {
   val elements = ListMap(elts map { case (field, elt) => field -> elt.chiselCloneType }: _*)
   def apply(elt: String): T = elements(elt)
   def apply(elt: Int): T = elements(elt.toString)
   override def cloneType = (new CustomBundle(elements.toList: _*)).asInstanceOf[this.type]
 }
 
-final class CustomIndexedBundle[T <: Data](elts: (Int, T)*) extends Record {
+class CustomIndexedBundle[T <: Data](elts: (Int, T)*) extends Record {
   // Must be String, Data
   val elements = ListMap(elts map { case (field, elt) => field.toString -> elt.chiselCloneType }: _*)
   // TODO: Make an equivalent to the below work publicly
