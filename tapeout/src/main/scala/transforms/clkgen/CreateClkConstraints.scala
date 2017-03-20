@@ -131,7 +131,8 @@ class CreateClkConstraints(
             clkPortAnnos.find(x => 
               // TODO: Not sufficiently general for output clks? Might have forgotten to label a clk module...
               LowerName(x.target.name) == n && x.target.module.name == mod.name).getOrElse(
-              throw new Exception("All top module input clks/clk module output clocks must be sinks/sources!"))
+              throw new Exception(
+                s"All top module input clks/clk module output clocks must be sinks/sources! $n not annotated!"))
           case _ =>
         }
     }
