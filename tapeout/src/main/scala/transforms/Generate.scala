@@ -83,8 +83,9 @@ case class ParsedInput(args: Seq[String]) extends LazyLogging {
 
 }
 
-trait GenerateTopAndHarnessApp extends App with LazyLogging {
-
+// Requires two phases, one to collect modules below synTop in the hierarchy
+// and a second to remove those modules to generate the test harness
+sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
   lazy val options: ParsedInput = ParsedInput(args)
   lazy val input = options.input
   lazy val output = options.output
@@ -96,8 +97,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
   lazy val seqMemFlags = options.seqMemFlags
   lazy val listClocks = options.listClocks
 
-  private def _getTopPasses(top: Boolean, harness: Boolean): Seq[Transform] = {
-
+  private def getFirstPhasePasses(top: Boolean, harness: Boolean): Seq[Transform] = {
     val pre = Seq(
       new ReParentCircuit(synTop.get),
       new RemoveUnusedModules
@@ -116,18 +116,7 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
     pre ++ enumerate ++ post
   }
 
-  private def _getHarnessPasses(top: Boolean, harness: Boolean): Seq[Transform] = {
-
-    // always the same for now
-    Seq(
-      new ConvertToExtMod((m) => m.name == synTop.get),
-      new RemoveUnusedModules,
-      new RenameModulesAndInstances((m) => AllModules.rename(m))
-    )
-  }
-
-  private def _getTopAnnotations(top: Boolean, harness: Boolean): AnnotationMap = {
-
+  private def getFirstPhaseAnnotations(top: Boolean): AnnotationMap = {
     if (top) { 
       //Load annotations from file
       val annotationArray = annoFile match {
@@ -142,7 +131,6 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
           }
         }
       }
-
       // add new annotations
       AnnotationMap(Seq(
         passes.memlib.InferReadWriteAnnotation(
@@ -158,120 +146,72 @@ trait GenerateTopAndHarnessApp extends App with LazyLogging {
     } else { AnnotationMap(Seq.empty) }
   }
 
+  private def getSecondPhasePasses: Seq[Transform] = {
+    // always the same for now
+    Seq(
+      new ConvertToExtMod((m) => m.name == synTop.get),
+      new RemoveUnusedModules,
+      new RenameModulesAndInstances((m) => AllModules.rename(m))
+    )
+  }
+
   // always the same for now
-  private def _getHarnessAnnotations(top: Boolean, harness: Boolean): AnnotationMap = AnnotationMap(Seq.empty)
+  private def getSecondPhaseAnnotations: AnnotationMap = AnnotationMap(Seq.empty)
 
   // Top Generation
-  private def _generateTop(top: Boolean, harness: Boolean): Unit = {
+  protected def firstPhase(top: Boolean, harness: Boolean): Unit = {
     require(top || harness, "Must specify either top or harness")
     firrtl.Driver.compile(
       input.get,
       topOutput.getOrElse(output.get),
       new VerilogCompiler(),
       Parser.UseInfo,
-      _getTopPasses(top, harness),
-      _getTopAnnotations(top, harness)
+      getFirstPhasePasses(top, harness),
+      getFirstPhaseAnnotations(top)
     )
-
   }
 
   // Harness Generation
-  private def _generateHarness(top: Boolean, harness: Boolean): Unit = {
-    require(top || harness, "Must specify either top or harness")
-    if (harness) {
-      firrtl.Driver.compile(
-        input.get,
-        harnessOutput.getOrElse(output.get),
-        new VerilogCompiler(),
-        Parser.UseInfo,
-        _getHarnessPasses(top, harness),
-        _getHarnessAnnotations(top, harness)
-      )
-    }
-    // else do nothing, since there's no need to generate a harness when just generating a top
+  protected def secondPhase: Unit = {
+    firrtl.Driver.compile(
+      input.get,
+      harnessOutput.getOrElse(output.get),
+      new VerilogCompiler(),
+      Parser.UseInfo,
+      getSecondPhasePasses,
+      getSecondPhaseAnnotations
+    )
   }
-
-  // generates a verilog test harness
-  def generateHarness: Unit = {
-
-    // warn about unused options
-    topOutput match {
-      case Some(value) => logger.warn("Not using top-level output filename $value since you asked for just a test harness.")
-      case None => 
-    }
-    annoFile match {
-      case Some(value) => logger.warn("Not using annotations file $value since you asked for just a test harness.")
-      case None => 
-    }
-    seqMemFlags match {
-      case Some("-o:unused.confg") => 
-      case Some(value) => logger.warn("Not using SeqMem flags $value since you asked for just a test harness.")
-      case None => 
-    }
-    listClocks match {
-      case Some("-o:unused.clocks") => 
-      case Some(value) => logger.warn("Not using clocks list $value since you asked for just a test harness.")
-      case None => 
-    }
-    harnessOutput match {
-      case Some(value) => output match {
-        case Some(value2) => logger.warn("Not using generic output filename $value2 since you asked for just a test harness and also specified a generic output.") 
-        case None => 
-      }
-      case None => 
-    }
-
-    // generate test harness
-    _generateTop(top = false, harness = true)
-    _generateHarness(top = false, harness = true)
-  }
-
-  // generates a top-level verilog
-  def generateTop: Unit = {
-
-    // warn about unused options
-    harnessOutput match {
-      case Some(value) => logger.warn("Not using harness output filename $value since you asked for just a top-level output.")
-      case None => 
-    }
-    topOutput match {
-      case Some(value) => output match {
-        case Some(value2) => logger.warn("Not using generic output filename $value2 since you asked for just a top-level output and also specified a generic output.") 
-        case None =>
-      }
-      case None => 
-    }
-
-    // generate top
-    _generateTop(top = true, harness = false)
-    _generateHarness(top = true, harness = false) // does nothing, but here for symmetry!
-  }
-
-  // generates both a top-level verilog and verilog test harness
-  def generateTopAndHarness: Unit = {
-
-    // warn about unused options
-    output match {
-      case Some(value) => logger.warn("Not using generic output filename $value since you asked for both a top-level output and a test harness.")
-      case None => 
-    }
-
-    // generate both
-    _generateTop(top = true, harness = true)
-    _generateHarness(top = true, harness = true)
-  }
-
 }
 
 object GenerateTop extends GenerateTopAndHarnessApp {
-  generateTop
+  // warn about unused options
+  harnessOutput.foreach(n => logger.warn(s"Not using harness output filename $n since you asked for just a top-level output."))
+  topOutput.foreach(_.foreach{
+    n => logger.warn(s"Not using generic output filename $n since you asked for just a top-level output and also specified a generic output.")})
+  // Only need a single phase to generate the top module
+  firstPhase(top = true, harness = false)
 }
 
 object GenerateHarness extends GenerateTopAndHarnessApp {
-  generateHarness
+  // warn about unused options
+  topOutput.foreach(n => logger.warn(s"Not using top-level output filename $n since you asked for just a test harness."))
+  annoFile.foreach(n => logger.warn(s"Not using annotations file $n since you asked for just a test harness."))
+  seqMemFlags.filter(_ != "-o:unused.confg").foreach {
+    n => logger.warn(s"Not using SeqMem flags $n since you asked for just a test harness.") }
+  listClocks.filter(_ != "-o:unused.clocks").foreach {
+    n => logger.warn(s"Not using clocks list $n since you asked for just a test harness.") }
+  harnessOutput.foreach(_.foreach{
+    n => logger.warn(s"Not using generic output filename $n since you asked for just a test harness and also specified a generic output.")})
+  // Do minimal work for the first phase to generate test harness
+  firstPhase(top = false, harness = true)
+  secondPhase
 }
 
 object GenerateTopAndHarness extends GenerateTopAndHarnessApp {
-  generateTopAndHarness
+  // warn about unused options
+  output.foreach(n => logger.warn(s"Not using generic output filename $n since you asked for both a top-level output and a test harness."))
+  // Do everything, top and harness generation
+  firstPhase(top = true, harness = true)
+  secondPhase
 }
-
