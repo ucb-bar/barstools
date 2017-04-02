@@ -22,6 +22,7 @@ class ClkSrcTransform extends Transform with SeqTransformBased {
       case None => CircuitState(state.circuit, LowForm)
       case Some((clkModAnnos, clkPortAnnos)) =>
         val targetDir = barstools.tapeout.transforms.GetTargetDir(state)
+      
         transformList ++= Seq(
           InferTypes,
           new CreateClkConstraints(clkModAnnos, clkPortAnnos, targetDir)
