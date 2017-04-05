@@ -108,6 +108,7 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
     ) } else Seq()
 
     val post = if (top) { Seq(
+      new transforms.BlackBoxSourceHelper(),
       new passes.memlib.InferReadWrite(),
       new passes.memlib.ReplSeqMem(),
       new passes.clocklist.ClockListTransform()
