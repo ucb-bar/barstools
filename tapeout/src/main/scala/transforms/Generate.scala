@@ -100,7 +100,8 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
   private def getFirstPhasePasses(top: Boolean, harness: Boolean): Seq[Transform] = {
     val pre = Seq(
       new ReParentCircuit(synTop.get),
-      new RemoveUnusedModules
+      new RemoveUnusedModules,
+      new transforms.BlackBoxSourceHelper()
     )
 
     val enumerate = if (harness) { Seq(
@@ -108,7 +109,6 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
     ) } else Seq()
 
     val post = if (top) { Seq(
-      new transforms.BlackBoxSourceHelper(),
       new passes.memlib.InferReadWrite(),
       new passes.memlib.ReplSeqMem(),
       new passes.clocklist.ClockListTransform()
@@ -168,7 +168,8 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
       new VerilogCompiler(),
       Parser.UseInfo,
       getFirstPhasePasses(top, harness),
-      getFirstPhaseAnnotations(top)
+      getFirstPhaseAnnotations(true)
+      //getFirstPhaseAnnotations(top)
     )
   }
 
