@@ -122,10 +122,10 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
   private def getFirstPhaseAnnotations(top: Boolean): AnnotationMap = {
     if (top) { 
 
-			// TODO: Fix really nasty hack. Or more like this shouldn't be done this way.     
-    	val targetDir = annoFile.getOrElse("./.").split("/").init.mkString("/")
+      // TODO: Fix really nasty hack. Or more like this shouldn't be done this way.     
+      val targetDir = annoFile.getOrElse("./.").split("/").init.mkString("/")
 
-    	val targetDirAnno = Seq(Annotation(
+      val targetDirAnno = Seq(Annotation(
         CircuitName("All"),
         classOf[BlackBoxSourceHelper],
         BlackBoxTargetDir(targetDir).serialize
@@ -210,10 +210,6 @@ object GenerateTop extends GenerateTopAndHarnessApp {
 object GenerateHarness extends GenerateTopAndHarnessApp {
   // warn about unused options
   topOutput.foreach(n => logger.warn(s"Not using top-level output filename $n since you asked for just a test harness."))
-  
-  
-  annoFile foreach { x => println(x) }
-  
   annoFile.foreach(n => logger.warn(s"Not using annotations file $n since you asked for just a test harness."))
   seqMemFlags.filter(_ != "-o:unused.confg").foreach {
     n => logger.warn(s"Not using SeqMem flags $n since you asked for just a test harness.") }
