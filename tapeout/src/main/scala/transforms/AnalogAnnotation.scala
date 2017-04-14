@@ -7,7 +7,7 @@ import chisel3.experimental.ChiselAnnotation
 import chisel3.util._
 import chisel3.testers.BasicTester
 import chisel3.experimental.{Analog, attach}
-import firrtl.ir.{AnalogType, Circuit, DefModule, Expression, HasName, Port, Statement, Type}
+import firrtl.ir.{AnalogType, Circuit, DefModule, DefWire, Expression, HasName, Port, Statement, Type}
 import firrtl.{CircuitForm, CircuitState, LowForm, Transform}
 import firrtl.annotations.{Annotation, ModuleName, Named, ComponentName}
 import firrtl.Mappers._
@@ -43,26 +43,28 @@ class AnalogRenamer extends Transform {
   }
   def walkModule(annos: Seq[(ComponentName, String)])(m: DefModule): DefModule = {
     val filteredAnnos = Map(annos.filter(a => a._1.module.name == m.name).map {
-      case (c, s) => c.name.replace(".", "_") -> s
+      case (c, s) => 
+        println(c + "," + s)
+        c.name.replace(".", "_") -> s
     }: _*)
     m map walkStatement(filteredAnnos) map walkPort(filteredAnnos)
   }
   def walkStatement(annos: Map[String, String])(s: Statement): Statement = {
-    s map walkExpression(annos)
+    val visited = s map walkStatement(annos)
+    visited match {
+      case w: DefWire =>
+        if (annos.contains(w.name)) {
+          updateAnalogVerilog(annos(w.name))(w.tpe)
+        }
+        w
+      case _ => visited
+    }
   }
   def walkPort(annos: Map[String, String])(p: Port): Port = {
     if (annos.contains(p.name)) {
       updateAnalogVerilog(annos(p.name))(p.tpe)
     }
     p
-  }
-  def walkExpression(annos: Map[String, String])(e: Expression): Expression = {
-    e match {
-      case h: HasName =>
-        if (annos.contains(h.name)) e mapType updateAnalogVerilog(annos(h.name))
-      case _ =>
-    }
-    e
   }
   def updateAnalogVerilog(value: String)(tpe: Type): Type = {
     tpe match {
