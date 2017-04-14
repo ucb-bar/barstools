@@ -44,7 +44,6 @@ class AnalogRenamer extends Transform {
   def walkModule(annos: Seq[(ComponentName, String)])(m: DefModule): DefModule = {
     val filteredAnnos = Map(annos.filter(a => a._1.module.name == m.name).map {
       case (c, s) => 
-        println(c + "," + s)
         c.name.replace(".", "_") -> s
     }: _*)
     m map walkStatement(filteredAnnos) map walkPort(filteredAnnos)
