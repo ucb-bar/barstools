@@ -16,8 +16,8 @@ lazy val commonSettings = Seq(
 )
 
 val defaultVersions = Map(
-  "chisel3" -> "3.1-SNAPSHOT",
-  "chisel-iotesters" -> "1.2-SNAPSHOT"
+  "chisel3" -> "3.0-SNAPSHOT",
+  "chisel-iotesters" -> "1.1-SNAPSHOT"
 )
 
 val firrtl_path = sys.props.getOrElse("FIRRTL_HOME", default="firrtl")
