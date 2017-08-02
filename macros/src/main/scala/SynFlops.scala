@@ -31,13 +31,13 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
       dataType,
       lib.src.depth,
       1, // writeLatency
-      1, // readLatency. This is possible because of VerilogMemDelays
-      lib.readers.indices map (i => s"R_$i"),
-      lib.writers.indices map (i => s"W_$i"),
-      lib.readwriters.indices map (i => s"RW_$i")
+      0, // readLatency.
+      (lib.readers ++ lib.readwriters).indices map (i => s"R_$i"),
+      (lib.writers ++ lib.readwriters).indices map (i => s"W_$i"),
+      Nil
     )
 
-    val readConnects = lib.readers.zipWithIndex flatMap { case (r, i) =>
+    val readConnects = (lib.readers ++ lib.readwriters).zipWithIndex flatMap { case (r, i) =>
       val clock = portToExpression(r.src.clock)
       val address = portToExpression(r.src.address)
       val enable = (r.src chipEnable, r.src readEnable) match {
@@ -49,20 +49,23 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
         case (None, None) => one
       }
       val data = memPortField(mem, s"R_$i", "data")
+      val reg = WRef(s"R_${i}_data_reg", r.dataType, RegKind)
       val read = (dataType: @unchecked) match {
         case VectorType(tpe, size) => cat(((0 until size) map (k =>
           WSubIndex(data, k, tpe, UNKNOWNGENDER))).reverse)
         case _: UIntType => data
       }
       Seq(
+        DefRegister(NoInfo, reg.name, r.dataType, clock, zero, reg),
         Connect(NoInfo, memPortField(mem, s"R_$i", "clk"), clock),
         Connect(NoInfo, memPortField(mem, s"R_$i", "addr"), address),
         Connect(NoInfo, memPortField(mem, s"R_$i", "en"), enable),
-        Connect(NoInfo, WRef(r.src.output.get.name), read)
+        Connect(NoInfo, reg, Mux(enable, read, reg, r.dataType)),
+        Connect(NoInfo, WRef(r.src.output.get.name), reg)
       )
     }
 
-    val writeConnects = lib.writers.zipWithIndex flatMap { case (w, i) =>
+    val writeConnects = (lib.writers ++ lib.readwriters).zipWithIndex flatMap { case (w, i) =>
       val clock = portToExpression(w.src.clock)
       val address = portToExpression(w.src.address)
       val enable = (w.src.chipEnable, w.src.writeEnable) match {
@@ -94,50 +97,7 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
       })
     }
 
-    val readwriteConnects = lib.readwriters.zipWithIndex flatMap { case (rw, i) =>
-      val clock = portToExpression(rw.src.clock)
-      val address = portToExpression(rw.src.address)
-      val wmode = rw.src.writeEnable match {
-        case Some(we) => portToExpression(we)
-        case None => zero // is it possible?
-      }
-      val enable = (rw.src.chipEnable, rw.src.readEnable) match {
-        case (Some(en), Some(re)) =>
-          and(portToExpression(en), or(portToExpression(re), wmode))
-        case (Some(en), None) => portToExpression(en)
-        case (None, Some(re)) => or(portToExpression(re), wmode)
-        case (None, None) => one
-      }
-      val wmask = memPortField(mem, s"RW_$i", "wmask")
-      val wdata = memPortField(mem, s"RW_$i", "wdata")
-      val rdata = memPortField(mem, s"RW_$i", "rdata")
-      val write = portToExpression(rw.src.input.get)
-      val read = (dataType: @unchecked) match {
-        case VectorType(tpe, size) => cat(((0 until size) map (k =>
-          WSubIndex(rdata, k, tpe, UNKNOWNGENDER))).reverse)
-        case _: UIntType => rdata
-      }
-      Seq(
-        Connect(NoInfo, memPortField(mem, s"RW_$i", "clk"), clock),
-        Connect(NoInfo, memPortField(mem, s"RW_$i", "addr"), address),
-        Connect(NoInfo, memPortField(mem, s"RW_$i", "en"), enable),
-        Connect(NoInfo, memPortField(mem, s"RW_$i", "wmode"), wmode),
-        Connect(NoInfo, WRef(rw.src.output.get.name), read)
-      ) ++ (dataType match {
-        case VectorType(tpe, size) =>
-          val width = bitWidth(tpe).toInt
-          ((0 until size) map (k =>
-            Connect(NoInfo, WSubIndex(wdata, k, tpe, UNKNOWNGENDER),
-                            bits(write, (k + 1) * width - 1, k * width)))) ++
-          ((0 until size) map (k =>
-            Connect(NoInfo, WSubIndex(wmask, k, BoolType, UNKNOWNGENDER),
-                            bits(WRef(rw.src.maskPort.get.name), k))))
-        case _: UIntType =>
-          Seq(Connect(NoInfo, wdata, write), Connect(NoInfo, wmask, one))
-      })
-    }
-
-    lib.module(Block(mem +: (readConnects ++ writeConnects ++ readwriteConnects)))
+    lib.module(Block(mem +: (readConnects ++ writeConnects)))
   }}).toMap
 
   def run(c: Circuit): Circuit = {
