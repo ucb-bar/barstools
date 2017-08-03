@@ -53,35 +53,31 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
     val pairedPorts = mem.sortedPorts zip lib.sortedPorts
 
     // Parallel mapping
-    val pairs = ArrayBuffer[(BigInt, BigInt)]()
-    var last = 0
-    for (i <- 0 until mem.src.width) {
-      if (i <= last + 1) {
+    val memMaskGran = mem.sortedPorts map (_.src.maskGran) find (_.isDefined) map (_.get)
+    val libMaskGran = lib.sortedPorts map (_.src.maskGran) find (_.isDefined) map (_.get)
+    val bitPairs = try {
+      val (res, last) = ((0 until mem.src.width) foldLeft (Seq[(Int, Int)](), 0)) {
         /* Palmer: Every memory is going to have to fit at least a single bit. */
-        // continue
-      } else if ((i - last) % lib.src.width.toInt == 0) {
+        case ((res, last), i) if i <= last => (res, last)
         /* Palmer: It's possible that we rolled over a memory's width here,
                    if so generate one. */
-        pairs += ((last, i-1))
-        last = i
-      } else {
-        /* Palmer: FIXME: This is a mess, I must just be super confused. */
-        for ((memPort, libPort) <- pairedPorts) {
-          (memPort.src.maskGran, libPort.src.maskGran) match {
-            case (_, Some(p)) if p == 1 => // continue
-            case (Some(p), _) if i % p == 0 =>
-              pairs += ((last, i-1))
-              last = i
-            case (_, None) => // continue
-            case (_, Some(p)) if p == lib.src.width => // continue
-            case _ =>
-              System.err println "Bit-mask (or unmasked) target memories are supported only"
-              return None
-          }
+        case ((res, last), i) if (i - last) % lib.src.width.toInt == 0 =>
+          (res :+ ((last, i - 1)), i)
+        case ((res, last), i) => (memMaskGran, libMaskGran) match {
+          case (_, Some(p)) if p == 1 => (res, last)
+          case (Some(p), _) if i % p == 0 => (res :+ (last, i - 1), i)
+          case (_, Some(p)) if p == lib.src.width => (res, last)
+          case (_, None) => (res, last)
+          // TODO: match error in case p != 1 and p != lib.src.width
+          // case (_, Some(p)) =>
         }
       }
+      res :+ (last, mem.src.width - 1)
+    } catch {
+      case e: MatchError =>
+        System.err println "Bit-mask (or unmasked) target memories are supported only"
+        return None
     }
-    pairs += ((last, mem.src.width.toInt - 1))
 
     // Serial mapping
     val stmts = ArrayBuffer[Statement]()
@@ -116,7 +112,7 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
       }
     }
     for ((off, i) <- (0 until mem.src.depth by lib.src.depth).zipWithIndex) {
-      for (j <- pairs.indices) {
+      for (j <- bitPairs.indices) {
         val name = s"mem_${i}_${j}"
         stmts += WDefInstance(NoInfo, name, lib.src.name, lib.tpe)
         // connect extra ports
@@ -141,7 +137,7 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
           and(e, addrMatch)
         }
         val cats = ArrayBuffer[Expression]()
-        for (((low, high), j) <- pairs.zipWithIndex) {
+        for (((low, high), j) <- bitPairs.zipWithIndex) {
           val inst = WRef(s"mem_${i}_${j}", lib.tpe)
 
           def connectPorts2(mem: Expression,
