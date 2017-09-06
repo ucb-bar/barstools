@@ -2,6 +2,11 @@
 
 import Dependencies._
 
+resolvers in ThisBuild ++= Seq(
+  Resolver.sonatypeRepo("snapshots"),
+  Resolver.sonatypeRepo("releases")
+)
+
 lazy val commonSettings = Seq(
   organization := "edu.berkeley.cs",
   version := "0.1-SNAPSHOT",
@@ -15,7 +20,11 @@ val defaultVersions = Map(
   "chisel-iotesters" -> "1.2-SNAPSHOT"
 )
 
+val firrtl_path = sys.props.getOrElse("FIRRTL_HOME", default="firrtl")
+lazy val firrtl = RootProject(file(firrtl_path))
+
 lazy val tapeout = (project in file("tapeout"))
+  .dependsOn(firrtl)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq("chisel3","chisel-iotesters").map {
