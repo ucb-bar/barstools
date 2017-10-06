@@ -48,11 +48,11 @@ class SplitWidth_2rw extends MacroCompilerSpec with HasSRAMGenerator with HasSim
   }
 
   override def generateHeaderPorts() = {
-    generateHeaderPort("portA", true, Some(memMaskBits)) + "\n" + generateHeaderPort("portB", true, Some(memMaskBits))
+    generateReadWriteHeaderPort("portA", true, Some(memMaskBits)) + "\n" + generateReadWriteHeaderPort("portB", true, Some(memMaskBits))
   }
 
   override def generateFooterPorts() = {
-    generateFooterPort("portA", true, None) + "\n" + generateFooterPort("portB", true, None)
+    generateReadWriteFooterPort("portA", true, None) + "\n" + generateReadWriteFooterPort("portB", true, None)
   }
 
   override def generateBody() =
@@ -118,6 +118,109 @@ class SplitWidth_2rw extends MacroCompilerSpec with HasSRAMGenerator with HasSim
   compileExecuteAndTest(mem, lib, v, output)
 }
 
+class SplitWidth_1r_1w extends MacroCompilerSpec with HasSRAMGenerator with HasSimpleWidthTestGenerator {
+  import mdf.macrolib._
+
+  override lazy val depth = 1024
+  override lazy val memWidth = 64
+  override lazy val memMaskGran = Some(16)
+  override lazy val libWidth = 16
+
+  override def generateMemSRAM() = {
+    SRAMMacro(
+      name=mem_name,
+      width=memWidth,
+      depth=memDepth,
+      family="1r1w",
+      ports=Seq(generateTestPort(
+        "portA", memWidth, memDepth, maskGran=memMaskGran,
+        write=false, writeEnable=false,
+        read=true, readEnable=true
+      ), generateTestPort(
+        "portB", memWidth, memDepth, maskGran=memMaskGran,
+        write=true, writeEnable=true,
+        read=false, readEnable=false
+      ))
+    )
+  }
+
+  override def generateLibSRAM() = {
+    SRAMMacro(
+      name=lib_name,
+      width=libWidth,
+      depth=libDepth,
+      family="1r1w",
+      ports=Seq(generateTestPort(
+        "portA", libWidth, libDepth,
+        write=false, writeEnable=false,
+        read=true, readEnable=true
+      ), generateTestPort(
+        "portB", libWidth, libDepth,
+        write=true, writeEnable=true,
+        read=false, readEnable=false
+      ))
+    )
+  }
+
+  override def generateHeaderPorts() = {
+    generatePort("portA", mem_addr_width, memWidth,
+        write=false, writeEnable=false, read=true, readEnable=true, Some(memMaskBits)) + "\n" +
+    generatePort("portB", mem_addr_width, memWidth,
+        write=true, writeEnable=true, read=false, readEnable=false, Some(memMaskBits))
+  }
+
+  override def generateFooterPorts() = {
+    generatePort("portA", lib_addr_width, libWidth,
+        write=false, writeEnable=false, read=true, readEnable=true, None) + "\n" +
+    generatePort("portB", lib_addr_width, libWidth,
+        write=true, writeEnable=true, read=false, readEnable=false, None)
+  }
+
+  override def generateBody() =
+"""
+    inst mem_0_0 of awesome_lib_mem
+    inst mem_0_1 of awesome_lib_mem
+    inst mem_0_2 of awesome_lib_mem
+    inst mem_0_3 of awesome_lib_mem
+    mem_0_0.portB_clk <= portB_clk
+    mem_0_0.portB_addr <= portB_addr
+    mem_0_0.portB_din <= bits(portB_din, 15, 0)
+    mem_0_0.portB_write_en <= and(and(portB_write_en, bits(portB_mask, 0, 0)), UInt<1>("h1"))
+    mem_0_1.portB_clk <= portB_clk
+    mem_0_1.portB_addr <= portB_addr
+    mem_0_1.portB_din <= bits(portB_din, 31, 16)
+    mem_0_1.portB_write_en <= and(and(portB_write_en, bits(portB_mask, 1, 1)), UInt<1>("h1"))
+    mem_0_2.portB_clk <= portB_clk
+    mem_0_2.portB_addr <= portB_addr
+    mem_0_2.portB_din <= bits(portB_din, 47, 32)
+    mem_0_2.portB_write_en <= and(and(portB_write_en, bits(portB_mask, 2, 2)), UInt<1>("h1"))
+    mem_0_3.portB_clk <= portB_clk
+    mem_0_3.portB_addr <= portB_addr
+    mem_0_3.portB_din <= bits(portB_din, 63, 48)
+    mem_0_3.portB_write_en <= and(and(portB_write_en, bits(portB_mask, 3, 3)), UInt<1>("h1"))
+    mem_0_0.portA_clk <= portA_clk
+    mem_0_0.portA_addr <= portA_addr
+    node portA_dout_0_0 = bits(mem_0_0.portA_dout, 15, 0)
+    mem_0_0.portA_read_en <= and(portA_read_en, UInt<1>("h1"))
+    mem_0_1.portA_clk <= portA_clk
+    mem_0_1.portA_addr <= portA_addr
+    node portA_dout_0_1 = bits(mem_0_1.portA_dout, 15, 0)
+    mem_0_1.portA_read_en <= and(portA_read_en, UInt<1>("h1"))
+    mem_0_2.portA_clk <= portA_clk
+    mem_0_2.portA_addr <= portA_addr
+    node portA_dout_0_2 = bits(mem_0_2.portA_dout, 15, 0)
+    mem_0_2.portA_read_en <= and(portA_read_en, UInt<1>("h1"))
+    mem_0_3.portA_clk <= portA_clk
+    mem_0_3.portA_addr <= portA_addr
+    node portA_dout_0_3 = bits(mem_0_3.portA_dout, 15, 0)
+    mem_0_3.portA_read_en <= and(portA_read_en, UInt<1>("h1"))
+    node portA_dout_0 = cat(portA_dout_0_3, cat(portA_dout_0_2, cat(portA_dout_0_1, portA_dout_0_0)))
+    portA_dout <= mux(UInt<1>("h1"), portA_dout_0, UInt<1>("h0"))
+"""
+
+  compileExecuteAndTest(mem, lib, v, output)
+}
+
 class SplitWidth_2rw_differentMasks extends MacroCompilerSpec with HasSRAMGenerator with HasSimpleWidthTestGenerator {
   import mdf.macrolib._
 
@@ -166,11 +269,11 @@ class SplitWidth_2rw_differentMasks extends MacroCompilerSpec with HasSRAMGenera
   }
 
   override def generateHeaderPorts() = {
-    generateHeaderPort("portA", true, Some(memMaskBits)) + "\n" + generateHeaderPort("portB", true, Some(memWidth / memMaskGranB))
+    generateReadWriteHeaderPort("portA", true, Some(memMaskBits)) + "\n" + generateReadWriteHeaderPort("portB", true, Some(memWidth / memMaskGranB))
   }
 
   override def generateFooterPorts() = {
-    generateFooterPort("portA", true, None) + "\n" + generateFooterPort("portB", true, None)
+    generateReadWriteFooterPort("portA", true, None) + "\n" + generateReadWriteFooterPort("portB", true, None)
   }
 
   override def generateBody() =
