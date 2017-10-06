@@ -301,47 +301,72 @@ trait HasSimpleTestGenerator {
       } else ""
     }
 
+    /** Helper function to generate a header port.
+     * @param prefix Memory port prefix (e.g. "x" for ports like "x_clk")
+     * @param readEnable Has a read enable port?
+     * @param mask Mask granularity (# bits) of the port or None. */
+    def generateHeaderPort(prefix: String, readEnable: Boolean, mask: Option[Int]): String = {
+      val readEnableStr = if (readEnable) s"input ${prefix}_read_en : UInt<1>" else ""
+      val headerMask = mask match {
+        case Some(maskBits: Int) => s"input ${prefix}_mask : UInt<${maskBits}>"
+        case _ => ""
+      }
+s"""
+    input ${prefix}_clk : Clock
+    input ${prefix}_addr : UInt<$mem_addr_width>
+    input ${prefix}_din : UInt<$memWidth>
+    output ${prefix}_dout : UInt<$memWidth>
+    ${readEnableStr}
+    input ${prefix}_write_en : UInt<1>
+    ${headerMask}
+"""
+    }
+
+    // Generate the header memory ports.
+    def generateHeaderPorts(): String = {
+      require (memSRAM.ports.size == 1, "Header generator only supports single port mem")
+      generateHeaderPort(memPortPrefix, memSRAM.ports(0).readEnable.isDefined, if (memHasMask) Some(memMaskBits) else None)
+    }
+
     // Generate the header (contains the circuit statement and the target memory
     // module.
     def generateHeader(): String = {
-      require (memSRAM.ports.size == 1, "Header generator only supports single port mem")
-
-      val readEnable = if (memSRAM.ports(0).readEnable.isDefined) s"input ${memPortPrefix}_read_en : UInt<1>" else ""
-      val headerMask = if (memHasMask) s"input ${memPortPrefix}_mask : UInt<${memMaskBits}>" else ""
       s"""
 circuit $mem_name :
   module $mem_name :
-    input ${memPortPrefix}_clk : Clock
-    input ${memPortPrefix}_addr : UInt<$mem_addr_width>
-    input ${memPortPrefix}_din : UInt<$memWidth>
-    output ${memPortPrefix}_dout : UInt<$memWidth>
-    ${readEnable}
-    input ${memPortPrefix}_write_en : UInt<1>
-    ${headerMask}
+${generateHeaderPorts}
+  """
+    }
+
+    /** Helper function to generate a footer port.
+     * @param prefix Memory port prefix (e.g. "x" for ports like "x_clk")
+     * @param readEnable Has a read enable port?
+     * @param mask Mask granularity (# bits) of the port or None. */
+    def generateFooterPort(prefix: String, readEnable: Boolean, mask: Option[Int]): String = {
+      val readEnableStr = if (readEnable) s"input ${prefix}_read_en : UInt<1>" else ""
+      val footerMask = mask match {
+        case Some(maskBits: Int) => s"input ${prefix}_mask : UInt<${maskBits}>"
+        case _ => ""
+      }
+      s"""
+    input ${prefix}_clk : Clock
+    input ${prefix}_addr : UInt<$lib_addr_width>
+    input ${prefix}_din : UInt<$libWidth>
+    output ${prefix}_dout : UInt<$libWidth>
+    ${readEnableStr}
+    input ${prefix}_write_en : UInt<1>
+    ${footerMask}
   """
     }
 
     // Generate the target memory ports.
     def generateFooterPorts(): String = {
       require (libSRAM.ports.size == 1, "Footer generator only supports single port lib")
-
-      val readEnable = if (libSRAM.ports(0).readEnable.isDefined) s"input ${libPortPrefix}_read_en : UInt<1>" else ""
-      val footerMask = if (libHasMask) s"input ${libPortPrefix}_mask : UInt<${libMaskBits}>" else ""
-      s"""
-    input ${libPortPrefix}_clk : Clock
-    input ${libPortPrefix}_addr : UInt<$lib_addr_width>
-    input ${libPortPrefix}_din : UInt<$libWidth>
-    output ${libPortPrefix}_dout : UInt<$libWidth>
-    ${readEnable}
-    input ${libPortPrefix}_write_en : UInt<1>
-    ${footerMask}
-  """
+      generateFooterPort(libPortPrefix, libSRAM.ports(0).readEnable.isDefined, if (libHasMask) Some(libMaskBits) else None)
     }
 
     // Generate the footer (contains the target memory extmodule declaration by default).
     def generateFooter(): String = {
-      require (libSRAM.ports.size == 1, "Footer generator only supports single port lib")
-
       s"""
   extmodule $lib_name :
 ${generateFooterPorts}
