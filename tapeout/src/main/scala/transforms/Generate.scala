@@ -8,7 +8,7 @@ import firrtl.passes.Pass
 import java.io.File
 import firrtl.annotations.AnnotationYamlProtocol._
 import net.jcazevedo.moultingyaml._
-import com.typesafe.scalalogging.LazyLogging
+import logger._
 
 object AllModules {
   private var modules = Set[String]()
@@ -209,6 +209,7 @@ object GenerateHarness extends GenerateTopAndHarnessApp {
 }
 
 object GenerateTopAndHarness extends GenerateTopAndHarnessApp {
+  Logger.setLevel(LogLevel.Debug)
   // warn about unused options
   output.foreach(n => logger.warn(s"Not using generic output filename $n since you asked for both a top-level output and a test harness."))
   // Do everything, top and harness generation
