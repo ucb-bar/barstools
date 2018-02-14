@@ -398,7 +398,7 @@ class SplitWidth1024x32_readEnable_Lib extends MacroCompilerSpec with HasSRAMGen
       depth=libDepth,
       family="1rw",
       ports=Seq(generateTestPort(
-        "lib", libWidth, libDepth, maskGran=libMaskGran,
+        "lib", Some(libWidth), Some(libDepth), maskGran=libMaskGran,
         write=true, writeEnable=true,
         read=true, readEnable=true
       ))
@@ -456,7 +456,7 @@ class SplitWidth1024x32_readEnable_Mem extends MacroCompilerSpec with HasSRAMGen
       depth=memDepth,
       family="1rw",
       ports=Seq(generateTestPort(
-        "outer", memWidth, memDepth, maskGran=memMaskGran,
+        "outer", Some(memWidth), Some(memDepth), maskGran=memMaskGran,
         write=true, writeEnable=true,
         read=true, readEnable=true
       ))
@@ -482,7 +482,7 @@ class SplitWidth1024x32_readEnable_LibMem extends MacroCompilerSpec with HasSRAM
       depth=libDepth,
       family="1rw",
       ports=Seq(generateTestPort(
-        "lib", libWidth, libDepth, maskGran=libMaskGran,
+        "lib", Some(libWidth), Some(libDepth), maskGran=libMaskGran,
         write=true, writeEnable=true,
         read=true, readEnable=true
       ))
@@ -496,7 +496,7 @@ class SplitWidth1024x32_readEnable_LibMem extends MacroCompilerSpec with HasSRAM
       depth=memDepth,
       family="1rw",
       ports=Seq(generateTestPort(
-        "outer", memWidth, memDepth, maskGran=memMaskGran,
+        "outer", Some(memWidth), Some(memDepth), maskGran=memMaskGran,
         write=true, writeEnable=true,
         read=true, readEnable=true
       ))
