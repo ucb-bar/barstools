@@ -126,15 +126,15 @@ trait HasSRAMGenerator {
   // Generate a standard (read/write/combo) port for testing.
   // Helper methods for optional width argument
   def generateTestPort(
-                        prefix: String,
-                        width: Option[Int],
-                        depth: Option[Int],
-                        maskGran: Option[Int] = None,
-                        read: Boolean,
-                        readEnable: Boolean = false,
-                        write: Boolean,
-                        writeEnable: Boolean = false
-                      ): MacroPort = {
+    prefix: String,
+    width: Option[Int],
+    depth: Option[Int],
+    maskGran: Option[Int] = None,
+    read: Boolean,
+    readEnable: Boolean = false,
+    write: Boolean,
+    writeEnable: Boolean = false
+  ): MacroPort = {
     val realPrefix = if (prefix == "") "" else prefix + "_"
 
     MacroPort(
