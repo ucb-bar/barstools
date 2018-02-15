@@ -197,8 +197,8 @@ trait HasSRAMGenerator {
   // 'vt': ('svt','lvt','ulvt'), 'mux': 4,  'depth': range(32,1025,16),     'width': range(4,145),     'ports': 1}
   def generateSRAMCompiler(name: String, prefix: String): mdf.macrolib.SRAMCompiler = {
     SRAMCompiler(name, Seq(
-      generateSimpleSRAMGroup(prefix, 2, Range(16, 513, 8), Range(8, 289, 2)),
-      generateSimpleSRAMGroup(prefix, 4, Range(32, 1025, 16), Range(4, 145, 1))
+      generateSimpleSRAMGroup(prefix, 2, Range(16, 512, 8), Range(8, 288, 2)),
+      generateSimpleSRAMGroup(prefix, 4, Range(32, 1024, 16), Range(4, 144, 1))
     ))
   }
 }
