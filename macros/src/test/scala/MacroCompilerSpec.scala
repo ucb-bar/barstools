@@ -7,6 +7,8 @@ import firrtl.Utils.ceilLog2
 import java.io.{File, StringWriter}
 
 abstract class MacroCompilerSpec extends org.scalatest.FlatSpec with org.scalatest.Matchers {
+  import scala.language.implicitConversions
+  implicit def String2SomeString(i: String): Option[String] = Some(i)
   val testDir: String = "test_run_dir/macros"
   new File(testDir).mkdirs // Make sure the testDir exists
 
@@ -63,13 +65,10 @@ abstract class MacroCompilerSpec extends org.scalatest.FlatSpec with org.scalate
   }
 
   // Convenience function for running both compile, execute, and test at once.
-  def compileExecuteAndTest(mem: String, lib: Option[String], v: String, output: String, synflops: Boolean): Unit = {
-    compile(mem, lib, v, synflops)
-    val result = execute(mem, lib, synflops)
+  def compileExecuteAndTest(mem: String, lib: Option[String], v: String, output: String, synflops: Boolean = false, useCompiler: Boolean = false): Unit = {
+    compile(mem, lib, v, synflops, useCompiler)
+    val result = execute(mem, lib, synflops, useCompiler)
     test(result, output)
-  }
-  def compileExecuteAndTest(mem: String, lib: String, v: String, output: String, synflops: Boolean = false): Unit = {
-    compileExecuteAndTest(mem, Some(lib), v, output, synflops)
   }
 
   // Compare FIRRTL outputs after reparsing output with ScalaTest ("should be").
@@ -80,21 +79,20 @@ abstract class MacroCompilerSpec extends org.scalatest.FlatSpec with org.scalate
 
   // Execute the macro compiler and returns a Circuit containing the output of
   // the memory compiler.
-  def execute(memFile: String, libFile: Option[String], synflops: Boolean): Circuit = {
-    execute(Some(memFile), libFile, synflops)
-  }
-  def execute(memFile: String, libFile: String, synflops: Boolean): Circuit = {
-    execute(Some(memFile), Some(libFile), synflops)
-  }
-  def execute(memFile: Option[String], libFile: Option[String], synflops: Boolean): Circuit = {
+  def execute(memFile: Option[String], libFile: Option[String], synflops: Boolean): Circuit = execute(memFile, libFile, synflops, false)
+  def execute(memFile: Option[String], libFile: Option[String], synflops: Boolean, useCompiler: Boolean): Circuit = {
     var mem_full = concat(memPrefix, memFile)
     var lib_full = concat(libPrefix, libFile)
 
     require(memFile.isDefined)
     val mems: Seq[Macro] = Utils.filterForSRAM(mdf.macrolib.Utils.readMDFFromPath(mem_full)).get map (new Macro(_))
-    val libs: Option[Seq[Macro]] = Utils.filterForSRAM(mdf.macrolib.Utils.readMDFFromPath(lib_full)) match {
-      case Some(x) => Some(x map (new Macro(_)))
-      case None => None
+    val libs: Option[Seq[Macro]] = if(useCompiler) {
+      Utils.findSRAMCompiler(mdf.macrolib.Utils.readMDFFromPath(lib_full)).map{x => Utils.buildSRAMMacros(x).map(new Macro(_)) }
+    } else {
+      Utils.filterForSRAM(mdf.macrolib.Utils.readMDFFromPath(lib_full)) match {
+        case Some(x) => Some(x map (new Macro(_)))
+        case None => None
+      }
     }
     val macros = mems map (_.blackbox)
     val circuit = Circuit(NoInfo, macros, macros.last.name)
@@ -122,6 +120,7 @@ trait HasSRAMGenerator {
   import mdf.macrolib._
   import scala.language.implicitConversions
   implicit def Int2SomeInt(i: Int): Option[Int] = Some(i)
+
 
   // Generate a standard (read/write/combo) port for testing.
   // Helper methods for optional width argument
@@ -190,7 +189,7 @@ trait HasSRAMGenerator {
 
   // Generate a "simple" SRAM group (active high/positive edge, 1 read-write port).
   def generateSimpleSRAMGroup(prefix: String, mux: Int, depth: Range, width: Range, maskGran: Option[Int] = None, extraPorts: Seq[MacroExtraPort] = List()): SRAMGroup = {
-    SRAMGroup(Seq("mygroup_", "width", "x", "depth", "-", "VT"), "1rw", Seq("svt", "lvt", "ulvt"), mux, depth, width, Seq(generateReadWritePort(prefix, None, None, maskGran)))
+    SRAMGroup(Seq("mygroup_", "width", "x", "depth", "_", "VT"), "1rw", Seq("svt", "lvt", "ulvt"), mux, depth, width, Seq(generateReadWritePort(prefix, None, None, maskGran)))
   }
 
   // 'vt': ('svt','lvt','ulvt'), 'mux': 2,  'depth': range(16,513,8),       'width': range(8,289,2),   'ports': 1
@@ -244,10 +243,10 @@ trait HasSimpleTestGenerator {
     val lib = s"lib-${generatorType}${extraTagPrefixed}.json"
     val v = s"${generatorType}${extraTagPrefixed}.v"
 
-    val mem_name = "target_memory"
+    lazy val mem_name = "target_memory"
     val mem_addr_width = ceilLog2(memDepth)
 
-    val lib_name = "awesome_lib_mem"
+    lazy val lib_name = "awesome_lib_mem"
     val lib_addr_width = ceilLog2(libDepth)
 
     // Override these to change the port prefixes if needed.
@@ -278,8 +277,8 @@ trait HasSimpleTestGenerator {
     // Number of width bits in the last width-direction memory.
     // e.g. if memWidth = 16 and libWidth = 8, this would be 8 since the last memory 0_1 has 8 bits of input width.
     // e.g. if memWidth = 9 and libWidth = 8, this would be 1 since the last memory 0_1 has 1 bit of input width.
-    val lastWidthBits = if (memWidth % usableLibWidth == 0) usableLibWidth else (memWidth % usableLibWidth)
-    val selectBits = mem_addr_width - lib_addr_width
+    lazy val lastWidthBits = if (memWidth % usableLibWidth == 0) usableLibWidth else (memWidth % usableLibWidth)
+    lazy val selectBits = mem_addr_width - lib_addr_width
 
     /**
      * Convenience function to generate a mask statement.
