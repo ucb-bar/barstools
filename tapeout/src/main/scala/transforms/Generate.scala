@@ -4,6 +4,7 @@ import firrtl._
 import firrtl.ir._
 import firrtl.annotations._
 import firrtl.passes.Pass
+import firrtl.AnnotationSeq
 
 import java.io.File
 import firrtl.annotations.AnnotationYamlProtocol._
@@ -116,7 +117,7 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
     pre ++ enumerate ++ post
   }
 
-  private def getFirstPhaseAnnotations(top: Boolean): AnnotationMap = {
+  private def getFirstPhaseAnnotations(top: Boolean): AnnotationSeq = {
     if (top) { 
       //Load annotations from file
       val annotationArray = annoFile match {
@@ -124,26 +125,26 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
         case Some(fileName) => {
           val annotations = new File(fileName)
           if(annotations.exists) {
+
             val annotationsYaml = io.Source.fromFile(annotations).getLines().mkString("\n").parseYaml
-            annotationsYaml.convertTo[Array[Annotation]]
+            val annotationsYamlArray = annotationsYaml.asInstanceOf[YamlArray]
+            annotationsYamlArray.elements.map(AnnotationYamlFormat.read).toArray
           } else {
             Array[Annotation]()
           }
         }
       }
       // add new annotations
-      AnnotationMap(Seq(
-        passes.memlib.InferReadWriteAnnotation(
-          s"${synTop.get}"
-        ),
-        passes.clocklist.ClockListAnnotation(
+      AnnotationSeq(Seq(
+        passes.memlib.InferReadWriteAnnotation,
+        passes.clocklist.ClockListAnnotation.parse(
           s"-c:${synTop.get}:-m:${synTop.get}:${listClocks.get}"
         ),
-        passes.memlib.ReplSeqMemAnnotation(
+        passes.memlib.ReplSeqMemAnnotation.parse(
           s"-c:${synTop.get}:${seqMemFlags.get}"
         )
       ) ++ annotationArray)
-    } else { AnnotationMap(Seq.empty) }
+    } else { AnnotationSeq(Seq.empty) }
   }
 
   private def getSecondPhasePasses: Seq[Transform] = {
@@ -156,12 +157,12 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
   }
 
   // always the same for now
-  private def getSecondPhaseAnnotations: AnnotationMap = AnnotationMap(Seq.empty)
+  private def getSecondPhaseAnnotations: AnnotationSeq = AnnotationSeq(Seq.empty)
 
   // Top Generation
   protected def firstPhase(top: Boolean, harness: Boolean): Unit = {
     require(top || harness, "Must specify either top or harness")
-    firrtl.Driver.compile(
+    Driver.compile(
       input.get,
       topOutput.getOrElse(output.get),
       new VerilogCompiler(),
@@ -173,7 +174,7 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
 
   // Harness Generation
   protected def secondPhase: Unit = {
-    firrtl.Driver.compile(
+    Driver.compile(
       input.get,
       harnessOutput.getOrElse(output.get),
       new VerilogCompiler(),

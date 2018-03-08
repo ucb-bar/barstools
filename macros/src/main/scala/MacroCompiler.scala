@@ -32,6 +32,7 @@ case class MacroCompilerException(msg: String) extends Exception(msg)
  *
  * TODO: make this into a "true" annotation?
  */
+
 object MacroCompilerAnnotation {
   /** Macro compiler mode. */
   sealed trait CompilerMode
@@ -45,10 +46,10 @@ object MacroCompilerAnnotation {
   case object CompileAvailable extends CompilerMode
 
   /**
-   * The default mode for the macro compiler.
-   * TODO: Maybe set the default to FallbackSynflops (typical for
-   * vlsi_mem_gen-like scripts) once it's implemented?
-   */
+    * The default mode for the macro compiler.
+    * TODO: Maybe set the default to FallbackSynflops (typical for
+    * vlsi_mem_gen-like scripts) once it's implemented?
+    */
   val Default = CompileAvailable
 
   /** Helper function to select a compiler mode. */
@@ -60,37 +61,41 @@ object MacroCompilerAnnotation {
     case "default" => Default
     case _ => throw new IllegalArgumentException("No such compiler mode " + str)
   }
+}
 
-  /**
-   * Parameters associated to this MacroCompilerAnnotation.
-   * @param mem Path to memory lib
-   * @param lib Path to library lib or None if no libraries
-   * @param costMetric Cost metric to use
-   * @param mode Compiler mode (see CompilerMode)
-   */
-  case class Params(mem: String, lib: Option[String], costMetric: CostMetric, mode: CompilerMode, useCompiler: Boolean)
+/**
+  * Parameters associated to this MacroCompilerAnnotation.
+  * @param mem Path to memory lib
+  * @param lib Path to library lib or None if no libraries
+  * @param costMetric Cost metric to use
+  * @param mode Compiler mode (see CompilerMode)
+  */
+case class MacroCompilerAnnotation(mem: String, lib: Option[String], costMetric: CostMetric, mode: MacroCompilerAnnotation.CompilerMode = MacroCompilerAnnotation.CompileAvailable, useCompiler: Boolean) extends NoTargetAnnotation {
+
+
+
 
   /**
    * Create a MacroCompilerAnnotation.
    * @param c Top-level circuit name (see class description)
    * @param p Parameters (see above).
    */
-  def apply(c: String, p: Params): Annotation =
-    Annotation(CircuitName(c), classOf[MacroCompilerTransform], MacroCompilerUtil.objToString(p))
+  //def apply(c: String, p: Params): Annotation =
+  //  Annotation(CircuitName(c), classOf[MacroCompilerTransform], MacroCompilerUtil.objToString(p))
 
-  def unapply(a: Annotation) = a match {
-    case Annotation(CircuitName(c), t, serialized) if t == classOf[MacroCompilerTransform] => {
-      val p: Params = MacroCompilerUtil.objFromString(serialized).asInstanceOf[Params]
-      Some(c, p)
-    }
-    case _ => None
-  }
+  //def unapply(a: Annotation) = a match {
+  //  case Annotation(CircuitName(c), t, serialized) if t == classOf[MacroCompilerTransform] => {
+  //    val p: Params = MacroCompilerUtil.objFromString(serialized).asInstanceOf[Params]
+  //    Some(c, p)
+  //  }
+  //  case _ => None
+  //}
 }
 
 class MacroCompilerPass(mems: Option[Seq[Macro]],
                         libs: Option[Seq[Macro]],
                         costMetric: CostMetric = CostMetric.default,
-                        mode: MacroCompilerAnnotation.CompilerMode = MacroCompilerAnnotation.Default) extends firrtl.passes.Pass {
+                        mode: MacroCompilerAnnotation.CompilerMode) extends firrtl.passes.Pass {
   // Helper function to check the legality of bitPairs.
   // e.g. ((0,21), (22,43)) is legal
   // ((0,21), (22,21)) is illegal and will throw an assert
@@ -560,11 +565,12 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
 class MacroCompilerTransform extends Transform {
   def inputForm = MidForm
   def outputForm = MidForm
-  def execute(state: CircuitState) = getMyAnnotations(state) match {
-    case Seq(MacroCompilerAnnotation(state.circuit.main, MacroCompilerAnnotation.Params(memFile, libFile, costMetric, mode, useCompiler))) =>
+  def execute(state: CircuitState) = state.annotations.collect { case a: MacroCompilerAnnotation => a } match {
+    case Seq(x@MacroCompilerAnnotation(memFile, libFile, costMetric, mode, useCompiler)) =>
       if (mode == MacroCompilerAnnotation.FallbackSynflops) {
         throw new UnsupportedOperationException("Not implemented yet")
       }
+      println(x)
       // Read, eliminate None, get only SRAM, make firrtl macro
       val mems: Option[Seq[Macro]] = mdf.macrolib.Utils.readMDFFromPath(Some(memFile)) match {
         case Some(x:Seq[mdf.macrolib.Macro]) =>
@@ -670,18 +676,17 @@ object MacroCompiler extends App {
         // Note: the last macro in the input list is (seemingly arbitrarily)
         // determined as the firrtl "top-level module".
         val circuit = Circuit(NoInfo, macros, macros.last.name)
-        val annotations = AnnotationMap(
+        val annotations = AnnotationSeq(
           Seq(MacroCompilerAnnotation(
-            circuit.main,
-            MacroCompilerAnnotation.Params(
               params.get(Macros).get, params.get(Library),
               CostMetric.getCostMetric(params.getOrElse(CostFunc, "default"), costParams),
               MacroCompilerAnnotation.stringToCompilerMode(params.getOrElse(Mode, "default")),
               params.contains(UseCompiler)
             )
-          ))
+          )
         )
-        val state = CircuitState(circuit, HighForm, Some(annotations))
+        val state = CircuitState(circuit, HighForm, annotations)
+        println(state.circuit.serialize)
 
         // Run the compiler.
         val result = new MacroCompiler().compileAndEmit(state)
