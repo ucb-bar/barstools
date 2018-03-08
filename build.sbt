@@ -3,8 +3,8 @@
 import Dependencies._
 
 val defaultVersions = Map(
-  "chisel3" -> "3.1-SNAPSHOT",
-  "chisel-iotesters" -> "1.2-SNAPSHOT"
+  "chisel3" -> "3.1.0-RC1",
+  "chisel-iotesters" -> "1.2.0-RC1"
 )
 
 lazy val commonSettings = Seq(
@@ -30,7 +30,7 @@ lazy val macros = (project in file("macros"))
   .settings(commonSettings)
   .settings(Seq(
     libraryDependencies ++= Seq(
-      "edu.berkeley.cs" %% "firrtl-interpreter" % "0.1-SNAPSHOT" % Test
+      "edu.berkeley.cs" %% "firrtl-interpreter" % "1.1.0-RC1" % Test
     ),
     mainClass := Some("barstools.macros.MacroCompiler")
   ))
