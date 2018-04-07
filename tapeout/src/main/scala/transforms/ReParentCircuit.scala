@@ -5,6 +5,7 @@ package barstools.tapeout.transforms
 import firrtl._
 import firrtl.ir._
 import firrtl.passes.Pass
+import firrtl.annotations.{CircuitName, ModuleName, ComponentName}
 
 // "Re-Parents" a circuit, which changes the top module to something else.
 class ReParentCircuitPass(newTopName: String) extends Pass {
@@ -20,6 +21,10 @@ class ReParentCircuit(newTopName: String) extends Transform with SeqTransformBas
 
   def execute(state: CircuitState): CircuitState = {
     val ret = runTransforms(state)
-    CircuitState(ret.circuit, outputForm, ret.annotations, ret.renames)
+    val oldCName = CircuitName(state.circuit.main)
+    val newCName = CircuitName(newTopName)
+    val renames = RenameMap()
+    renames.rename(oldCName, newCName)
+    CircuitState(ret.circuit, outputForm, ret.annotations, Some(renames))
   }
 }

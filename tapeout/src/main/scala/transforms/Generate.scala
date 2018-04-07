@@ -5,6 +5,7 @@ import firrtl.ir._
 import firrtl.annotations._
 import firrtl.passes.Pass
 import firrtl.AnnotationSeq
+import logger._
 
 import java.io.File
 import firrtl.annotations.AnnotationYamlProtocol._
@@ -30,6 +31,7 @@ case class ParsedInput(args: Seq[String]) extends LazyLogging {
   var topOutput: Option[String] = None
   var harnessOutput: Option[String] = None
   var annoFile: Option[String] = None
+  var jsonAnnoFile: Option[String] = None
   var synTop: Option[String] = None
   var harnessTop: Option[String] = None
   var seqMemFlags: Option[String] = Some("-o:unused.confg")
@@ -56,6 +58,10 @@ case class ParsedInput(args: Seq[String]) extends LazyLogging {
       }
       case "--anno-file" => {
         annoFile = Some(args(i+1))
+        usedOptions = usedOptions | Set(i+1)
+      }
+      case "--json-anno" => {
+        jsonAnnoFile = Some(args(i+1))
         usedOptions = usedOptions | Set(i+1)
       }
       case "--syn-top" => {
@@ -93,6 +99,7 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
   lazy val topOutput = options.topOutput
   lazy val harnessOutput = options.harnessOutput
   lazy val annoFile = options.annoFile
+  lazy val jsonAnnoFile = options.jsonAnnoFile
   lazy val synTop = options.synTop
   lazy val harnessTop = options.harnessTop
   lazy val seqMemFlags = options.seqMemFlags
@@ -109,6 +116,7 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
     ) } else Seq()
 
     val post = if (top) { Seq(
+      new transforms.GroupAndDedup(),
       new passes.memlib.InferReadWrite(),
       new passes.memlib.ReplSeqMem(),
       new passes.clocklist.ClockListTransform()
@@ -125,10 +133,23 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
         case Some(fileName) => {
           val annotations = new File(fileName)
           if(annotations.exists) {
-
-            val annotationsYaml = io.Source.fromFile(annotations).getLines().mkString("\n").parseYaml
-            val annotationsYamlArray = annotationsYaml.asInstanceOf[YamlArray]
-            annotationsYamlArray.elements.map(AnnotationYamlFormat.read).toArray
+            //val annotationsYaml = io.Source.fromFile(annotations).getLines().mkString("\n").parseYaml
+            //val annotationsYamlArray = annotationsYaml.asInstanceOf[YamlArray]
+            //annotationsYamlArray.elements.map(AnnotationYamlFormat.read).toArray
+            val annotationsJson = JsonProtocol.deserialize(annotations)
+            annotationsJson.toArray
+          } else {
+            Array[Annotation]()
+          }
+        }
+      }
+      val jsonAnnoArray = jsonAnnoFile match {
+        case None => Array[Annotation]()
+        case Some(fileName) => {
+          val annotations = new File(fileName)
+          if(annotations.exists) {
+            val annotationsJson = JsonProtocol.deserialize(annotations)
+            annotationsJson.toArray// convertTo[Array[Annotation]]
           } else {
             Array[Annotation]()
           }
@@ -143,7 +164,7 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
         passes.memlib.ReplSeqMemAnnotation.parse(
           s"-c:${synTop.get}:${seqMemFlags.get}"
         )
-      ) ++ annotationArray)
+      ) ++ annotationArray ++ jsonAnnoArray)
     } else { AnnotationSeq(Seq.empty) }
   }
 
@@ -210,6 +231,7 @@ object GenerateHarness extends GenerateTopAndHarnessApp {
 }
 
 object GenerateTopAndHarness extends GenerateTopAndHarnessApp {
+  Logger.setLevel(LogLevel.Debug)
   // warn about unused options
   output.foreach(n => logger.warn(s"Not using generic output filename $n since you asked for both a top-level output and a test harness."))
   // Do everything, top and harness generation
