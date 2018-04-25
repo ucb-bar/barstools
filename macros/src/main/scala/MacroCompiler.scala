@@ -248,6 +248,8 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
   }
 
   def compile(mem: Macro, lib: Macro): Option[(Module, ExtModule)] = {
+    assert(mem.sortedPorts.lengthCompare(lib.sortedPorts.length) == 0,
+      "mem and lib should have an equal number of ports")
     val pairedPorts = mem.sortedPorts zip lib.sortedPorts
 
     // Width mapping. See calculateBitPairs.
@@ -294,8 +296,9 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
     for ((off, i) <- (0 until mem.src.depth by lib.src.depth).zipWithIndex) {
       for (j <- bitPairs.indices) {
         val name = s"mem_${i}_${j}"
+        // Create the instance.
         stmts += WDefInstance(NoInfo, name, lib.src.name, lib.tpe)
-        // connect extra ports
+        // Connect extra ports of the lib.
         stmts ++= lib.extraPorts map { case (portName, portValue) =>
           Connect(NoInfo, WSubField(WRef(name), portName), portValue)
         }
