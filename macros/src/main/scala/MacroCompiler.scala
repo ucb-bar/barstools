@@ -623,9 +623,11 @@ class MacroCompilerTransform extends Transform {
 
 // FIXME: Use firrtl.LowerFirrtlOptimizations
 class MacroCompilerOptimizations extends SeqTransform {
-  def inputForm = LowForm
-  def outputForm = LowForm
-  def transforms = Seq(
+  def inputForm: CircuitForm = LowForm
+
+  def outputForm: CircuitForm = LowForm
+
+  def transforms: Seq[Transform] = Seq(
     passes.RemoveValidIf,
     new firrtl.transforms.ConstantPropagation,
     passes.memlib.VerilogMemDelays,
@@ -636,11 +638,12 @@ class MacroCompilerOptimizations extends SeqTransform {
 }
 
 class MacroCompiler extends Compiler {
-  def emitter = new VerilogEmitter
-  def transforms =
+  def emitter: Emitter = new VerilogEmitter
+
+  def transforms: Seq[Transform] =
     Seq(new MacroCompilerTransform) ++
-    getLoweringTransforms(firrtl.HighForm, firrtl.LowForm) ++
-    Seq(new MacroCompilerOptimizations)
+      getLoweringTransforms(firrtl.HighForm, firrtl.LowForm) ++
+      Seq(new MacroCompilerOptimizations)
 }
 
 object MacroCompiler extends App {

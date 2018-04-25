@@ -6,6 +6,8 @@ import firrtl.Parser.parse
 import firrtl.Utils.ceilLog2
 import java.io.{File, StringWriter}
 
+import mdf.macrolib.SRAMMacro
+
 abstract class MacroCompilerSpec extends org.scalatest.FlatSpec with org.scalatest.Matchers {
   import scala.language.implicitConversions
   implicit def String2SomeString(i: String): Option[String] = Some(i)
@@ -228,7 +230,7 @@ trait HasSimpleTestGenerator {
     // generator.
     def generatorType: String = this.getClass.getSimpleName
 
-    require (memDepth >= libDepth)
+    //require (memDepth >= libDepth)
 
     // Convenience variables to check if a mask exists.
     val memHasMask = memMaskGran != None
@@ -258,11 +260,14 @@ trait HasSimpleTestGenerator {
     def generateLibSRAM() = generateSRAM(lib_name, libPortPrefix, libWidth, libDepth, libMaskGran, extraPorts)
     def generateMemSRAM() = generateSRAM(mem_name, memPortPrefix, memWidth, memDepth, memMaskGran)
 
-    val libSRAM = generateLibSRAM
-    val memSRAM = generateMemSRAM
+    def libSRAM = generateLibSRAM
+    def memSRAM = generateMemSRAM
 
-    writeToLib(lib, Seq(libSRAM))
-    writeToMem(mem, Seq(memSRAM))
+    def libSRAMs: Seq[SRAMMacro] = Seq(libSRAM)
+    def memSRAMs: Seq[SRAMMacro] = Seq(memSRAM)
+
+    writeToLib(lib, libSRAMs)
+    writeToMem(mem, memSRAMs)
 
     // For masks, width it's a bit tricky since we have to consider cases like
     // memMaskGran = 4 and libMaskGran = 8.
