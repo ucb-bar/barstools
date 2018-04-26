@@ -402,14 +402,29 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
               } else {
                 require(isPowerOfTwo(libPort.src.effectiveMaskGran), "only powers of two masks supported for now")
 
-                val effectiveLibWidth = if (memPort.src.maskGran.get < libPort.src.effectiveMaskGran) memPort.src.maskGran.get else libPort.src.width.get
+                // How much of this lib's width we are effectively using.
+                // If we have a mem maskGran less than the lib's maskGran, we'll have to take the smaller maskGran.
+                // Example: if we have a lib whose maskGran is 8 but our mem's maskGran is 4.
+                // The other case is if we're using a larger lib than mem.
+                val usingLessThanLibMaskGran = (memPort.src.maskGran.get < libPort.src.effectiveMaskGran)
+                val effectiveLibWidth = if (usingLessThanLibMaskGran)
+                  memPort.src.maskGran.get
+                else
+                  libPort.src.width.get
+
                 cat(((0 until libPort.src.width.get by libPort.src.effectiveMaskGran) map (i => {
-                  if (memPort.src.maskGran.get < libPort.src.effectiveMaskGran && i >= effectiveLibWidth) {
+                  if (usingLessThanLibMaskGran && i >= effectiveLibWidth) {
                     // If the memMaskGran is smaller than the lib's gran, then
                     // zero out the upper bits.
                     zero
                   } else {
-                    bits(WRef(mem), (low + i) / memPort.src.effectiveMaskGran)
+                    if (i >= memPort.src.width.get) {
+                      // If our bit is larger than the whole width of the mem, just zero out the upper bits.
+                      zero
+                    } else {
+                      // Pick the appropriate bit from the mem mask.
+                      bits(WRef(mem), (low + i) / memPort.src.effectiveMaskGran)
+                    }
                   }
                 })).reverse)
               }
