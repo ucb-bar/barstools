@@ -321,41 +321,52 @@ trait HasSimpleTestGenerator {
     }
 
     /** Helper function to generate a port.
-     * @param prefix Memory port prefix (e.g. "x" for ports like "x_clk")
-     * @param addrWidth Address port width
-     * @param width data width
-     * @param write Has a write port?
-     * @param writeEnable Has a write enable port?
-     * @param read Has a read port?
-     * @param readEnable Has a read enable port?
-     * @param mask Mask granularity (# bits) of the port or None. */
-    def generatePort(prefix: String, addrWidth: Int, width: Int, write: Boolean, writeEnable: Boolean, read: Boolean, readEnable: Boolean, mask: Option[Int]): String = {
-      val readStr = if (read) s"output ${prefix}_dout : UInt<$width>" else ""
-      val writeStr = if (write) s"input ${prefix}_din : UInt<$width>" else ""
-      val readEnableStr = if (readEnable) s"input ${prefix}_read_en : UInt<1>" else ""
-      val writeEnableStr = if (writeEnable) s"input ${prefix}_write_en : UInt<1>" else ""
+      *
+      * @param prefix      Memory port prefix (e.g. "x" for ports like "x_clk")
+      * @param addrWidth   Address port width
+      * @param width       data width
+      * @param write       Has a write port?
+      * @param writeEnable Has a write enable port?
+      * @param read        Has a read port?
+      * @param readEnable  Has a read enable port?
+      * @param mask        Mask granularity (# bits) of the port or None.
+      * @param extraPorts  Extra ports (name, # bits)
+      */
+    def generatePort(prefix: String, addrWidth: Int, width: Int, write: Boolean, writeEnable: Boolean, read: Boolean, readEnable: Boolean, mask: Option[Int], extraPorts: Seq[(String, Int)] = Seq()): String = {
+      val realPrefix = if (prefix == "") "" else prefix + "_"
+
+      val readStr = if (read) s"output ${realPrefix}dout : UInt<$width>" else ""
+      val writeStr = if (write) s"input ${realPrefix}din : UInt<$width>" else ""
+      val readEnableStr = if (readEnable) s"input ${realPrefix}read_en : UInt<1>" else ""
+      val writeEnableStr = if (writeEnable) s"input ${realPrefix}write_en : UInt<1>" else ""
       val maskStr = mask match {
-        case Some(maskBits: Int) => s"input ${prefix}_mask : UInt<${maskBits}>"
+        case Some(maskBits: Int) => s"input ${realPrefix}mask : UInt<$maskBits>"
         case _ => ""
       }
-s"""
-    input ${prefix}_clk : Clock
-    input ${prefix}_addr : UInt<$addrWidth>
-    ${writeStr}
-    ${readStr}
-    ${readEnableStr}
-    ${writeEnableStr}
-    ${maskStr}
-"""
+      val extraPortsStr = extraPorts.map { case (name, bits) => s"    input $name : UInt<$bits>" }.mkString("\n")
+      s"""
+    input ${realPrefix}clk : Clock
+    input ${realPrefix}addr : UInt<$addrWidth>
+    $writeStr
+    $readStr
+    $readEnableStr
+    $writeEnableStr
+    $maskStr
+$extraPortsStr
+  """
     }
 
-    /** Helper function to generate a RW footer port.
-     * @param prefix Memory port prefix (e.g. "x" for ports like "x_clk")
-     * @param readEnable Has a read enable port?
-     * @param mask Mask granularity (# bits) of the port or None. */
-    def generateReadWriteFooterPort(prefix: String, readEnable: Boolean, mask: Option[Int]): String = {
+    /**
+      * Helper function to generate a RW footer port.
+      *
+      * @param prefix     Memory port prefix (e.g. "x" for ports like "x_clk")
+      * @param readEnable Has a read enable port?
+      * @param mask       Mask granularity (# bits) of the port or None.
+      * @param extraPorts Extra ports (name, # bits)
+      */
+    def generateReadWriteFooterPort(prefix: String, readEnable: Boolean, mask: Option[Int], extraPorts: Seq[(String, Int)] = Seq()): String = {
       generatePort(prefix, lib_addr_width, libWidth,
-        write=true, writeEnable=true, read=true, readEnable=readEnable, mask)
+        write = true, writeEnable = true, read = true, readEnable = readEnable, mask = mask, extraPorts = extraPorts)
     }
 
     /** Helper function to generate a RW header port.
@@ -385,8 +396,9 @@ ${generateHeaderPorts}
 
     // Generate the target memory ports.
     def generateFooterPorts(): String = {
-      require (libSRAM.ports.size == 1, "Footer generator only supports single RW port mem")
-      generateReadWriteFooterPort(libPortPrefix, libSRAM.ports(0).readEnable.isDefined, if (libHasMask) Some(libMaskBits) else None)
+      require(libSRAM.ports.size == 1, "Footer generator only supports single RW port mem")
+      generateReadWriteFooterPort(libPortPrefix, libSRAM.ports(0).readEnable.isDefined,
+        if (libHasMask) Some(libMaskBits) else None, extraPorts.map(p => (p.name, p.width)))
     }
 
     // Generate the footer (contains the target memory extmodule declaration by default).
