@@ -707,7 +707,7 @@ object MacroCompiler extends App {
         // Note: the last macro in the input list is (seemingly arbitrarily)
         // determined as the firrtl "top-level module".
         val circuit = Circuit(NoInfo, macros, macros.last.name)
-        val annotations = AnnotationMap(
+        val annotations =
           Seq(MacroCompilerAnnotation(
             circuit.main,
             MacroCompilerAnnotation.Params(
@@ -717,8 +717,7 @@ object MacroCompiler extends App {
               params.contains(UseCompiler)
             )
           ))
-        )
-        val state = CircuitState(circuit, HighForm, Some(annotations))
+        val state = CircuitState(circuit, HighForm, annotations)
 
         // Run the compiler.
         val result = new MacroCompiler().compileAndEmit(state)
