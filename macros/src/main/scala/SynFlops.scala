@@ -32,9 +32,9 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
       lib.src.depth,
       1, // writeLatency
       1, // readLatency. This is possible because of VerilogMemDelays
-      lib.readers.indices map (i => s"R_$i"),
-      lib.writers.indices map (i => s"W_$i"),
-      lib.readwriters.indices map (i => s"RW_$i")
+      lib.readers.indices map (i => s"R$i"),
+      lib.writers.indices map (i => s"W$i"),
+      lib.readwriters.indices map (i => s"RW$i")
     )
 
     val readConnects = lib.readers.zipWithIndex flatMap { case (r, i) =>
@@ -48,16 +48,16 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
         case (None, Some(re_port)) => portToExpression(re_port)
         case (None, None) => one
       }
-      val data = memPortField(mem, s"R_$i", "data")
+      val data = memPortField(mem, s"R$i", "data")
       val read = (dataType: @unchecked) match {
         case VectorType(tpe, size) => cat(((0 until size) map (k =>
           WSubIndex(data, k, tpe, UNKNOWNGENDER))).reverse)
         case _: UIntType => data
       }
       Seq(
-        Connect(NoInfo, memPortField(mem, s"R_$i", "clk"), clock),
-        Connect(NoInfo, memPortField(mem, s"R_$i", "addr"), address),
-        Connect(NoInfo, memPortField(mem, s"R_$i", "en"), enable),
+        Connect(NoInfo, memPortField(mem, s"R$i", "clk"), clock),
+        Connect(NoInfo, memPortField(mem, s"R$i", "addr"), address),
+        Connect(NoInfo, memPortField(mem, s"R$i", "en"), enable),
         Connect(NoInfo, WRef(r.src.output.get.name), read)
       )
     }
@@ -73,13 +73,13 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
         case (None, Some(we)) => portToExpression(we)
         case (None, None) => zero // is it possible?
       }
-      val mask = memPortField(mem, s"W_$i", "mask")
-      val data = memPortField(mem, s"W_$i", "data")
+      val mask = memPortField(mem, s"W$i", "mask")
+      val data = memPortField(mem, s"W$i", "data")
       val write = portToExpression(w.src.input.get)
       Seq(
-        Connect(NoInfo, memPortField(mem, s"W_$i", "clk"), clock),
-        Connect(NoInfo, memPortField(mem, s"W_$i", "addr"), address),
-        Connect(NoInfo, memPortField(mem, s"W_$i", "en"), enable)
+        Connect(NoInfo, memPortField(mem, s"W$i", "clk"), clock),
+        Connect(NoInfo, memPortField(mem, s"W$i", "addr"), address),
+        Connect(NoInfo, memPortField(mem, s"W$i", "en"), enable)
       ) ++ (dataType match {
         case VectorType(tpe, size) =>
           val width = bitWidth(tpe).toInt
@@ -108,9 +108,9 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
         case (None, Some(re)) => or(portToExpression(re), wmode)
         case (None, None) => one
       }
-      val wmask = memPortField(mem, s"RW_$i", "wmask")
-      val wdata = memPortField(mem, s"RW_$i", "wdata")
-      val rdata = memPortField(mem, s"RW_$i", "rdata")
+      val wmask = memPortField(mem, s"RW$i", "wmask")
+      val wdata = memPortField(mem, s"RW$i", "wdata")
+      val rdata = memPortField(mem, s"RW$i", "rdata")
       val write = portToExpression(rw.src.input.get)
       val read = (dataType: @unchecked) match {
         case VectorType(tpe, size) => cat(((0 until size) map (k =>
@@ -118,10 +118,10 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
         case _: UIntType => rdata
       }
       Seq(
-        Connect(NoInfo, memPortField(mem, s"RW_$i", "clk"), clock),
-        Connect(NoInfo, memPortField(mem, s"RW_$i", "addr"), address),
-        Connect(NoInfo, memPortField(mem, s"RW_$i", "en"), enable),
-        Connect(NoInfo, memPortField(mem, s"RW_$i", "wmode"), wmode),
+        Connect(NoInfo, memPortField(mem, s"RW$i", "clk"), clock),
+        Connect(NoInfo, memPortField(mem, s"RW$i", "addr"), address),
+        Connect(NoInfo, memPortField(mem, s"RW$i", "en"), enable),
+        Connect(NoInfo, memPortField(mem, s"RW$i", "wmode"), wmode),
         Connect(NoInfo, WRef(rw.src.output.get.name), read)
       ) ++ (dataType match {
         case VectorType(tpe, size) =>
