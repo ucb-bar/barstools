@@ -298,13 +298,9 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
         val name = s"mem_${i}_${j}"
         // Create the instance.
         stmts += WDefInstance(NoInfo, name, lib.src.name, lib.tpe)
-        stmts ++= lib.sortedPorts flatMap { port =>
-          port.ports flatMap (p => p.direction match {
-            case Input =>
-              Some(IsInvalid(NoInfo, WSubField(WRef(name), p.name)))
-            case Output => None
-          })
-        }
+        stmts ++= lib.sortedPorts flatMap (_.ports collect {
+          case Port(_, pname, Input, _) => IsInvalid(NoInfo, WSubField(WRef(name), pname))
+        })
         // Connect extra ports of the lib.
         stmts ++= lib.extraPorts map { case (portName, portValue) =>
           Connect(NoInfo, WSubField(WRef(name), portName), portValue)
