@@ -470,12 +470,20 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
           /* Palmer: It's safe to ignore read enables, but we pass them through
            * to the vendor memory if there's a port on there that
            * implements the read enables. */
+          /* Donggyu: this is broken as read enables should be piped
           (memPort.src.readEnable, libPort.src.readEnable) match {
             case (_, None) =>
             case (Some(PolarizedPort(mem, _)), Some(PolarizedPort(lib, lib_polarity))) =>
               stmts += connectPorts(andAddrMatch(WRef(mem)), lib, lib_polarity)
             case (None, Some(PolarizedPort(lib, lib_polarity))) =>
               stmts += connectPorts(andAddrMatch(not(memWriteEnable)), lib, lib_polarity)
+          }
+          */
+          // Donggyu: thus, just connect 1 to read enables for now
+          libPort.src.readEnable match {
+            case None =>
+            case Some(PolarizedPort(lib, lib_polarity)) =>
+              stmts += connectPorts(one, lib, lib_polarity)
           }
 
           /* Palmer: This is actually the memory compiler: it figures out how to
