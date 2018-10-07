@@ -517,7 +517,7 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
                 System.err.println("cannot emulate multi-bit mask ports with write enable")
                 return None
               }
-            case (None, None, None) =>
+            case (None, None, _) =>
               // No write ports to match up (this may be a read-only port).
               // This isn't necessarily an error condition.
           }
