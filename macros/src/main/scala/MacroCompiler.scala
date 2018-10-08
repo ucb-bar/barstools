@@ -517,9 +517,17 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
                 System.err.println("cannot emulate multi-bit mask ports with write enable")
                 return None
               }
-            case (None, None, _) =>
+            case (None, None, None) =>
               // No write ports to match up (this may be a read-only port).
               // This isn't necessarily an error condition.
+            case (None, None, Some(PolarizedPort(en, en_polarity))) =>
+              // Correctly connect read-only port's chip enable
+              stmts += (memPort.src.readEnable match {
+                case None =>
+                  connectPorts(addrMatch, en, en_polarity)
+                case Some(PolarizedPort(mem, _)) =>
+                  connectPorts(andAddrMatch(WRef(mem)), en, en_polarity)
+              })
           }
         }
         // Cat macro outputs for selection
