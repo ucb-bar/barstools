@@ -2,8 +2,9 @@ package barstools.tapeout.transforms
 
 import firrtl._
 import firrtl.annotations._
-import firrtl.passes._
 import firrtl.ir._
+import firrtl.passes._
+import firrtl.transforms._
 
 object WriteConfig {
   def apply(dir: String, file: String, contents: String): Unit = {
@@ -15,13 +16,8 @@ object WriteConfig {
 
 object GetTargetDir {
   def apply(state: CircuitState): String = {
-    val annos = state.annotations.getOrElse(AnnotationMap(Seq.empty)).annotations
-    val destDir = annos.map {
-      case Annotation(f, t, s) if t == classOf[transforms.BlackBoxSourceHelper] =>
-        transforms.BlackBoxSource.parse(s) match {
-          case Some(transforms.BlackBoxTargetDir(dest)) => Some(dest)
-          case _ => None
-        }
+    val destDir = state.annotations.map {
+      case BlackBoxTargetDirAnno(dir) => Some(dir)
       case _ => None
     }.flatten
     val loc = {
@@ -45,8 +41,7 @@ class TechnologyLocation extends Transform {
   def outputForm: CircuitForm = LowForm
   def execute(state: CircuitState) = throw new Exception("Technology Location transform execution doesn't work!")
   def get(state: CircuitState): String = {
-    val annos = state.annotations.getOrElse(AnnotationMap(Seq.empty)).annotations
-    val dir = annos.map {
+    val dir = state.annotations.map {
       case Annotation(f, t, s) if t == classOf[TechnologyLocation] => Some(s)
       case _ => None
     }.flatten

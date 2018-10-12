@@ -116,34 +116,30 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
     pre ++ enumerate ++ post
   }
 
-  private def getFirstPhaseAnnotations(top: Boolean): AnnotationMap = {
+  private def getFirstPhaseAnnotations(top: Boolean): AnnotationSeq = {
     if (top) { 
       //Load annotations from file
-      val annotationArray = annoFile match {
-        case None => Array[Annotation]()
-        case Some(fileName) => {
+      val annotationArray: Seq[Annotation] = annoFile match {
+        case None => Seq[Annotation]()
+        case Some(fileName) =>
           val annotations = new File(fileName)
           if(annotations.exists) {
-            val annotationsYaml = io.Source.fromFile(annotations).getLines().mkString("\n").parseYaml
-            annotationsYaml.convertTo[Array[Annotation]]
+            JsonProtocol.deserializeTry(annotations).get
           } else {
-            Array[Annotation]()
+            Seq[Annotation]()
           }
-        }
       }
       // add new annotations
-      AnnotationMap(Seq(
-        passes.memlib.InferReadWriteAnnotation(
-          s"${synTop.get}"
-        ),
-        passes.clocklist.ClockListAnnotation(
+      AnnotationSeq(Seq(
+        passes.memlib.InferReadWriteAnnotation,
+        passes.clocklist.ClockListAnnotation.parse(
           s"-c:${synTop.get}:-m:${synTop.get}:${listClocks.get}"
         ),
-        passes.memlib.ReplSeqMemAnnotation(
+        passes.memlib.ReplSeqMemAnnotation.parse(
           s"-c:${synTop.get}:${seqMemFlags.get}"
         )
       ) ++ annotationArray)
-    } else { AnnotationMap(Seq.empty) }
+    } else { AnnotationSeq(Seq.empty) }
   }
 
   private def getSecondPhasePasses: Seq[Transform] = {
@@ -156,31 +152,38 @@ sealed trait GenerateTopAndHarnessApp extends App with LazyLogging {
   }
 
   // always the same for now
-  private def getSecondPhaseAnnotations: AnnotationMap = AnnotationMap(Seq.empty)
+  private def getSecondPhaseAnnotations: AnnotationSeq = AnnotationSeq(Seq.empty)
 
   // Top Generation
   protected def firstPhase(top: Boolean, harness: Boolean): Unit = {
     require(top || harness, "Must specify either top or harness")
-    firrtl.Driver.compile(
-      input.get,
-      topOutput.getOrElse(output.get),
-      new VerilogCompiler(),
-      Parser.UseInfo,
-      getFirstPhasePasses(top, harness),
-      getFirstPhaseAnnotations(top)
-    )
+    val options = new ExecutionOptionsManager("firrtl") with HasFirrtlOptions {
+      firrtlOptions = firrtlOptions.copy(
+        inputFileNameOverride = input.get,
+        outputFileNameOverride = topOutput.getOrElse(output.get),
+        compilerName = "verilog",
+        infoModeName = "use",
+        customTransforms = getFirstPhasePasses(top, harness),
+        annotations = getFirstPhaseAnnotations(top).toList
+      )
+    }
+
+    firrtl.Driver.execute(options)
   }
 
   // Harness Generation
   protected def secondPhase: Unit = {
-    firrtl.Driver.compile(
-      input.get,
-      harnessOutput.getOrElse(output.get),
-      new VerilogCompiler(),
-      Parser.UseInfo,
-      getSecondPhasePasses,
-      getSecondPhaseAnnotations
-    )
+    val options = new ExecutionOptionsManager("firrtl") with HasFirrtlOptions {
+      firrtlOptions = firrtlOptions.copy(
+        inputFileNameOverride = input.get,
+        outputFileNameOverride = harnessOutput.getOrElse(output.get),
+        compilerName = "verilog",
+        infoModeName = "use",
+        customTransforms = getSecondPhasePasses,
+        annotations = getSecondPhaseAnnotations.toList
+      )
+    }
+    firrtl.Driver.execute(options)
   }
 }
 
