@@ -117,8 +117,9 @@ object DefaultMetric extends CostMetric with CostMetricCompanion {
     val memMask = mem.src.ports map (_.maskGran) find (_.isDefined) map (_.get)
     val libMask = lib.src.ports map (_.maskGran) find (_.isDefined) map (_.get)
     val memWidth = (memMask, libMask) match {
-      case (Some(1), Some(1)) | (None, _) => mem.src.width
-      case (Some(p), _) => p // assume that the memory consists of smaller chunks
+      case (None, _) => mem.src.width
+      case (Some(p), Some(q)) if p % q == 0 => mem.src.width
+      case (Some(p), _) => (mem.src.width / p) * lib.src.width // assume that the memory consists of smaller chunks
     }
     return Some(
       (((mem.src.depth - 1) / lib.src.depth) + 1) *

@@ -310,6 +310,9 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
         val name = s"mem_${i}_${j}"
         // Create the instance.
         stmts += WDefInstance(NoInfo, name, lib.src.name, lib.tpe)
+        stmts ++= lib.sortedPorts flatMap (_.ports collect {
+          case Port(_, pname, Input, _) => IsInvalid(NoInfo, WSubField(WRef(name), pname))
+        })
         // Connect extra ports of the lib.
         stmts ++= lib.extraPorts map { case (portName, portValue) =>
           Connect(NoInfo, WSubField(WRef(name), portName), portValue)
@@ -430,7 +433,7 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
                     // zero out the upper bits.
                     zero
                   } else {
-                    if (i >= memPort.src.width.get) {
+                    if ((low + i) >= memPort.src.width.get) {
                       // If our bit is larger than the whole width of the mem, just zero out the upper bits.
                       zero
                     } else {
@@ -479,12 +482,20 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
           /* Palmer: It's safe to ignore read enables, but we pass them through
            * to the vendor memory if there's a port on there that
            * implements the read enables. */
+          /* Donggyu: this is broken as read enables should be piped
           (memPort.src.readEnable, libPort.src.readEnable) match {
             case (_, None) =>
             case (Some(PolarizedPort(mem, _)), Some(PolarizedPort(lib, lib_polarity))) =>
               stmts += connectPorts(andAddrMatch(WRef(mem)), lib, lib_polarity)
             case (None, Some(PolarizedPort(lib, lib_polarity))) =>
               stmts += connectPorts(andAddrMatch(not(memWriteEnable)), lib, lib_polarity)
+          }
+          */
+          // Donggyu: thus, just connect 1 to read enables for now
+          libPort.src.readEnable match {
+            case None =>
+            case Some(PolarizedPort(lib, lib_polarity)) =>
+              stmts += connectPorts(one, lib, lib_polarity)
           }
 
           /* Palmer: This is actually the memory compiler: it figures out how to
@@ -521,6 +532,14 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
             case (None, None, None) =>
               // No write ports to match up (this may be a read-only port).
               // This isn't necessarily an error condition.
+            case (None, None, Some(PolarizedPort(en, en_polarity))) =>
+              // Correctly connect read-only port's chip enable
+              stmts += (memPort.src.readEnable match {
+                case None =>
+                  connectPorts(addrMatch, en, en_polarity)
+                case Some(PolarizedPort(mem, _)) =>
+                  connectPorts(andAddrMatch(WRef(mem)), en, en_polarity)
+              })
           }
         }
         // Cat macro outputs for selection
@@ -752,7 +771,7 @@ object MacroCompiler extends App {
         // Note: the last macro in the input list is (seemingly arbitrarily)
         // determined as the firrtl "top-level module".
         val circuit = Circuit(NoInfo, macros, macros.last.name)
-        val annotations = AnnotationMap(
+        val annotations =
           Seq(MacroCompilerAnnotation(
             circuit.main,
             MacroCompilerAnnotation.Params(
@@ -763,8 +782,7 @@ object MacroCompiler extends App {
               forceCompile = forcedMemories._1, forceSynflops = forcedMemories._2
             )
           ))
-        )
-        val state = CircuitState(circuit, HighForm, Some(annotations))
+        val state = CircuitState(circuit, HighForm, annotations)
 
         // Run the compiler.
         val result = new MacroCompiler().compileAndEmit(state)
