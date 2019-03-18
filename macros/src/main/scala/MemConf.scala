@@ -49,8 +49,7 @@ object MemConf {
   def fromString(s: String): Seq[MemConf] = {
     if (s.isEmpty) {
       Seq[MemConf]()
-    }
-    else {
+    } else {
       s.split("\n").toSeq.map(_ match {
         case MemConf.regex(name, depth, width, ports, maskGran) => MemConf(name, depth.toInt, width.toInt, MemPort.fromString(ports), Option(maskGran).map(_.toInt))
         case _ => throw new Exception(s"Error parsing MemConf string : ${s}")

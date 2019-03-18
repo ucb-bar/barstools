@@ -839,8 +839,7 @@ object MacroCompiler extends App {
           }
           case None =>
         }
-      }
-      else {
+      } else {
         // Warn user
         System.err println "WARNING: Empty *.mems.conf file. No memories generated."
 
