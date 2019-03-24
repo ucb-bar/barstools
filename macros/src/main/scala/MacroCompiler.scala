@@ -637,7 +637,7 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
                 hammerIRWriter.close()
                 firstLib = false
               }
-              case _ =>
+              case None =>
             }
             (modules filterNot (m => m.name == mod.name || m.name == bb.blackbox.name)) ++ Seq(mod, bb.blackbox)
         }
@@ -869,6 +869,7 @@ object MacroCompiler extends App {
             hammerIRWriter.write("]\n")
             hammerIRWriter.close()
           }
+          case None =>
         }
       } else {
         // Warn user
