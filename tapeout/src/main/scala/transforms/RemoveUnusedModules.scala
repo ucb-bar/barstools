@@ -52,7 +52,6 @@ class RemoveUnusedModules extends Transform {
 
     val renames = state.renames.getOrElse(RenameMap())
 
-    // This is what the annotation filter should look like, but for some reason it doesn't work.
     state.circuit.modules.filterNot { usedModuleSet contains _.name } foreach { x => renames.record(ModuleTarget(state.circuit.main, x.name), Nil) }
 
     val newCircuit = Circuit(state.circuit.info, usedModuleSeq, state.circuit.main)
