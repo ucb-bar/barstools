@@ -41,4 +41,8 @@ lazy val tapeout = (project in file("tapeout"))
   .settings(commonSettings)
   .settings(scalacOptions in Test ++= Seq("-language:reflectiveCalls"))
 
-lazy val root = (project in file(".")).aggregate(macros, tapeout)
+lazy val jack = (project in file("jack"))
+  .settings(commonSettings)
+  .settings(scalacOptions in Test ++= Seq("-language:reflectiveCalls"))
+
+lazy val root = (project in file(".")).aggregate(macros, tapeout, jack)
