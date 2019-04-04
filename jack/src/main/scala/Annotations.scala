@@ -52,7 +52,7 @@ case class ModuleAreaMetrics(path: Seq[String], key: String, namespace: String) 
   def toMetricIR(indent: Int): String = {
     " "*indent + s"${key}:\n" +
     " "*indent + "  type: \"area\"\n" +
-    " "*indent + "  path: \"/" + path.mkString("/") + "\"\n"
+    " "*indent + "  module: \"/" + path.mkString("/") + "\"\n"
   }
 
 }
