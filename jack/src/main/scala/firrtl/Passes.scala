@@ -1,5 +1,5 @@
 // See LICENSE for license details
-package barstools.jack
+package barstools.jack.firrtl
 
 import firrtl.{CircuitState, LowForm, Namespace, Transform, AnnotationSeq}
 import firrtl.analyses.{InstanceGraph}

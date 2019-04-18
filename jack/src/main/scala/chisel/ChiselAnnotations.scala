@@ -1,7 +1,8 @@
 // See LICENSE for license details
-package barstools.jack.frontend
+package barstools.jack.chisel
 
 import barstools.jack._
+import barstools.jack.firrtl._
 import chisel3.{Module, Clock}
 import chisel3.experimental.{annotate, ChiselAnnotation, RawModule}
 
@@ -23,3 +24,4 @@ object CriticalPath {
     annotate(new ChiselAnnotation { def toFirrtl: CriticalPathAnnotation = CriticalPathAnnotation(m.toNamed.toTarget, MetricDB.getNewKey(key), namespace.name, clock.toNamed.toTarget) })
   }
 }
+

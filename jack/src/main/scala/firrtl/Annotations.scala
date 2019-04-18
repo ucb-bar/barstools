@@ -1,10 +1,13 @@
 // See LICENSE for license details
-package barstools.jack
+package barstools.jack.firrtl
 
+import barstools.jack.HasMetricMetadata
 import firrtl.{CircuitState, LowForm, Namespace, Transform, AnnotationSeq}
 import firrtl.annotations.{NoTargetAnnotation, SingleTargetAnnotation, Target, ModuleTarget, ReferenceTarget}
 
 case class MetricIRFileAnnotation(value: String) extends NoTargetAnnotation
+
+case class MetricResultsFileAnnotation(value: String) extends NoTargetAnnotation
 
 trait HasMetricInstance extends HasMetricMetadata {
   val instancePath: Seq[String]
