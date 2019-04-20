@@ -10,6 +10,8 @@ import firrtl.annotations.AnnotationYamlProtocol._
 import net.jcazevedo.moultingyaml._
 import com.typesafe.scalalogging.LazyLogging
 
+import eagle.SelectIOCells
+
 trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
   var tapeoutOptions = TapeoutOptions()
 
@@ -59,6 +61,17 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
       "use this to set topAnnoOut"
     }
 
+  parser.opt[String]("pad-anno-out")
+    .abbr("psaof")
+    .valueName("<pad-anno-out>")
+    .foreach { x =>
+      tapeoutOptions = tapeoutOptions.copy(
+        padAnnoOut = Some(x)
+      )
+    }.text {
+      "use this to set padAnnoOut"
+    }
+
   parser.opt[String]("harness-top")
     .abbr("tht")
     .valueName("<harness-top>")
@@ -99,6 +112,7 @@ case class TapeoutOptions(
   synTop: Option[String] = None,
   topFir: Option[String] = None,
   topAnnoOut: Option[String] = None,
+  padAnnoOut: Option[String] = None,
   harnessTop: Option[String] = None,
   harnessFir: Option[String] = None,
   harnessAnnoOut: Option[String] = None
@@ -118,13 +132,15 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
   // Tapeout options
   lazy val synTop = tapeoutOptions.synTop
   lazy val harnessTop = tapeoutOptions.harnessTop
-  lazy val firrtlOptions = optionsManager.firrtlOptions
+  lazy val padAnnoOut = tapeoutOptions.padAnnoOut
   // FIRRTL options
+  lazy val firrtlOptions = optionsManager.firrtlOptions
   lazy val annoFiles = firrtlOptions.annotationFileNames
 
   private def topTransforms: Seq[Transform] = {
     Seq(
       new ReParentCircuit(synTop.get),
+      new SelectIOCells(padAnnoOut.getOrElse("pads.json")),
       new RemoveUnusedModules
     )
   }
