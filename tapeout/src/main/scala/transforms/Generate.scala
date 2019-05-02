@@ -189,7 +189,7 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
   protected def executeHarness: Unit = {
 
     optionsManager.firrtlOptions = optionsManager.firrtlOptions.copy(
-      customTransforms = harnessTransforms
+      customTransforms = firrtlOptions.customTransforms ++ harnessTransforms
     )
 
     val result = firrtl.Driver.execute(optionsManager)
