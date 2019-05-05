@@ -82,14 +82,19 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
         case (None, Some(we)) => portToExpression(we)
         case (None, None) => zero // is it possible?
       }
-      val mask = memPortField(mem, s"W_$i", "mask")
+      val mask = w.src.maskPort match {
+        case Some(m) => portToExpression(m)
+        case None => one
+      }
       val data = memPortField(mem, s"W_$i", "data")
       val write = portToExpression(w.src.input.get)
       Seq(
         Connect(NoInfo, memPortField(mem, s"W_$i", "clk"), clock),
         Connect(NoInfo, memPortField(mem, s"W_$i", "addr"), address),
-        Connect(NoInfo, memPortField(mem, s"W_$i", "en"), enable)
-      ) ++ (Seq(Connect(NoInfo, data, write), Connect(NoInfo, mask, one)))
+        Connect(NoInfo, memPortField(mem, s"W_$i", "en"), enable),
+        Connect(NoInfo, memPortField(mem, s"W_$i", "mask"), mask),
+        Connect(NoInfo, data, write)
+      )
     }
 
     val readwriteConnects = real_macro.readwriters.zipWithIndex flatMap { case (rw, i) =>
@@ -99,6 +104,10 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
         case Some(we) => portToExpression(we)
         case None => zero // is it possible?
       }
+      val wmask = rw.src.maskPort match {
+        case Some(wm) => portToExpression(wm)
+        case None => one
+      }
       val enable = (rw.src.chipEnable, rw.src.readEnable) match {
         case (Some(en), Some(re)) =>
           and(portToExpression(en), or(portToExpression(re), wmode))
@@ -106,7 +115,6 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
         case (None, Some(re)) => or(portToExpression(re), wmode)
         case (None, None) => one
       }
-      val wmask = memPortField(mem, s"RW_$i", "wmask")
       val wdata = memPortField(mem, s"RW_$i", "wdata")
       val rdata = memPortField(mem, s"RW_$i", "rdata")
       val write = portToExpression(rw.src.input.get)
@@ -116,8 +124,10 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
         Connect(NoInfo, memPortField(mem, s"RW_$i", "addr"), address),
         Connect(NoInfo, memPortField(mem, s"RW_$i", "en"), enable),
         Connect(NoInfo, memPortField(mem, s"RW_$i", "wmode"), wmode),
-        Connect(NoInfo, WRef(rw.src.output.get.name), read)
-      ) ++ (Seq(Connect(NoInfo, wdata, write), Connect(NoInfo, wmask, one)))
+        Connect(NoInfo, memPortField(mem, s"RW_$i", "wmask"), wmask),
+        Connect(NoInfo, WRef(rw.src.output.get.name), read),
+        Connect(NoInfo, wdata, write)
+      )
     }
 
     extraMods.append(real_macro.module(Block(mem +: (readConnects ++ writeConnects ++ readwriteConnects))))
