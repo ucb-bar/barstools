@@ -30,7 +30,10 @@ class RenameModulesAndInstances(rename: (String) => String) extends Transform {
     val modulesx = c.modules.map {
       case m: ExtModule =>
         myRenames.record(ModuleTarget(c.main, m.name), ModuleTarget(c.main, rename(m.name)))
-        m.copy(name = rename(m.name))
+        if(m.name.endsWith("_ext"))
+          m.copy(name = rename(m.name), defname = rename(m.defname))
+        else
+          m.copy(name = rename(m.name))
       case m: Module =>
         myRenames.record(ModuleTarget(c.main, m.name), ModuleTarget(c.main, rename(m.name)))
         new Module(m.info, rename(m.name), m.ports, renameInstances(m.body))
