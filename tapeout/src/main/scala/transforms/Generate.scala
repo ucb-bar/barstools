@@ -7,6 +7,8 @@ import firrtl.passes.Pass
 
 import java.io.File
 import firrtl.annotations.AnnotationYamlProtocol._
+import firrtl.passes.memlib.ReplSeqMemAnnotation
+import firrtl.transforms.BlackBoxHelperAnno
 import net.jcazevedo.moultingyaml._
 import com.typesafe.scalalogging.LazyLogging
 
@@ -92,6 +94,17 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
       "use this to set harnessAnnoOut"
     }
 
+  parser.opt[String]("harness-conf")
+    .abbr("thconf")
+    .valueName ("<harness-conf-file>")
+    .foreach { x =>
+      tapeoutOptions = tapeoutOptions.copy(
+        harnessConf = Some(x)
+      )
+    }.text {
+      "use this to set the harness conf file location"
+    }
+
 }
 
 case class TapeoutOptions(
@@ -101,7 +114,8 @@ case class TapeoutOptions(
   topAnnoOut: Option[String] = None,
   harnessTop: Option[String] = None,
   harnessFir: Option[String] = None,
-  harnessAnnoOut: Option[String] = None
+  harnessAnnoOut: Option[String] = None,
+  harnessConf: Option[String] = None
 ) extends LazyLogging
 
 // Requires two phases, one to collect modules below synTop in the hierarchy
@@ -129,73 +143,92 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
     )
   }
 
+  class AvoidExtModuleCollisions(mustLink: CircuitState) extends Transform {
+    def inputForm = HighForm
+    def outputForm = HighForm
+    val extModules = mustLink.circuit.modules.collect{ case e: ExtModule => e }
+    def execute(state: CircuitState): CircuitState = {
+      state.copy(circuit = state.circuit.copy(modules = state.circuit.modules ++ extModules))
+    }
+  }
 
-  private def harnessTransforms: Seq[Transform] = {
+  private def harnessTransforms(linkedTop: CircuitState): Seq[Transform] = {
     // XXX this is a hack, we really should be checking the masters to see if they are ExtModules
     val externals = Set(harnessTop.get, synTop.get, "SimSerial", "SimDTM")
     Seq(
       new ConvertToExtMod((m) => m.name == synTop.get),
       new RemoveUnusedModules,
+      new AvoidExtModuleCollisions(linkedTop),
       new RenameModulesAndInstances((old) => if (externals contains old) old else (old + "_in" + harnessTop.get))
     )
   }
 
+  // Dump firrtl and annotation files
+  protected def dump(res: FirrtlExecutionSuccess, firFile: Option[String], annoFile: Option[String]): Unit = {
+    firFile.foreach { firPath =>
+      val outputFile = new java.io.PrintWriter(firPath)
+      outputFile.write(res.circuitState.circuit.serialize)
+      outputFile.close()
+    }
+    annoFile.foreach { annoPath =>
+      val outputFile = new java.io.PrintWriter(annoPath)
+      outputFile.write(JsonProtocol.serialize(res.circuitState.annotations.filter(_ match {
+        case EmittedVerilogCircuitAnnotation(_) => false
+        case _ => true
+      })))
+      outputFile.close()
+    }
+  }
+
   // Top Generation
   protected def executeTop: Unit = {
-
-    optionsManager.firrtlOptions = optionsManager.firrtlOptions.copy(
+    optionsManager.firrtlOptions = firrtlOptions.copy(
       customTransforms = firrtlOptions.customTransforms ++ topTransforms
     )
 
     val result = firrtl.Driver.execute(optionsManager)
 
     result match {
-      case x: FirrtlExecutionSuccess =>
-        tapeoutOptions.topFir.foreach { firFile =>
-          val outputFile = new java.io.PrintWriter(firFile)
-          outputFile.write(x.circuitState.circuit.serialize)
-          outputFile.close()
-        }
-        tapeoutOptions.topAnnoOut.foreach { annoFile =>
-          val outputFile = new java.io.PrintWriter(annoFile)
-          outputFile.write(JsonProtocol.serialize(x.circuitState.annotations.filter(_ match {
-            case EmittedVerilogCircuitAnnotation(_) => false
-            case _ => true
-          })))
-          outputFile.close()
-        }
+      case x: FirrtlExecutionSuccess => dump(x, tapeoutOptions.topFir, tapeoutOptions.topAnnoOut)
       case _ =>
     }
-
   }
 
-  // Harness Generation
-  protected def executeHarness: Unit = {
-
-    optionsManager.firrtlOptions = optionsManager.firrtlOptions.copy(
-      customTransforms = firrtlOptions.customTransforms ++ harnessTransforms
+  // Top and harness generation
+  protected def executeTopAndHarness: Unit = {
+    optionsManager.firrtlOptions = firrtlOptions.copy(
+      customTransforms = firrtlOptions.customTransforms ++ topTransforms
     )
 
-    val result = firrtl.Driver.execute(optionsManager)
+    val topResult = firrtl.Driver.execute(optionsManager)
 
-    result match {
+    // If top run succeeds, dump firrtl and annos, change some firrtlOptions (below) for harness phase
+    // customTransforms: setup harness transforms, add AvoidExtModuleCollisions
+    // outputFileNameOverride: change to harnessOutput
+    // conf file must change to harnessConf by mapping annotations
+    topResult match {
       case x: FirrtlExecutionSuccess =>
-        tapeoutOptions.harnessFir.foreach { firFile =>
-          val outputFile = new java.io.PrintWriter(firFile)
-          outputFile.write(x.circuitState.circuit.serialize)
-          outputFile.close()
-        }
-        tapeoutOptions.harnessAnnoOut.foreach { annoFile =>
-          val outputFile = new java.io.PrintWriter(annoFile)
-          outputFile.write(JsonProtocol.serialize(x.circuitState.annotations.filter(_ match {
-            case EmittedVerilogCircuitAnnotation(_) => false
-            case _ => true
-          })))
-          outputFile.close()
-        }
+        dump(x, tapeoutOptions.topFir, tapeoutOptions.topAnnoOut)
+        // Pass through BlackBoxHelperAnnos to produce exhaustive resource file
+        val bbAnnos = x.circuitState.annotations.collect{ case bba: BlackBoxHelperAnno => bba }
+        optionsManager.firrtlOptions = firrtlOptions.copy(
+          customTransforms = firrtlOptions.customTransforms ++ harnessTransforms(x.circuitState),
+          outputFileNameOverride = tapeoutOptions.harnessOutput.get,
+          annotations = bbAnnos.toList ++ firrtlOptions.annotations.map {
+            case ReplSeqMemAnnotation(i, o) => ReplSeqMemAnnotation(i, tapeoutOptions.harnessConf.get)
+            case a => a
+          }
+        )
+      case _ =>
+    }
+
+    val harnessResult = firrtl.Driver.execute(optionsManager)
+    harnessResult match {
+      case x: FirrtlExecutionSuccess => dump(x, tapeoutOptions.harnessFir, tapeoutOptions.harnessAnnoOut)
       case _ =>
     }
   }
+
 }
 
 object GenerateTop extends App with GenerateTopAndHarnessApp {
@@ -203,7 +236,6 @@ object GenerateTop extends App with GenerateTopAndHarnessApp {
   executeTop
 }
 
-object GenerateHarness extends App with GenerateTopAndHarnessApp {
-  // Do minimal work for the first phase to generate test harness
-  executeHarness
+object GenerateTopAndHarness extends App with GenerateTopAndHarnessApp {
+  executeTopAndHarness
 }
