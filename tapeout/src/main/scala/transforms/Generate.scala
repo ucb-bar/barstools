@@ -8,7 +8,7 @@ import firrtl.passes.Pass
 import java.io.File
 import firrtl.annotations.AnnotationYamlProtocol._
 import firrtl.passes.memlib.ReplSeqMemAnnotation
-import firrtl.transforms.BlackBoxHelperAnno
+import firrtl.transforms.BlackBoxResourceFileNameAnno
 import net.jcazevedo.moultingyaml._
 import com.typesafe.scalalogging.LazyLogging
 
@@ -61,6 +61,17 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
       "use this to set topAnnoOut"
     }
 
+  parser.opt[String]("top-dotf-out")
+    .abbr("tdf")
+    .valueName("<top-dotf-out>")
+    .foreach { x =>
+      tapeoutOptions = tapeoutOptions.copy(
+        topDotfOut = Some(x)
+      )
+    }.text {
+      "use this to set the filename for the top resource .f file"
+    }
+
   parser.opt[String]("harness-top")
     .abbr("tht")
     .valueName("<harness-top>")
@@ -94,6 +105,17 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
       "use this to set harnessAnnoOut"
     }
 
+  parser.opt[String]("harness-dotf-out")
+    .abbr("hdf")
+    .valueName("<harness-dotf-out>")
+    .foreach { x =>
+      tapeoutOptions = tapeoutOptions.copy(
+        harnessDotfOut = Some(x)
+      )
+    }.text {
+      "use this to set the filename for the harness resource .f file"
+    }
+
   parser.opt[String]("harness-conf")
     .abbr("thconf")
     .valueName ("<harness-conf-file>")
@@ -112,9 +134,11 @@ case class TapeoutOptions(
   synTop: Option[String] = None,
   topFir: Option[String] = None,
   topAnnoOut: Option[String] = None,
+  topDotfOut: Option[String] = None,
   harnessTop: Option[String] = None,
   harnessFir: Option[String] = None,
   harnessAnnoOut: Option[String] = None,
+  harnessDotfOut: Option[String] = None,
   harnessConf: Option[String] = None
 ) extends LazyLogging
 
@@ -136,12 +160,17 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
   // FIRRTL options
   lazy val annoFiles = firrtlOptions.annotationFileNames
 
-  private def topTransforms: Seq[Transform] = {
+  lazy val topTransforms: Seq[Transform] = {
     Seq(
       new ReParentCircuit(synTop.get),
       new RemoveUnusedModules
     )
   }
+
+  lazy val topOptions = firrtlOptions.copy(
+    customTransforms = firrtlOptions.customTransforms ++ topTransforms,
+    annotations = firrtlOptions.annotations ++ tapeoutOptions.topDotfOut.map(BlackBoxResourceFileNameAnno(_))
+  )
 
   class AvoidExtModuleCollisions(mustLink: CircuitState) extends Transform {
     def inputForm = HighForm
@@ -182,12 +211,8 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
 
   // Top Generation
   protected def executeTop: Unit = {
-    optionsManager.firrtlOptions = firrtlOptions.copy(
-      customTransforms = firrtlOptions.customTransforms ++ topTransforms
-    )
-
+    optionsManager.firrtlOptions = topOptions
     val result = firrtl.Driver.execute(optionsManager)
-
     result match {
       case x: FirrtlExecutionSuccess => dump(x, tapeoutOptions.topFir, tapeoutOptions.topAnnoOut)
       case _ =>
@@ -196,10 +221,7 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
 
   // Top and harness generation
   protected def executeTopAndHarness: Unit = {
-    optionsManager.firrtlOptions = firrtlOptions.copy(
-      customTransforms = firrtlOptions.customTransforms ++ topTransforms
-    )
-
+    optionsManager.firrtlOptions = topOptions
     val topResult = firrtl.Driver.execute(optionsManager)
 
     // If top run succeeds, dump firrtl and annos, change some firrtlOptions (below) for harness phase
@@ -209,15 +231,13 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
     topResult match {
       case x: FirrtlExecutionSuccess =>
         dump(x, tapeoutOptions.topFir, tapeoutOptions.topAnnoOut)
-        // Pass through BlackBoxHelperAnnos to produce exhaustive resource file
-        val bbAnnos = x.circuitState.annotations.collect{ case bba: BlackBoxHelperAnno => bba }
         optionsManager.firrtlOptions = firrtlOptions.copy(
           customTransforms = firrtlOptions.customTransforms ++ harnessTransforms(x.circuitState),
           outputFileNameOverride = tapeoutOptions.harnessOutput.get,
-          annotations = bbAnnos.toList ++ firrtlOptions.annotations.map {
+          annotations = firrtlOptions.annotations.map({
             case ReplSeqMemAnnotation(i, o) => ReplSeqMemAnnotation(i, tapeoutOptions.harnessConf.get)
             case a => a
-          }
+          }) ++ tapeoutOptions.harnessDotfOut.map(BlackBoxResourceFileNameAnno(_))
         )
       case _ =>
     }
