@@ -172,22 +172,21 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
     annotations = firrtlOptions.annotations ++ tapeoutOptions.topDotfOut.map(BlackBoxResourceFileNameAnno(_))
   )
 
-  class AvoidExtModuleCollisions(mustLink: CircuitState) extends Transform {
+  class AvoidExtModuleCollisions(mustLink: Seq[ExtModule]) extends Transform {
     def inputForm = HighForm
     def outputForm = HighForm
-    val extModules = mustLink.circuit.modules.collect{ case e: ExtModule => e }
     def execute(state: CircuitState): CircuitState = {
-      state.copy(circuit = state.circuit.copy(modules = state.circuit.modules ++ extModules))
+      state.copy(circuit = state.circuit.copy(modules = state.circuit.modules ++ mustLink))
     }
   }
 
-  private def harnessTransforms(linkedTop: CircuitState): Seq[Transform] = {
+  private def harnessTransforms(topExtModules: Seq[ExtModule]): Seq[Transform] = {
     // XXX this is a hack, we really should be checking the masters to see if they are ExtModules
     val externals = Set(harnessTop.get, synTop.get, "SimSerial", "SimDTM")
     Seq(
       new ConvertToExtMod((m) => m.name == synTop.get),
       new RemoveUnusedModules,
-      new AvoidExtModuleCollisions(linkedTop),
+      new AvoidExtModuleCollisions(topExtModules),
       new RenameModulesAndInstances((old) => if (externals contains old) old else (old + "_in" + harnessTop.get))
     )
   }
@@ -210,37 +209,35 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
   }
 
   // Top Generation
-  protected def executeTop: Unit = {
+  protected def executeTop(): Seq[ExtModule] = {
     optionsManager.firrtlOptions = topOptions
     val result = firrtl.Driver.execute(optionsManager)
     result match {
-      case x: FirrtlExecutionSuccess => dump(x, tapeoutOptions.topFir, tapeoutOptions.topAnnoOut)
+      case x: FirrtlExecutionSuccess =>
+        dump(x, tapeoutOptions.topFir, tapeoutOptions.topAnnoOut)
+        x.circuitState.circuit.modules.collect{ case e: ExtModule => e }
       case _ =>
+        throw new Exception("executeTop failed on illegal FIRRTL input!")
     }
   }
 
   // Top and harness generation
-  protected def executeTopAndHarness: Unit = {
-    optionsManager.firrtlOptions = topOptions
-    val topResult = firrtl.Driver.execute(optionsManager)
+  protected def executeTopAndHarness(): Unit = {
+    // Execute top and get list of ExtModules to avoid collisions
+    val topExtModules = executeTop()
 
-    // If top run succeeds, dump firrtl and annos, change some firrtlOptions (below) for harness phase
+    // For harness run, change some firrtlOptions (below) for harness phase
     // customTransforms: setup harness transforms, add AvoidExtModuleCollisions
     // outputFileNameOverride: change to harnessOutput
     // conf file must change to harnessConf by mapping annotations
-    topResult match {
-      case x: FirrtlExecutionSuccess =>
-        dump(x, tapeoutOptions.topFir, tapeoutOptions.topAnnoOut)
-        optionsManager.firrtlOptions = firrtlOptions.copy(
-          customTransforms = firrtlOptions.customTransforms ++ harnessTransforms(x.circuitState),
-          outputFileNameOverride = tapeoutOptions.harnessOutput.get,
-          annotations = firrtlOptions.annotations.map({
-            case ReplSeqMemAnnotation(i, o) => ReplSeqMemAnnotation(i, tapeoutOptions.harnessConf.get)
-            case a => a
-          }) ++ tapeoutOptions.harnessDotfOut.map(BlackBoxResourceFileNameAnno(_))
-        )
-      case _ =>
-    }
+    optionsManager.firrtlOptions = firrtlOptions.copy(
+      customTransforms = firrtlOptions.customTransforms ++ harnessTransforms(topExtModules),
+      outputFileNameOverride = tapeoutOptions.harnessOutput.get,
+      annotations = firrtlOptions.annotations.map({
+        case ReplSeqMemAnnotation(i, o) => ReplSeqMemAnnotation(i, tapeoutOptions.harnessConf.get)
+        case a => a
+      }) ++ tapeoutOptions.harnessDotfOut.map(BlackBoxResourceFileNameAnno(_))
+    )
 
     val harnessResult = firrtl.Driver.execute(optionsManager)
     harnessResult match {
@@ -248,14 +245,13 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
       case _ =>
     }
   }
-
 }
 
 object GenerateTop extends App with GenerateTopAndHarnessApp {
   // Only need a single phase to generate the top module
-  executeTop
+  executeTop()
 }
 
 object GenerateTopAndHarness extends App with GenerateTopAndHarnessApp {
-  executeTopAndHarness
+  executeTopAndHarness()
 }
