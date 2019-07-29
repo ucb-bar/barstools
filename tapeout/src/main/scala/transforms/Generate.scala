@@ -159,7 +159,7 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
         tapeoutOptions.topAnnoOut.foreach { annoFile =>
           val outputFile = new java.io.PrintWriter(annoFile)
           outputFile.write(JsonProtocol.serialize(x.circuitState.annotations.filter(_ match {
-            case EmittedVerilogCircuitAnnotation(_) => false
+            case ea: EmittedAnnotation[_] => false
             case _ => true
           })))
           outputFile.close()
@@ -188,7 +188,7 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
         tapeoutOptions.harnessAnnoOut.foreach { annoFile =>
           val outputFile = new java.io.PrintWriter(annoFile)
           outputFile.write(JsonProtocol.serialize(x.circuitState.annotations.filter(_ match {
-            case EmittedVerilogCircuitAnnotation(_) => false
+            case ea: EmittedAnnotation[_] => false
             case _ => true
           })))
           outputFile.close()
