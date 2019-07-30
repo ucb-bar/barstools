@@ -3,6 +3,7 @@ package barstools.tapeout.transforms
 import firrtl._
 import firrtl.ir._
 import firrtl.annotations._
+import firrtl.stage.FirrtlCircuitAnnotation
 import firrtl.passes.Pass
 
 import java.io.File
@@ -160,6 +161,7 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
           val outputFile = new java.io.PrintWriter(annoFile)
           outputFile.write(JsonProtocol.serialize(x.circuitState.annotations.filter(_ match {
             case ea: EmittedAnnotation[_] => false
+            case fca: FirrtlCircuitAnnotation => false
             case _ => true
           })))
           outputFile.close()
@@ -189,6 +191,7 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
           val outputFile = new java.io.PrintWriter(annoFile)
           outputFile.write(JsonProtocol.serialize(x.circuitState.annotations.filter(_ match {
             case ea: EmittedAnnotation[_] => false
+            case fca: FirrtlCircuitAnnotation => false
             case _ => true
           })))
           outputFile.close()
