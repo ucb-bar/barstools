@@ -3,6 +3,7 @@ package barstools.tapeout.transforms
 import firrtl._
 import firrtl.ir._
 import firrtl.annotations._
+import firrtl.stage.FirrtlCircuitAnnotation
 import firrtl.passes.Pass
 
 import java.io.File
@@ -201,7 +202,8 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
     annoFile.foreach { annoPath =>
       val outputFile = new java.io.PrintWriter(annoPath)
       outputFile.write(JsonProtocol.serialize(res.circuitState.annotations.filter(_ match {
-        case EmittedVerilogCircuitAnnotation(_) => false
+        case ea: EmittedAnnotation[_] => false
+        case fca: FirrtlCircuitAnnotation => false
         case _ => true
       })))
       outputFile.close()
@@ -238,7 +240,6 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
         case a => a
       }) ++ tapeoutOptions.harnessDotfOut.map(BlackBoxResourceFileNameAnno(_))
     )
-
     val harnessResult = firrtl.Driver.execute(optionsManager)
     harnessResult match {
       case x: FirrtlExecutionSuccess => dump(x, tapeoutOptions.harnessFir, tapeoutOptions.harnessAnnoOut)
