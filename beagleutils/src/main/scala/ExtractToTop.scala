@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-package barstools.tapeout.transforms
+package beagleutils
 
 import firrtl._
 import firrtl.ir._
@@ -11,6 +11,16 @@ import firrtl.Utils._
 
 import scala.collection.mutable.ArrayBuffer
 
+case class ExtractionAnnotation(target: chisel3.Module)
+    extends chisel3.experimental.ChiselAnnotation {
+  def toFirrtl = FirrtlExtractionAnnotation(target.toNamed.toTarget)
+}
+
+case class FirrtlExtractionAnnotation(target: ModuleTarget) extends
+    SingleTargetAnnotation[ModuleTarget] {
+  def duplicate(rt: ModuleTarget) = this.copy(target = rt)
+}
+
 case class FirrtlInstAnnotation(target: InstanceTarget) extends SingleTargetAnnotation[InstanceTarget] {
   def targets = Seq(target)
   def duplicate(n: InstanceTarget) = this.copy(n)
@@ -20,7 +30,7 @@ case class PromoteSubmoduleAnnotation(target: InstanceTarget) extends SingleTarg
   def duplicate(n: InstanceTarget) = this.copy(n)
 }
 
-class ExtractToTopModel extends Transform {
+class ExtractToTop extends Transform {
   def inputForm = HighForm
   def outputForm = HighForm
 
@@ -32,20 +42,12 @@ class ExtractToTopModel extends Transform {
     if (anns.toSeq == state.annotations.toSeq) {
       state
     } else {
-      println("Run and redo promotion")
-      var sta: CircuitState = state
-      try {
-        sta = promoteModels((new PromoteSubmodule).runTransform(state.copy(annotations = anns)))
-      } catch {
-        case e: Throwable => e.printStackTrace
-      }
-      sta
+      promoteModels((new PromoteSubmodule).runTransform(state.copy(annotations = anns)))
     }
   }
 
   override def execute(state: CircuitState): CircuitState = {
-    val xtractModuleAnnos = state.annotations.collect({case xtract: boom.exu.FirrtlExtractionAnnotation => xtract.target})
-    println("xtractModuleAnnos: " + xtractModuleAnnos)
+    val xtractModuleAnnos = state.annotations.collect({case xtract: FirrtlExtractionAnnotation => xtract.target})
 
     val circ = state.circuit
     val addAnnos = new ArrayBuffer[Annotation]
@@ -65,13 +67,7 @@ class ExtractToTopModel extends Transform {
       case m => m
     })
 
-    println("New Annotations: " + addAnnos)
     val xformedState = state.copy(annotations = state.annotations ++ addAnnos)
-
-    println("Start promotion")
-    println("---PRINTING FROM EXTRACTTOTOP")
-    xformedState.circuit.modules.map(x => println(x.name))
-    println("---END PRINTING FROM EXTRACTTOTOP")
     promoteModels(xformedState)
   }
 }

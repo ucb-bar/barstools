@@ -1,6 +1,6 @@
 // See LICENSE for license details.
 
-package barstools.tapeout.transforms
+package beagleutils
 
 import firrtl._
 import ir._
@@ -82,14 +82,10 @@ class PromoteSubmodule extends Transform {
 
   override def execute(state: CircuitState): CircuitState = {
     val iGraph = new InstanceGraph(state.circuit)
-    println(iGraph)
+    val allExtModules = state.circuit.modules.collect({ case e: ExtModule => e })
     val updatedModules = new mutable.LinkedHashMap[String, Module]
     iGraph.moduleMap.foreach { case (k, v: Module) => updatedModules += (k -> v); case (k, v) => }
     val reversedIGraph = iGraph.graph.reverse
-    state.annotations.map(x => x match {
-      case PromoteSubmoduleAnnotation(instTarget) => println(instTarget)
-      case _ =>
-    })
     val promoted = findPromotedInstances(iGraph, state.annotations)
     val order = reversedIGraph.linearize.filter(reversedIGraph.getEdges(_).size > 0).filter(promoted)
     val renames = RenameMap()
@@ -113,14 +109,10 @@ class PromoteSubmodule extends Transform {
         promotedNames.map(s => renames.record(originalTarget, originalTarget.copy(module = grandparent.name, instance = s)))
       }
     }
-    val temp = state.copy(
-      circuit = state.circuit.copy(modules = updatedModules.map({ case (k, v) => v }).toSeq),
+    state.copy(
+      circuit = state.circuit.copy(modules = updatedModules.map({ case (k, v) => v }).toSeq ++ allExtModules),
       renames = Some(renames),
       annotations = state.annotations.filterNot(_.isInstanceOf[PromoteSubmoduleAnnotation])
     )
-    println("---PRINTING FROM PROMOTE")
-    temp.circuit.modules.map(x => println(x.name))
-    println("---END PRINTING FROM PROMOTE")
-    temp
   }
 }
