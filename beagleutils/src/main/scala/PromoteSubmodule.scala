@@ -76,7 +76,7 @@ class PromoteSubmodule extends Transform {
       promotedNames += childPeerInst.name
       val connection = Connect(childTemplate.info, instanceField(retypedParentInst, childTemplate.name), instanceRef(childPeerInst))
       Block(Seq(retypedParentInst, childPeerInst, connection))
-  case Block(stmts) => Block(stmts map (s => transformParentInstances(s, parentTemplate, childTemplate, namespace, promotedNames)))
+    case Block(stmts) => Block(stmts map (s => transformParentInstances(s, parentTemplate, childTemplate, namespace, promotedNames)))
     case s => s
   }
 
