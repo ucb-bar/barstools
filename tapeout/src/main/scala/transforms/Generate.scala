@@ -125,10 +125,11 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
   private def topTransforms: Seq[Transform] = {
     Seq(
       new ReParentCircuit(synTop.get),
-      //new RemoveUnusedModules
-      new RemoveUnusedModules,
-      new beagleutils.ExtractToTop,
-      new ResolveAndCheck
+      new RemoveUnusedModules
+      //new RemoveUnusedModules,
+      //new beagleutils.ExtractToTop,
+      //new ResolveAndCheck,
+      //new firrtl.transforms.GroupAndDedup
     )
   }
 

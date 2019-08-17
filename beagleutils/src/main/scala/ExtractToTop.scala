@@ -42,7 +42,6 @@ class ExtractToTop extends Transform {
     if (anns.toSeq == state.annotations.toSeq) {
       state
     } else {
-      println("do promote")
       promoteModels((new PromoteSubmodule).runTransform(state.copy(annotations = anns)))
     }
   }
@@ -68,16 +67,7 @@ class ExtractToTop extends Transform {
       case m => m
     })
 
-    println(addAnnos)
-
     val xformedState = state.copy(annotations = state.annotations ++ addAnnos)
-    println("start")
-    val done = promoteModels(xformedState)
-    println("end")
-    val outputFile = new java.io.PrintWriter("/tools/B/abejgonza/beagle-work/beagle-chip/vlsi/abe-output.fir")
-    outputFile.write(state.circuit.serialize)
-    outputFile.close()
-    println("file closed")
-    done
+    promoteModels(xformedState)
   }
 }

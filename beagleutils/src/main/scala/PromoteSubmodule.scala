@@ -74,7 +74,7 @@ class PromoteSubmodule extends Transform {
       val retypedParentInst = oldParentInstance.copy(tpe = parentTemplate.tpe)
       val childPeerInst = childTemplate.copy(name = namespace.newName(oldParentInstance.name + "_" + childTemplate.name))
       promotedNames += childPeerInst.name
-      val connection = Connect(childTemplate.info, instanceField(retypedParentInst, childTemplate.name), instanceRef(childPeerInst))
+      val connection = PartialConnect(childTemplate.info, instanceField(retypedParentInst, childTemplate.name), instanceRef(childPeerInst))
       Block(Seq(retypedParentInst, childPeerInst, connection))
     case Block(stmts) => Block(stmts map (s => transformParentInstances(s, parentTemplate, childTemplate, namespace, promotedNames)))
     case s => s
