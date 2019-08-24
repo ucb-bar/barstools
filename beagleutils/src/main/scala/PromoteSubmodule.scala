@@ -72,7 +72,7 @@ class PromoteSubmodule extends Transform {
   private def transformParentInstances(stmt: Statement, parentTemplate: WDefInstance, childTemplate: WDefInstance, namespace: Namespace, promotedNames: mutable.ArrayBuffer[String]): Statement = stmt match {
     case oldParentInstance @ WDefInstance(_, _, parentTemplate.module, _) =>
       val retypedParentInst = oldParentInstance.copy(tpe = parentTemplate.tpe)
-      val childPeerInst = childTemplate.copy(name = namespace.newName(oldParentInstance.name + "_" + childTemplate.name))
+      val childPeerInst = childTemplate.copy(name = namespace.newName(oldParentInstance.name + "Wire2_" + childTemplate.name))
       promotedNames += childPeerInst.name
       val connection = PartialConnect(childTemplate.info, instanceField(retypedParentInst, childTemplate.name), instanceRef(childPeerInst))
       Block(Seq(retypedParentInst, childPeerInst, connection))

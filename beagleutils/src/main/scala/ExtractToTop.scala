@@ -68,6 +68,13 @@ class ExtractToTop extends Transform {
     })
 
     val xformedState = state.copy(annotations = state.annotations ++ addAnnos)
-    promoteModels(xformedState)
+    val prom = promoteModels(xformedState)
+
+    val outputFile = new java.io.PrintWriter("/tools/B/abejgonza/beagle-work/beagle-chip/vlsi/prom.fir")
+    outputFile.write(prom.circuit.serialize)
+    outputFile.close()
+
+    prom
+
   }
 }
