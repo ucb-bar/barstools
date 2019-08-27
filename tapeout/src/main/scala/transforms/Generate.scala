@@ -128,9 +128,21 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
       "use this to set the harness conf file location"
     }
 
+  parser.opt[Boolean]("simulation")
+    .abbr("sim")
+    .valueName ("<simulation-flag>")
+    .foreach { x =>
+      tapeoutOptions = tapeoutOptions.copy(
+        simulation = Some(x)
+      )
+    }.text {
+      "use this to disable non-simulation passes"
+    }
+
 }
 
 case class TapeoutOptions(
+  simulation: Option[Boolean] = None,
   harnessOutput: Option[String] = None,
   synTop: Option[String] = None,
   topFir: Option[String] = None,
@@ -158,18 +170,30 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
   lazy val synTop = tapeoutOptions.synTop
   lazy val harnessTop = tapeoutOptions.harnessTop
   lazy val firrtlOptions = optionsManager.firrtlOptions
+  lazy val simFlag = tapeoutOptions.simulation
   // FIRRTL options
   lazy val annoFiles = firrtlOptions.annotationFileNames
 
   lazy val topTransforms: Seq[Transform] = {
-    Seq(
+    val originalXforms = Seq(
       new ReParentCircuit(synTop.get),
-      new RemoveUnusedModules,
-      new beagleutils.ExtractToTop,
-      new ResolveAndCheck,
-      new firrtl.transforms.GroupAndDedup,
-      new firrtl.passes.InlineInstances
+      new RemoveUnusedModules
     )
+    val tapeoutXForms = if (!simFlag.get) {
+      println(">>> Adding tapeout specific passes <<<")
+      originalXforms ++ Seq(
+        new beagleutils.ExtractToTop,
+        new ResolveAndCheck,
+        new firrtl.transforms.GroupAndDedup,
+        new firrtl.passes.InlineInstances
+      )
+    }
+    else {
+      println(">>> Not adding tapeout specific passes <<<")
+      originalXforms
+    }
+
+    tapeoutXForms
   }
 
   lazy val topOptions = firrtlOptions.copy(
@@ -178,8 +202,8 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
   )
 
   class AvoidExtModuleCollisions(mustLink: Seq[ExtModule]) extends Transform {
-    def inputForm = HighForm
-    def outputForm = HighForm
+    def inputForm = LowForm
+    def outputForm = LowForm
     def execute(state: CircuitState): CircuitState = {
       state.copy(circuit = state.circuit.copy(modules = state.circuit.modules ++ mustLink))
     }
@@ -192,6 +216,7 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
       new ConvertToExtMod((m) => m.name == synTop.get),
       new RemoveUnusedModules,
       new AvoidExtModuleCollisions(topExtModules),
+      new firrtl.transforms.DedupModules,
       new RenameModulesAndInstances((old) => if (externals contains old) old else (old + "_in" + harnessTop.get))
     )
   }

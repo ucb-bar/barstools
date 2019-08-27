@@ -25,7 +25,7 @@ class RemoveUnusedModules extends Transform {
         case Some(m) => {
           def someStatements(statement: Statement): Seq[Statement] =
             statement match {
-              case b: Block => 
+              case b: Block =>
                 b.stmts.map{ someStatements(_) }
                   .foldLeft(Seq[Statement]())(_ ++ _)
               case when: Conditionally =>
