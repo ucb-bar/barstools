@@ -181,11 +181,14 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
     )
     val tapeoutXForms = if (!simFlag.get) {
       println(">>> Adding tapeout specific passes <<<")
+      //originalXforms ++ Seq(
+      //  new beagleutils.ExtractToTop,
+      //  new ResolveAndCheck,
+      //  new firrtl.transforms.GroupAndDedup,
+      //  new firrtl.passes.InlineInstances
+      //)
       originalXforms ++ Seq(
-        new beagleutils.ExtractToTop,
-        new ResolveAndCheck,
-        new firrtl.transforms.GroupAndDedup,
-        new firrtl.passes.InlineInstances
+        new beagleutils.BeagleXforms
       )
     }
     else {
