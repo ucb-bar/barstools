@@ -5,7 +5,8 @@ package beagleutils
 import firrtl._
 import firrtl.ir._
 import firrtl.passes.Pass
-import firrtl.annotations.{InstanceTarget, ModuleTarget, Annotation, SingleTargetAnnotation}
+import firrtl.stage.FirrtlCircuitAnnotation
+import firrtl.annotations._
 import firrtl.Mappers._
 import firrtl.Utils._
 
@@ -24,16 +25,6 @@ case class FirrtlExtractionAnnotation(target: ModuleTarget) extends
 case class FirrtlInstAnnotation(target: InstanceTarget) extends SingleTargetAnnotation[InstanceTarget] {
   def targets = Seq(target)
   def duplicate(n: InstanceTarget) = this.copy(n)
-}
-
-class BeagleXforms extends SeqTransform {
-  def inputForm = MidForm
-  def outputForm = MidForm
-  def transforms = Seq(
-    new ExtractToTop,
-    new ResolveAndCheck,
-    new firrtl.transforms.GroupAndDedup,
-    new firrtl.passes.InlineInstances)
 }
 
 class ExtractToTop extends Transform {
@@ -74,10 +65,8 @@ class ExtractToTop extends Transform {
         val mt = ModuleTarget(circ.main, m.name)
         def onStmt(stmt: Statement): Statement = stmt.map(onStmt) match {
           case inst: WDefInstance =>
-            //println(s"ModuleTarget: ${ModuleTarget(circ.main, inst.module)} mt.instOf: ${mt.instOf(inst.name, inst.module)}")
             if (xtractModuleAnnos.contains(ModuleTarget(circ.main, inst.module))) {
               val instAnno = FirrtlInstAnnotation(mt.instOf(inst.name, inst.module))
-              println(s"AddingInstAnno: $instAnno")
               addAnnos += instAnno
             }
             inst
@@ -88,10 +77,8 @@ class ExtractToTop extends Transform {
       case m => m
     })
 
-    //val xformedState = state.copy(annotations = state.annotations ++ addAnnos)
     println(s"AddedAnnos: ${addAnnos}")
     println("StartPromote")
-    //val promMo = promoteModels(xformedState)
 
     var promMo = state
     for (anno <- addAnnos) {
@@ -99,11 +86,6 @@ class ExtractToTop extends Transform {
       val xformedState = promMo.copy(annotations = state.annotations ++ Seq(anno))
       promMo = promoteModels(xformedState)
     }
-
-    //println("Print to file after Extract\n")
-    //val outputFile = new java.io.PrintWriter("/tools/B/abejgonza/beagle-work/beagle-chip-io-sdcard/vlsi/promMo.fir")
-    //outputFile.write(promMo.circuit.serialize)
-    //outputFile.close()
 
     promMo
   }
