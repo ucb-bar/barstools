@@ -29,3 +29,31 @@ resolvers ++= Seq(
   Resolver.sonatypeRepo("releases"),
   Resolver.mavenLocal
 )
+
+disablePlugins(sbtassembly.AssemblyPlugin)
+
+lazy val mdf = (project in file("mdf/scalalib"))
+lazy val macros = (project in file("macros"))
+  .dependsOn(mdf)
+  .settings(commonSettings)
+  .settings(Seq(
+    libraryDependencies ++= Seq(
+      "edu.berkeley.cs" %% "firrtl-interpreter" % "1.2-SNAPSHOT" % Test
+    ),
+    mainClass := Some("barstools.macros.MacroCompiler")
+  ))
+  .enablePlugins(sbtassembly.AssemblyPlugin)
+
+lazy val tapeout = (project in file("tapeout"))
+  .settings(commonSettings)
+  .settings(Seq(
+    libraryDependencies ++= Seq(
+      "io.github.daviddenton" %% "handlebars-scala-fork" % "2.3.0"
+    )
+  ))
+  .settings(scalacOptions in Test ++= Seq("-language:reflectiveCalls"))
+
+lazy val floorplan = (project in file("floorplan"))
+  .settings(commonSettings)
+
+lazy val root = (project in file(".")).aggregate(macros, tapeout, floorplan)
