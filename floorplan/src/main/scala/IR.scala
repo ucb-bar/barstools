@@ -93,22 +93,4 @@ final case class AbstractPackedHomogenousGrid[T <: Element](name: String, xDim: 
   def level = IRLevel2
 }
 
-object FloorplanSerialization {
-
-  import org.json4s._
-  import org.json4s.native.Serialization.{read, write}
-  import scala.reflect.runtime.universe.typeOf
-
-  val formats = new DefaultFormats {
-    override val typeHintFieldName = "class"
-    override val typeHints = FullTypeHints(typeOf[Element].
-      typeSymbol.
-      asClass.
-      knownDirectSubclasses.
-      toList.
-      map { x => Class.forName(x.fullName) })
-  }
-
-  def serialize[T <: Element](elt: T): String = write(elt)(formats)
-
-}
+// TODO add more layouts here
