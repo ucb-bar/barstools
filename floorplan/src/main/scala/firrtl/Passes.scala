@@ -1,7 +1,7 @@
 // See LICENSE for license details
 package barstools.floorplan.firrtl
 
-import barstools.floorplan.FloorplanSerialization
+import barstools.floorplan.{FloorplanSerialization, FloorplanElementRecord}
 import firrtl.{CircuitState, LowForm, Namespace, Transform, AnnotationSeq}
 import firrtl.options.{RegisteredTransform, ShellOption}
 import firrtl.analyses.{InstanceGraph}
@@ -20,24 +20,31 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
     )
   )
 
+  private def optSeq[T](s: Seq[T]): Option[Seq[T]] = {
+    // This works in scala 2.13
+    //Option.when(s.nonEmpty)(s)
+    if (s.nonEmpty) Some(s) else None
+  }
+
   def execute(state: CircuitState): CircuitState = {
-    state.annotations.collectFirst({
-      case x: FloorplanIRFileAnnotation => x.value
-    }).headOption.map { filename =>
+    // TODO don't need graph if there are no annos, which can be a speedup
+    val graph = new InstanceGraph(state.circuit)
+    optSeq(state.annotations.collect({
+      case x: FloorplanModuleAnnotation =>
+        graph.findInstancesInHierarchy(x.target.name).
+          map(_.tail.map(_.name)).
+          reduce(_ ++ _).
+          map(FloorplanElementRecord(_, FloorplanSerialization.deserialize(x.fpir)))
+    }).reduce(_ ++ _)).foreach { list =>
+      val filename = state.annotations.collectFirst({
+        case x: FloorplanIRFileAnnotation => x.value
+      }).getOrElse {
+        val opt = options.head.longOption
+        throw new Exception(s"Did not specify a filename for GenerateFloorplanIRPass. Please provide a FloorplanIRFileAnnotation or use the --${opt} option.")
+      }
       val writer = new java.io.FileWriter(filename)
-      val graph = new InstanceGraph(state.circuit)
-      val list = state.annotations.collect {
-        case x: FloorplanModuleAnnotation =>
-          graph.findInstancesInHierarchy(x.target.name).
-            map(_.tail.map(_.name)).
-            reduce(_ ++ _).
-            map((_, FloorplanSerialization.deserialize(x.fpir)))
-      } reduce (_ ++ _)
       writer.write(FloorplanSerialization.serialize(list))
       writer.close()
-    } getOrElse {
-      val opt = options.head.longOption
-      throw new Exception(s"Did not specify a filename for GenerateFloorplanIRPass. Please provide a FloorplanIRFileAnnotation or use the --${opt} option.")
     }
     state
   }

@@ -5,6 +5,8 @@ import org.json4s._
 import org.json4s.native.Serialization.{read, write}
 import scala.reflect.runtime.universe.typeOf
 
+final case class FloorplanElementRecord[T <: Element](path: String, elt: T)
+
 object FloorplanSerialization {
 
   // Because Element is sealed, all of its subclasses are known at compile time, so we can construct type hints for them
@@ -19,12 +21,12 @@ object FloorplanSerialization {
   }
 
   def serialize[T <: Element](elt: T): String = write(elt)(formats)
-  def serialize[T <: Element](elts: Seq[(String, T)]): String = write(elts)(formats)
+  def serialize[T <: Element](elts: Seq[FloorplanElementRecord[T]]): String = write(elts)(formats)
 
   def deserialize(fpir: String): Element = {
     // Not sure why the implicit doesn't work at the original definition, but the compiler complains
     implicit val formats = FloorplanSerialization.formats
-    read(fpir)
+    read[Element](fpir)
   }
 
 }
