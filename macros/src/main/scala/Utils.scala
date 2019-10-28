@@ -75,7 +75,10 @@ object Utils {
   }
   // This utility reads a conf in and returns MDF like mdf.macrolib.Utils.readMDFFromPath
   def readConfFromPath(path: Option[String]): Option[Seq[mdf.macrolib.Macro]] = {
-    path.map((p) => Utils.readConfFromString(scala.io.Source.fromFile(p).mkString))
+    val temp = path.map((p) => Utils.readConfFromString(scala.io.Source.fromFile(p).mkString))
+    //println(s"Abe: ${Some(temp)}")
+    mdf.macrolib.Utils.writeMDFToPath(Some("/tools/B/abejgonza/beagle-work/beagle-chip-extra/vlsi/test.json"), temp.get)
+    temp
   }
   def readConfFromString(str: String): Seq[mdf.macrolib.Macro] = {
     MemConf.fromString(str).map { m:MemConf =>

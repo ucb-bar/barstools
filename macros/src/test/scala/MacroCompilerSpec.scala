@@ -70,6 +70,10 @@ abstract class MacroCompilerSpec extends org.scalatest.FlatSpec with org.scalate
   def compileExecuteAndTest(mem: String, lib: Option[String], v: String, output: String, synflops: Boolean = false, useCompiler: Boolean = false): Unit = {
     compile(mem, lib, v, synflops, useCompiler)
     val result = execute(mem, lib, synflops, useCompiler)
+    // print
+    val outputFile = new java.io.PrintWriter("/tools/B/abejgonza/beagle-work/beagle-chip-extra/vlsi/test.fir")
+    outputFile.write(result.circuitState.circuit.serialize)
+    outputFile.close()
     test(result, output)
   }
 

@@ -22,6 +22,73 @@ class GenerateSomeVerilog extends MacroCompilerSpec with HasSRAMGenerator with H
   }
 }
 
+class MaskPortTest extends MacroCompilerSpec with HasSRAMGenerator {
+  val mem = s"mem-MaskPortTest.json" // mem. you want to create
+  val lib = s"lib-MaskPortTest.json" // lib. of mems to create it
+  val v = s"MaskPortTest.json"
+
+  override val libPrefix = "macros/src/test/resources"
+
+  // SRAMMacro(
+  //   cc_dir_ext,
+  //   128,
+  //   512,
+  //   1rw,
+  //   List(
+  //     MacroPort(
+  //       PolarizedPort(RW0_addr,ActiveHigh),
+  //       Some(PolarizedPort(RW0_clk,PositiveEdge)),
+  //       Some(PolarizedPort(RW0_wmode,ActiveHigh)),
+  //       None,
+  //       Some(PolarizedPort(RW0_en,ActiveHigh)),
+  //       Some(PolarizedPort(RW0_rdata,ActiveHigh)),
+  //       Some(PolarizedPort(RW0_wdata,ActiveHigh)),
+  //       Some(PolarizedPort(RW0_wmask,ActiveHigh)),
+  //       Some(16),
+  //       Some(128),
+  //       Some(512))),
+  //   ,
+  //   1,
+  //   List())
+
+  val memSRAMs = mdf.macrolib.Utils.readMDFFromString(
+"""
+[ {
+  "type" : "sram",
+  "name" : "cc_dir_ext",
+  "width" : 128,
+  "depth" : "512",
+  "mux" : 1,
+  "ports" : [ {
+    "address port name" : "RW0_addr",
+    "address port polarity" : "active high",
+    "clock port name" : "RW0_clk",
+    "clock port polarity" : "positive edge",
+    "write enable port name" : "RW0_wmode",
+    "write enable port polarity" : "active high",
+    "chip enable port name" : "RW0_en",
+    "chip enable port polarity" : "active high",
+    "output port name" : "RW0_rdata",
+    "output port polarity" : "active high",
+    "input port name" : "RW0_wdata",
+    "input port polarity" : "active high",
+    "mask port name" : "RW0_wmask",
+    "mask port polarity" : "active high",
+    "mask granularity" : 16
+  } ],
+  "family" : "1rw"
+} ]
+""").getOrElse(List())
+
+  writeToMem(mem, memSRAMs)
+
+  val output =
+"""
+"""
+
+  compileExecuteAndTest(mem, lib, v, output)
+}
+
 class BOOMTest extends MacroCompilerSpec with HasSRAMGenerator {
   val mem = s"mem-BOOMTest.json"
   val lib = s"lib-BOOMTest.json"

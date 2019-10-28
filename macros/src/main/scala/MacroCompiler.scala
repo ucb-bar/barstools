@@ -134,6 +134,7 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
     */
   private def calculateBitPairs(mem: Macro, lib: Macro): Seq[(BigInt, BigInt)] = {
     val pairedPorts = mem.sortedPorts zip lib.sortedPorts
+    println(s"pairedPorts = ${lib.src.ports}")
 
     val bitPairs = ArrayBuffer[(BigInt, BigInt)]()
     var currentLSB: BigInt = 0
@@ -494,8 +495,9 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
             case (_, None) =>
             case (Some(PolarizedPort(mem, _)), Some(PolarizedPort(lib, lib_polarity))) =>
               stmts += connectPorts(andAddrMatch(WRef(mem)), lib, lib_polarity)
-            case (None, Some(PolarizedPort(lib, lib_polarity))) =>
+            case (None, Some(PolarizedPort(lib, lib_polarity))) => {
               stmts += connectPorts(andAddrMatch(not(memWriteEnable)), lib, lib_polarity)
+            }
           }
 
           /* Palmer: This is actually the memory compiler: it figures out how to
@@ -505,22 +507,26 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
             case (Some(PolarizedPort(mask, mask_polarity)), Some(PolarizedPort(we, we_polarity)), Some(PolarizedPort(en, en_polarity))) =>
               /* Palmer: This is the simple option: every port exists. */
               stmts += connectPorts(memMask, mask, mask_polarity)
+              println(s"1 $memWriteEnable $we $we_polarity")
               stmts += connectPorts(andAddrMatch(memWriteEnable), we, we_polarity)
               stmts += connectPorts(andAddrMatch(memChipEnable), en, en_polarity)
             case (Some(PolarizedPort(mask, mask_polarity)), Some(PolarizedPort(we, we_polarity)), None) =>
               /* Palmer: If we don't have a chip enable but do have mask ports. */
               stmts += connectPorts(memMask, mask, mask_polarity)
+              println(s"2 ($memWriteEnable & $memChipEnable) $we $we_polarity")
               stmts += connectPorts(andAddrMatch(and(memWriteEnable, memChipEnable)),
-                                    we, mask_polarity)
+                                    we, we_polarity)
             case (None, Some(PolarizedPort(we, we_polarity)), chipEnable) =>
               if (bitWidth(memMask.tpe) == 1) {
                 /* Palmer: If we're expected to provide mask ports without a
                  * memory that actually has them then we can use the
                  * write enable port instead of the mask port. */
+                println(s"3 ($memWriteEnable & $memMask) $we $we_polarity")
                 stmts += connectPorts(andAddrMatch(and(memWriteEnable, memMask)),
                                       we, we_polarity)
                 chipEnable match {
                   case Some(PolarizedPort(en, en_polarity)) => {
+                    println(s"4 $memChipEnable $en $en_polarity")
                     stmts += connectPorts(andAddrMatch(memChipEnable), en, en_polarity)
                   }
                   case _ => // TODO: do we care about the case where mem has chipEnable but lib doesn't?
@@ -772,37 +778,39 @@ object MacroCompiler extends App {
   ) ++ modeOptions) mkString "\n"
 
   def parseArgs(map: MacroParamMap, costMap: CostParamMap, forcedMemories: ForcedMemories,
-                args: List[String]): (MacroParamMap, CostParamMap, ForcedMemories) =
-    args match {
-      case Nil => (map, costMap, forcedMemories)
-      case ("-n" | "--macro-conf") :: value :: tail =>
-        parseArgs(map + (Macros  -> value) + (MacrosFormat -> "conf"), costMap, forcedMemories, tail)
-      case ("-m" | "--macro-mdf") :: value :: tail =>
-        parseArgs(map + (Macros  -> value) + (MacrosFormat -> "mdf"), costMap, forcedMemories, tail)
-      case ("-l" | "--library") :: value :: tail =>
-        parseArgs(map + (Library -> value), costMap, forcedMemories, tail)
-      case ("-u" | "--use-compiler") :: tail =>
-        parseArgs(map + (UseCompiler -> ""), costMap, forcedMemories, tail)
-      case ("-v" | "--verilog") :: value :: tail =>
-        parseArgs(map + (Verilog -> value), costMap, forcedMemories, tail)
-      case ("-f" | "--firrtl") :: value :: tail =>
-        parseArgs(map + (Firrtl -> value), costMap, forcedMemories, tail)
-      case ("-hir" | "--hammer-ir") :: value :: tail =>
-        parseArgs(map + (HammerIR -> value), costMap, forcedMemories, tail)
-      case ("-c" | "--cost-func") :: value :: tail =>
-        parseArgs(map + (CostFunc -> value), costMap, forcedMemories, tail)
-      case ("-cp" | "--cost-param") :: value1 :: value2 :: tail =>
-        parseArgs(map, costMap + (value1 -> value2), forcedMemories, tail)
-      case "--force-compile" :: value :: tail =>
-        parseArgs(map, costMap, forcedMemories.copy(_1 = forcedMemories._1 + value), tail)
-      case "--force-synflops" :: value :: tail =>
-        parseArgs(map, costMap, forcedMemories.copy(_2 = forcedMemories._2 + value), tail)
-      case "--mode" :: value :: tail =>
-        parseArgs(map + (Mode -> value), costMap, forcedMemories, tail)
-      case arg :: tail =>
-        println(s"Unknown field $arg\n")
-        println(usage)
-        sys.exit(1)
+                args: List[String]): (MacroParamMap, CostParamMap, ForcedMemories) = {
+      println(s"$args")
+      args match {
+        case Nil => (map, costMap, forcedMemories)
+        case ("-n" | "--macro-conf") :: value :: tail =>
+          parseArgs(map + (Macros  -> value) + (MacrosFormat -> "conf"), costMap, forcedMemories, tail)
+        case ("-m" | "--macro-mdf") :: value :: tail =>
+          parseArgs(map + (Macros  -> value) + (MacrosFormat -> "mdf"), costMap, forcedMemories, tail)
+        case ("-l" | "--library") :: value :: tail =>
+          parseArgs(map + (Library -> value), costMap, forcedMemories, tail)
+        case ("-u" | "--use-compiler") :: tail =>
+          parseArgs(map + (UseCompiler -> ""), costMap, forcedMemories, tail)
+        case ("-v" | "--verilog") :: value :: tail =>
+          parseArgs(map + (Verilog -> value), costMap, forcedMemories, tail)
+        case ("-f" | "--firrtl") :: value :: tail =>
+          parseArgs(map + (Firrtl -> value), costMap, forcedMemories, tail)
+        case ("-hir" | "--hammer-ir") :: value :: tail =>
+          parseArgs(map + (HammerIR -> value), costMap, forcedMemories, tail)
+        case ("-c" | "--cost-func") :: value :: tail =>
+          parseArgs(map + (CostFunc -> value), costMap, forcedMemories, tail)
+        case ("-cp" | "--cost-param") :: value1 :: value2 :: tail =>
+          parseArgs(map, costMap + (value1 -> value2), forcedMemories, tail)
+        case "--force-compile" :: value :: tail =>
+          parseArgs(map, costMap, forcedMemories.copy(_1 = forcedMemories._1 + value), tail)
+        case "--force-synflops" :: value :: tail =>
+          parseArgs(map, costMap, forcedMemories.copy(_2 = forcedMemories._2 + value), tail)
+        case "--mode" :: value :: tail =>
+          parseArgs(map + (Mode -> value), costMap, forcedMemories, tail)
+        case arg :: tail =>
+          println(s"Unknown field $arg\n")
+          println(usage)
+          sys.exit(1)
+      }
     }
 
   def run(args: List[String]) {
