@@ -1,21 +1,13 @@
 // See LICENSE for license details
 package barstools.floorplan
 
-sealed abstract class IRLevel(val level: Int) {
-  // TODO
-}
-
-case object IRLevel0 extends IRLevel(0)
-case object IRLevel1 extends IRLevel(1)
-case object IRLevel2 extends IRLevel(2)
-
-
 ////////////////////////////////////////////// Base classes
 
 sealed abstract class Element {
   val name: String
 
-  def level: IRLevel
+  // TODO make this an Enumeration
+  def level: Int
   def serialize = FloorplanSerialization.serialize(this)
 
 }
@@ -25,11 +17,11 @@ sealed abstract class Primitive extends Element
 ////////////////////////////////////////////// Rect shape
 
 sealed abstract class AbstractRect extends Primitive {
-  final def level = IRLevel2
+  final def level = 2
 }
 
 sealed abstract class ConstrainedRect extends Primitive {
-  final def level = IRLevel1
+  final def level = 1
 
   val width: Constraint[LengthUnit]
   val height: Constraint[LengthUnit]
@@ -39,7 +31,7 @@ sealed abstract class ConstrainedRect extends Primitive {
 }
 
 sealed abstract class ConcreteRect extends Primitive {
-  final def level = IRLevel0
+  final def level = 0
 
   val width: LengthUnit
   val height: LengthUnit
@@ -89,8 +81,12 @@ sealed abstract class Grid extends Group {
   def get(x: Int, y: Int) = elements(xDim*y + x)
 }
 
-final case class AbstractPackedHomogenousGrid[T <: Element](name: String, xDim: Int, yDim: Int, elements: Seq[T]) extends Grid {
-  def level = IRLevel2
+final case class AbstractGrid[T <: Element](name: String, xDim: Int, yDim: Int, elements: Seq[T]) extends Grid {
+  def level = 2
+}
+
+final case class WeightedGrid[T <: Element](name: String, xDim: Int, yDim: Int, elements: Seq[T], weights: Seq[Int], packed: Boolean) extends Grid {
+  def level = 1
 }
 
 // TODO add more layouts here
