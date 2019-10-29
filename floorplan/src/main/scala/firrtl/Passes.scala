@@ -1,7 +1,7 @@
 // See LICENSE for license details
 package barstools.floorplan.firrtl
 
-import barstools.floorplan.{FloorplanSerialization, FloorplanElementRecord}
+import barstools.floorplan.{FloorplanSerialization, FloorplanElementRecord, FloorplanState}
 import firrtl.{CircuitState, LowForm, Namespace, Transform, AnnotationSeq}
 import firrtl.options.{RegisteredTransform, ShellOption}
 import firrtl.analyses.{InstanceGraph}
@@ -43,7 +43,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
         throw new Exception(s"Did not specify a filename for GenerateFloorplanIRPass. Please provide a FloorplanIRFileAnnotation or use the --${opt} option.")
       }
       val writer = new java.io.FileWriter(filename)
-      writer.write(FloorplanSerialization.serialize(list))
+      writer.write(FloorplanState.serialize(list))
       writer.close()
     }
     state
