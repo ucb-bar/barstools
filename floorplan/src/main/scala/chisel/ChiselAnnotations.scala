@@ -3,7 +3,8 @@ package barstools.floorplan.chisel
 
 import barstools.floorplan.firrtl.{FloorplanModuleAnnotation, GenerateFloorplanIRPass}
 import barstools.floorplan.{Element}
-import chisel3.experimental.{annotate, ChiselAnnotation, RawModule}
+import chisel3.core.{RawModule}
+import chisel3.experimental.{annotate, ChiselAnnotation}
 import firrtl.stage.RunFirrtlTransformAnnotation
 
 
