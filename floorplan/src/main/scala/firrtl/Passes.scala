@@ -34,8 +34,8 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
         graph.findInstancesInHierarchy(x.target.name).
           map(_.tail.map(_.name)).
           reduce(_ ++ _).
-          map(FloorplanElementRecord(_, FloorplanSerialization.deserialize(x.fpir)))
-    }).reduce(_ ++ _)).foreach { list =>
+          map(y => FloorplanElementRecord(Some(y), FloorplanSerialization.deserialize(x.fpir)))
+    }).reduceOption(_ ++ _)).foreach(_.foreach { list =>
       val filename = state.annotations.collectFirst({
         case x: FloorplanIRFileAnnotation => x.value
       }).getOrElse {
@@ -45,7 +45,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
       val writer = new java.io.FileWriter(filename)
       writer.write(FloorplanState.serialize(list))
       writer.close()
-    }
+    })
     state
   }
 }

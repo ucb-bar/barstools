@@ -9,3 +9,29 @@ abstract class Pass {
 
 }
 
+class SidebandAnnotationPass {
+
+  def execute(state: FloorplanState): FloorplanState = ???
+
+}
+
+class MacroLayoutsPass {
+
+  def execute(state: FloorplanState): FloorplanState = ???
+
+}
+
+
+class BottomUpPropagationPass {
+
+  def execute(state: FloorplanState): FloorplanState = ???
+
+}
+
+class TopDownPropagationPass {
+
+  def execute(state: FloorplanState): FloorplanState = ???
+
+}
+
+
