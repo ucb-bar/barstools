@@ -2,18 +2,19 @@
 package barstools.floorplan.chisel
 
 import barstools.floorplan.firrtl.{FloorplanModuleAnnotation, GenerateFloorplanIRPass}
-import barstools.floorplan.{Element}
-import chisel3.core.{RawModule}
+import barstools.floorplan.{Element, Group, Primitive}
+import chisel3.{RawModule}
 import chisel3.experimental.{annotate, ChiselAnnotation}
+
 import firrtl.stage.RunFirrtlTransformAnnotation
 
 
-object Floorplan {
+private object FloorplanAnnotation {
 
   private var annotatedPass = false
 
-  def setLayout[T <: RawModule, U <: Element](m: T, fpElement: U): Unit = {
-    annotate(new ChiselAnnotation { def toFirrtl: FloorplanModuleAnnotation = FloorplanModuleAnnotation(m.toNamed.toTarget, fpElement.serialize) })
+  def apply[T <: RawModule, U <: Primitive](m: T, fpElement: U): Unit = {
+    annotate(new ChiselAnnotation { def toFirrtl: FloorplanModuleAnnotation = FloorplanModuleAnnotation(m.toTarget, fpElement.serialize) })
 
     // Only add the RunFirrtlTransformAnnotation once
     if (!annotatedPass) {

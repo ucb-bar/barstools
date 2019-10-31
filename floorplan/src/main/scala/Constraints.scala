@@ -1,106 +1,427 @@
 // See LICENSE for license details
 package barstools.floorplan
 
-sealed trait Unit
+final case class IllegalUnitArithmeticException(a: HasUnit, b: HasUnit, op: String) extends Exception(s"Cannot ${op} ${a} and ${b}")
 
-// TODO how to cleanly round down when dividing?
-final case class Unitless(value: BigInt) extends Unit {
-  def *(other: Unitless) = Unitless(this.value * other.value)
-  def /(other: Unitless) = Unitless(this.value / other.value)
-  def +(other: Unitless) = Unitless(this.value + other.value)
-  def -(other: Unitless) = Unitless(this.value - other.value)
+sealed trait HasUnit {
 
-  def *(other: LengthUnit) = LengthUnit(this.value * other.value)
-  def /(other: LengthUnit) = LengthUnit(this.value / other.value)
-  def +(other: LengthUnit) = LengthUnit(this.value + other.value)
-  def -(other: LengthUnit) = LengthUnit(this.value - other.value)
+  def *(that: HasUnit): HasUnit
+  def /(that: HasUnit): HasUnit
+  def +(that: HasUnit): HasUnit
+  def -(that: HasUnit): HasUnit
+  def >(that: HasUnit): Boolean
+  def <(that: HasUnit): Boolean
+  def >=(that: HasUnit): Boolean
+  def <=(that: HasUnit): Boolean
+  def %(that: HasUnit): HasUnit
+  def %?(that: HasUnit): Boolean
+  def gcd(that: HasUnit): HasUnit
+  def lcm(that: HasUnit): HasUnit
 
-  def *(other: AreaUnit) = AreaUnit(this.value * other.value)
-  def /(other: AreaUnit) = AreaUnit(this.value / other.value)
-  def +(other: AreaUnit) = AreaUnit(this.value + other.value)
-  def -(other: AreaUnit) = AreaUnit(this.value - other.value)
+  def isPositive: Boolean
+
 }
 
-final case class LengthUnit(value: BigInt) extends Unit {
-  def *(other: LengthUnit) = AreaUnit(this.value * other.value)
-  def /(other: LengthUnit) = Unitless(this.value / other.value)
-  def +(other: LengthUnit) = LengthUnit(this.value + other.value)
-  def -(other: LengthUnit) = LengthUnit(this.value - other.value)
+object Rational {
 
-  def *(other: Unitless) = LengthUnit(this.value * other.value)
-  def /(other: Unitless) = LengthUnit(this.value / other.value)
+  def reduced(num: BigInt, denom: BigInt): Rational = {
+    if (num == BigInt(0)) {
+      Rational(BigInt(0), BigInt(1))
+    } else {
+      val gcd = num.gcd(denom)
+      Rational(num/gcd, denom/gcd)
+    }
+  }
+
+  def apply(ratio: Double, decimalPrecision: Long = 1000): Rational = {
+    Rational.reduced(BigInt(scala.math.round(ratio*decimalPrecision)), BigInt(decimalPrecision))
+  }
+
 }
 
-final case class AreaUnit(value: BigInt) extends Unit {
-  def /(other: LengthUnit) = LengthUnit(this.value / other.value)
+// TODO how to cleanly round when dividing?
+final case class Rational(num: BigInt, denom: BigInt) extends HasUnit {
 
-  def *(other: Unitless) = AreaUnit(this.value * other.value)
-  def /(other: Unitless) = AreaUnit(this.value / other.value)
+  assert(denom != 0, "Cannot divide by zero!")
 
-  def /(other: AreaUnit) = Unitless(this.value / other.value)
-  def +(other: AreaUnit) = AreaUnit(this.value + other.value)
-  def -(other: AreaUnit) = AreaUnit(this.value - other.value)
+  def invert = Rational(denom, num)
+  def isZero = num == BigInt(0)
+  def isPositive = (this.num*this.denom) > BigInt(0)
+
+  private def lcm(a: BigInt, b: BigInt) = (a*b)/a.gcd(b)
+
+  def *(that: HasUnit) = that match {
+    case that: Rational   => Rational.reduced(this.num * that.num, this.denom * that.denom)
+    case that: LengthUnit => LengthUnit(this.num * that.value / this.denom)
+    case that: AreaUnit   => AreaUnit(this.num * that.value / this.denom)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "*")
+  }
+
+  def /(that: HasUnit) = that match {
+    case that: Rational   => Rational.reduced(this.num * that.denom, this.denom * that.num)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "/")
+  }
+
+  def +(that: HasUnit) = that match {
+    case that: Rational => {
+      val newDenom = lcm(this.denom, that.denom)
+      val newNum = (this.num * (newDenom / this.denom)) + (that.num * (newDenom / that.denom))
+      Rational.reduced(newNum, newDenom)
+    }
+    case _ => throw new IllegalUnitArithmeticException(this, that, "+")
+  }
+
+  def -(that: HasUnit) = that match {
+    case that: Rational => {
+      val newDenom = lcm(this.denom, that.denom)
+      val newNum = (this.num * (newDenom / this.denom)) - (that.num * (newDenom / that.denom))
+      Rational.reduced(newNum, newDenom)
+    }
+    case _ => throw new IllegalUnitArithmeticException(this, that, "-")
+  }
+
+  def >(that: HasUnit) = that match {
+    case that: Rational => {
+      val newDenom = lcm(this.denom, that.denom)
+      (this.num * (newDenom / this.denom)) > (that.num * (newDenom / that.denom))
+    }
+    case _ => throw new IllegalUnitArithmeticException(this, that, ">")
+  }
+
+  def <(that: HasUnit) = that match {
+    case that: Rational => {
+      val newDenom = lcm(this.denom, that.denom)
+      (this.num * (newDenom / this.denom)) < (that.num * (newDenom / that.denom))
+    }
+    case _ => throw new IllegalUnitArithmeticException(this, that, "<")
+  }
+
+  def >=(that: HasUnit) = that match {
+    case that: Rational => {
+      val newDenom = lcm(this.denom, that.denom)
+      (this.num * (newDenom / this.denom)) >= (that.num * (newDenom / that.denom))
+    }
+    case _ => throw new IllegalUnitArithmeticException(this, that, ">=")
+  }
+
+  def <=(that: HasUnit) = that match {
+    case that: Rational => {
+      val newDenom = lcm(this.denom, that.denom)
+      (this.num * (newDenom / this.denom)) <= (that.num * (newDenom / that.denom))
+    }
+    case _ => throw new IllegalUnitArithmeticException(this, that, "<=")
+  }
+
+  def %(that: HasUnit) = that match {
+    case that: Rational => {
+      val newDenom = lcm(this.denom, that.denom)
+      val newNum = (this.num * (newDenom / this.denom)) % (that.num * (newDenom / that.denom))
+      Rational.reduced(newNum, newDenom)
+    }
+    case _ => throw new IllegalUnitArithmeticException(this, that, "%")
+  }
+
+  def %?(that: HasUnit) = that match {
+    case that: Rational => (this % that).asInstanceOf[Rational].isZero
+    case _ => throw new IllegalUnitArithmeticException(this, that, "%?")
+  }
+
+  def gcd(that: HasUnit) = that match {
+    case that: Rational => {
+      val newDenom = lcm(this.denom, that.denom)
+      val newNum = (this.num * (newDenom / this.denom)).gcd(that.num * (newDenom / that.denom))
+      Rational.reduced(newNum, newDenom)
+    }
+    case _ => throw new IllegalUnitArithmeticException(this, that, "gcd")
+  }
+
+  def lcm(that: HasUnit) = that match {
+    case that: Rational => {
+      val newDenom = lcm(this.denom, that.denom)
+      val newNum = lcm(this.num * (newDenom / this.denom), that.num * (newDenom / that.denom))
+      Rational.reduced(newNum, newDenom)
+    }
+    case _ => throw new IllegalUnitArithmeticException(this, that, "lcm")
+  }
+
 }
 
-sealed trait Constraint[T <: Unit]
+final case class LengthUnit(value: BigInt) extends HasUnit {
 
-sealed abstract class Constrained[T <: Unit] extends Constraint[T]
+  def isPositive = this.value > BigInt(0)
 
-sealed abstract class Unconstrained[T <: Unit] extends Constraint[T]
-case object UnconstrainedUnitless extends Unconstrained[Unitless]
-case object UnconstrainedLength extends Unconstrained[LengthUnit]
-case object UnconstrainedArea extends Unconstrained[AreaUnit]
+  def *(that: HasUnit) = that match {
+    case that: Rational   => LengthUnit((this.value * that.num) / that.denom)
+    case that: LengthUnit => AreaUnit(this.value * that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "*")
+  }
 
-sealed abstract class ExactConstraint[T <: Unit] extends Constrained[T] {
-  def value: T
+  def /(that: HasUnit) = that match {
+    case that: Rational   => LengthUnit((this.value * that.denom) / that.num)
+    case that: LengthUnit => Rational.reduced(this.value, that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "/")
+  }
+
+  def +(that: HasUnit) = that match {
+    case that: LengthUnit => LengthUnit(this.value + that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "+")
+  }
+
+  def -(that: HasUnit) = that match {
+    case that: LengthUnit => LengthUnit(this.value - that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "-")
+  }
+
+  def >(that: HasUnit) = that match {
+    case that: LengthUnit => (this.value > that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, ">")
+  }
+
+  def <(that: HasUnit) = that match {
+    case that: LengthUnit => (this.value < that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "<")
+  }
+
+  def >=(that: HasUnit) = that match {
+    case that: LengthUnit => (this.value >= that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, ">=")
+  }
+
+  def <=(that: HasUnit) = that match {
+    case that: LengthUnit => (this.value <= that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "<=")
+  }
+
+  def %(that: HasUnit) = that match {
+    case that: LengthUnit => LengthUnit(this.value % that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "%")
+  }
+
+  def %?(that: HasUnit) = that match {
+    case that: LengthUnit => (this % that).asInstanceOf[LengthUnit].value == BigInt(0)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "%")
+  }
+
+  def gcd(that: HasUnit) = that match {
+    case that: LengthUnit => LengthUnit(this.value.gcd(that.value))
+    case _ => throw new IllegalUnitArithmeticException(this, that, "gcd")
+  }
+
+  def lcm(that: HasUnit) = that match {
+    case that: LengthUnit => LengthUnit(this.value*that.value/this.value.gcd(that.value))
+    case _ => throw new IllegalUnitArithmeticException(this, that, "lcm")
+  }
+
 }
-final case class ExactUnitlessConstraint(value: Unitless) extends ExactConstraint[Unitless]
-final case class ExactLengthConstraint(value: LengthUnit) extends ExactConstraint[LengthUnit]
-final case class ExactAreaConstraint(value: AreaUnit) extends ExactConstraint[AreaUnit]
 
-sealed abstract class GreaterThanConstraint[T <: Unit] extends Constrained[T] {
-  def value: T
-  def inclusive: Boolean
+final case class AreaUnit(value: BigInt) extends HasUnit {
+
+  def isPositive = this.value > BigInt(0)
+
+  def *(that: HasUnit) = that match {
+    case that: Rational => AreaUnit((this.value * that.num) / that.denom)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "*")
+  }
+
+  def /(that: HasUnit) = that match {
+    case that: Rational => AreaUnit((this.value * that.denom) / that.num)
+    case that: LengthUnit => LengthUnit(this.value / that.value)
+    case that: AreaUnit => Rational.reduced(this.value, that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "/")
+  }
+
+  def +(that: HasUnit) = that match {
+    case that: AreaUnit => AreaUnit(this.value + that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "+")
+  }
+
+  def -(that: HasUnit) = that match {
+    case that: AreaUnit => AreaUnit(this.value - that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "-")
+  }
+
+  def >(that: HasUnit) = that match {
+    case that: AreaUnit => (this.value > that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, ">")
+  }
+
+  def <(that: HasUnit) = that match {
+    case that: AreaUnit => (this.value < that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "<")
+  }
+
+  def >=(that: HasUnit) = that match {
+    case that: AreaUnit => (this.value >= that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, ">=")
+  }
+
+  def <=(that: HasUnit) = that match {
+    case that: AreaUnit => (this.value <= that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "<=")
+  }
+
+  def %(that: HasUnit) = that match {
+    case that: AreaUnit => AreaUnit(this.value % that.value)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "%")
+  }
+
+  def %?(that: HasUnit) = that match {
+    case that: AreaUnit => (this % that).asInstanceOf[AreaUnit].value == BigInt(0)
+    case _ => throw new IllegalUnitArithmeticException(this, that, "%")
+  }
+
+  def gcd(that: HasUnit) = that match {
+    case that: AreaUnit => AreaUnit(this.value.gcd(that.value))
+    case _ => throw new IllegalUnitArithmeticException(this, that, "gcd")
+  }
+
+  def lcm(that: HasUnit) = that match {
+    case that: AreaUnit => AreaUnit(this.value*that.value/this.value.gcd(that.value))
+    case _ => throw new IllegalUnitArithmeticException(this, that, "lcm")
+  }
+
 }
-final case class GreaterThanUnitlessConstraint(value: Unitless, inclusive: Boolean) extends GreaterThanConstraint[Unitless]
-final case class GreaterThanLengthConstraint(value: LengthUnit, inclusive: Boolean) extends GreaterThanConstraint[LengthUnit]
-final case class GreaterThanAreaConstraint(value: AreaUnit, inclusive: Boolean) extends GreaterThanConstraint[AreaUnit]
 
-sealed abstract class LessThanConstraint[T <: Unit] extends Constrained[T] {
-  def value: T
-  def inclusive: Boolean
+sealed trait Constraint[T <: HasUnit] {
+
+  def and(that: Constraint[T]): Constraint[T]
+
 }
-final case class LessThanUnitlessConstraint(value: Unitless, inclusive: Boolean) extends LessThanConstraint[Unitless]
-final case class LessThanLengthConstraint(value: LengthUnit, inclusive: Boolean) extends LessThanConstraint[LengthUnit]
-final case class LessThanAreaConstraint(value: AreaUnit, inclusive: Boolean) extends LessThanConstraint[AreaUnit]
 
-sealed abstract class MultipleOfConstraint[T <: Unit] extends Constrained[T] {
-  def value: T
+sealed abstract class PrimitiveConstraint[T <: HasUnit] extends Constraint[T]
+
+final class Unconstrained[T <: HasUnit] extends PrimitiveConstraint[T] {
+
+  def and(that: Constraint[T]) = that
+
 }
-final case class MultipleOfUnitlessConstraint(value: Unitless) extends MultipleOfConstraint[Unitless]
-final case class MultipleOfLengthConstraint(value: LengthUnit) extends MultipleOfConstraint[LengthUnit]
-final case class MultipleOfAreaConstraint(value: AreaUnit) extends MultipleOfConstraint[AreaUnit]
 
-// TODO do we have discrete combinations (e.g. BetweenConstraint) or do we provide a way to do unions?
+object Unconstrained {
 
-sealed abstract class NotConstraint[T <: Unit] {
-  def constraint: Constrained[T]
+  def apply[T <: HasUnit] = new Unconstrained[T]
+
 }
-final case class NotUnitlessConstraint(constraint: Constrained[Unitless]) extends NotConstraint[Unitless]
-final case class NotLengthConstraint(constraint: Constrained[LengthUnit]) extends NotConstraint[LengthUnit]
-final case class NotAreaConstraint(constraint: Constrained[AreaUnit]) extends NotConstraint[AreaUnit]
 
-sealed abstract class AndConstraint[T <: Unit] {
-  def constraints: List[Constrained[T]]
+final case class EqualTo[T <: HasUnit](unit: T) extends PrimitiveConstraint[T] {
+
+  assert(unit.isPositive, "EqualTo value must be postiive")
+
+  def and(that: Constraint[T]) = that match {
+    case that: EqualTo[T]              => if (this.unit == that.unit) this else ImpossibleConstraint(this, that)
+    case that: GreaterThanOrEqualTo[T] => if (this.unit >= that.unit) this else ImpossibleConstraint(this, that)
+    case that: LessThanOrEqualTo[T]    => if (this.unit <= that.unit) this else ImpossibleConstraint(this, that)
+    case that: MultipleOf[T]           => if (this.unit %? that.unit) this else ImpossibleConstraint(this, that)
+    case that: ImpossibleConstraint[T] => that
+    case that: Unconstrained[T]        => this
+    case that => AndConstraint(this, that)
+  }
+
 }
-final case class AndUnitlessConstraint(constraints: List[Constrained[Unitless]]) extends AndConstraint[Unitless]
-final case class AndLengthConstraint(constraints: List[Constrained[LengthUnit]]) extends AndConstraint[LengthUnit]
-final case class AndAreaConstraint(constraints: List[Constrained[AreaUnit]]) extends AndConstraint[AreaUnit]
 
-sealed abstract class OrConstraint[T <: Unit] {
-  def constraints: List[Constrained[T]]
+final case class GreaterThanOrEqualTo[T <: HasUnit](unit: T) extends PrimitiveConstraint[T] {
+
+  assert(unit.isPositive , "GreaterThanOrEqualTo value must be postiive")
+
+  def and(that: Constraint[T]) = that match {
+    case that: EqualTo[T]              => if (this.unit <= that.unit) that else ImpossibleConstraint(this, that)
+    case that: GreaterThanOrEqualTo[T] => if (this.unit >= that.unit) this else that
+    case that: LessThanOrEqualTo[T]    => if (this.unit < that.unit) AndConstraint(this, that) else
+      if (this.unit == that.unit) EqualTo(this.unit) else ImpossibleConstraint(this, that)
+    case that: ImpossibleConstraint[T] => that
+    case that: Unconstrained[T]        => this
+    case that => AndConstraint(this, that)
+  }
+
 }
-final case class OrUnitlessConstraint(constraints: List[Constrained[Unitless]]) extends OrConstraint[Unitless]
-final case class OrLengthConstraint(constraints: List[Constrained[LengthUnit]]) extends OrConstraint[LengthUnit]
-final case class OrAreaConstraint(constraints: List[Constrained[AreaUnit]]) extends OrConstraint[AreaUnit]
 
+final case class LessThanOrEqualTo[T <: HasUnit](unit: T) extends PrimitiveConstraint[T] {
+
+  assert(unit.isPositive, "LessThanOrEqualTo value must be positive")
+
+  def and(that: Constraint[T]) = that match {
+    case that: EqualTo[T]              => if (this.unit >= that.unit) that else ImpossibleConstraint(this, that)
+    case that: GreaterThanOrEqualTo[T] => if (this.unit > that.unit) AndConstraint(this, that) else
+      if (this.unit == that.unit) EqualTo(this.unit) else ImpossibleConstraint(this, that)
+    case that: LessThanOrEqualTo[T]    => if (this.unit <= that.unit) this else that
+    case that: ImpossibleConstraint[T] => that
+    case that: Unconstrained[T]        => this
+    case that => AndConstraint(this, that)
+  }
+
+}
+
+// TODO allow offset
+final case class MultipleOf[T <: HasUnit](unit: T) extends PrimitiveConstraint[T] {
+
+  assert(unit.isPositive, "MultipleOf value must be positive")
+
+  def and(that: Constraint[T]) = that match {
+    case that: EqualTo[T]              => if (that.unit %? this.unit) that else ImpossibleConstraint(this, that)
+    case that: MultipleOf[T]           => MultipleOf((this.unit lcm that.unit).asInstanceOf[T])
+    case that: LessThanOrEqualTo[T]    => if (that.unit < this.unit) ImpossibleConstraint(this, that) else AndConstraint(this, that)
+    case that: ImpossibleConstraint[T] => that
+    case that: Unconstrained[T]        => this
+    case that => AndConstraint(this, that)
+  }
+
+}
+
+sealed abstract class AggregateConstraint[T <: HasUnit] extends Constraint[T]
+
+final case class ImpossibleConstraint[T <: HasUnit](a: Constraint[T], b: Constraint[T]) extends AggregateConstraint[T] {
+
+  def and(that: Constraint[T]) = this
+
+}
+
+final case class AndConstraint[T <: HasUnit](constraints: Seq[Constraint[T]]) extends AggregateConstraint[T] {
+
+  def and(that: Constraint[T]) = that match {
+    case that: ImpossibleConstraint[T] => that
+    case that: Unconstrained[T]        => this
+    case that => AndConstraint(this, that)
+  }
+
+  def flatten: AndConstraint[T] = {
+    AndConstraint(constraints.collect({
+      case x: AndConstraint[T] => x.flatten.constraints
+      case x: PrimitiveConstraint[T] => Seq(x)
+    }).reduce(_ ++ _))
+  }
+
+  def reduce: Constraint[T] = {
+    val flat = this.flatten.constraints
+
+    val exact = flat.collect({
+      case x:EqualTo[T] => x
+    }).reduceOption[Constraint[T]](_.and(_))
+
+    val gt = flat.collect({
+      case x:GreaterThanOrEqualTo[T] => x
+    }).reduceOption[Constraint[T]](_.and(_))
+
+    val lt = flat.collect({
+      case x:LessThanOrEqualTo[T] => x
+    }).reduceOption[Constraint[T]](_.and(_))
+
+    val mult = flat.collect({
+      case x:MultipleOf[T] => x
+    }).reduceOption[Constraint[T]](_.and(_))
+
+    // if exact is defined, we'll either be exact or impossible
+    exact.map({ value =>
+      val postGt = gt.map(_.and(value)).getOrElse(value)
+      val postLt = lt.map(_.and(postGt)).getOrElse(postGt)
+      mult.map(_.and(postLt)).getOrElse(postLt)
+    }).getOrElse {
+      ???
+    }
+  }
+
+}
+
+object AndConstraint {
+
+  def apply[T <: HasUnit](a: Constraint[T], b: Constraint[T]): AndConstraint[T] = AndConstraint(Seq(a, b))
+
+}
