@@ -1,7 +1,7 @@
 // See LICENSE for license details
 package barstools.floorplan
 
-final case class IllegalUnitArithmeticException(a: HasUnit, b: HasUnit, op: String) extends Exception(s"Cannot ${op} ${a} and ${b}")
+private[floorplan] final case class IllegalUnitArithmeticException(a: HasUnit, b: HasUnit, op: String) extends Exception(s"Cannot ${op} ${a} and ${b}")
 
 sealed trait HasUnit {
 
@@ -36,6 +36,8 @@ object Rational {
   def apply(ratio: Double, decimalPrecision: Long = 1000): Rational = {
     Rational.reduced(BigInt(scala.math.round(ratio*decimalPrecision)), BigInt(decimalPrecision))
   }
+
+  def apply(l: Long): Rational = Rational(l, 1)
 
 }
 
@@ -146,7 +148,7 @@ final case class Rational(num: BigInt, denom: BigInt) extends HasUnit {
 
 }
 
-final case class LengthUnit(value: BigInt) extends HasUnit {
+final case class LengthUnit private[floorplan] (value: BigInt) extends HasUnit {
 
   def isPositive = this.value > BigInt(0)
 
@@ -214,7 +216,7 @@ final case class LengthUnit(value: BigInt) extends HasUnit {
 
 }
 
-final case class AreaUnit(value: BigInt) extends HasUnit {
+final case class AreaUnit private[floorplan] (value: BigInt) extends HasUnit {
 
   def isPositive = this.value > BigInt(0)
 
