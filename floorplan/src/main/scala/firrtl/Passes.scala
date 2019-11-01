@@ -20,12 +20,6 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
     )
   )
 
-  private def optSeq[T](s: Seq[T]): Option[Seq[T]] = {
-    // This works in scala 2.13
-    //Option.when(s.nonEmpty)(s)
-    if (s.nonEmpty) Some(s) else None
-  }
-
   def execute(state: CircuitState): CircuitState = {
     // TODO don't need graph if there are no annos, which can be a speedup
     val graph = new InstanceGraph(state.circuit)
@@ -35,19 +29,16 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
           map(_.tail.map(_.name)).
           reduce(_ ++ _).
           map(y => FloorplanElementRecord(Some(y), FloorplanSerialization.deserialize(x.fpir)))
-    }).reduceOption(_ ++ _).foreach{
-      _.foreach {
-        list =>
-        val filename = state.annotations.collectFirst({
-          case x: FloorplanIRFileAnnotation => x.value
-        }).getOrElse {
-          val opt = options.head.longOption
-          throw new Exception(s"Did not specify a filename for GenerateFloorplanIRPass. Please provide a FloorplanIRFileAnnotation or use the --${opt} option.")
-        }
-        val writer = new java.io.FileWriter(filename)
-        writer.write(FloorplanState.serialize(Seq(list)))
-        writer.close()
+    }).flatten.foreach { list =>
+      val filename = state.annotations.collectFirst({
+        case x: FloorplanIRFileAnnotation => x.value
+      }).getOrElse {
+        val opt = options.head.longOption
+        throw new Exception(s"Did not specify a filename for GenerateFloorplanIRPass. Please provide a FloorplanIRFileAnnotation or use the --${opt} option.")
       }
+      val writer = new java.io.FileWriter(filename)
+      writer.write(FloorplanState.serialize(Seq(list)))
+      writer.close()
     }
     state
   }
