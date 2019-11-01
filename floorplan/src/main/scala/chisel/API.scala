@@ -4,6 +4,9 @@ package barstools.floorplan.chisel
 import chisel3.{RawModule}
 
 import barstools.floorplan._
+import scala.collection.mutable.{ArraySeq, HashMap, Set, HashSet}
+
+final case class ChiselFloorplanException(message: String) extends Exception(message: String)
 
 object Floorplan {
 
@@ -11,7 +14,39 @@ object Floorplan {
     width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
     height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
     area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-    aspectRatio: Constraint[Rational] = Unconstrained[Rational]) = ???
+    aspectRatio: Constraint[Rational] = Unconstrained[Rational],
+    hardBoundary: Boolean = true
+  ) = new ChiselLogicRect(m, width, height, area, aspectRatio, hardBoundary)
+
+  def createGrid[T <: RawModule](m: T,
+    name: String,
+    x: Int = 1,
+    y: Int = 1,
+    packed: Boolean = false
+  ) = new ChiselWeightedGrid(name, m, x, y, packed)
+
+}
+
+private[chisel] object FloorplanDatabase {
+
+  private val map = new HashMap[RawModule, Set[String]]()
+
+  private def getSet(module: RawModule) = map.getOrElseUpdate(module, new HashSet[String])
+
+  def register(module: RawModule, name: String): Unit = {
+    val set = getSet(module)
+    if (set.contains(name)) {
+      throw new ChiselFloorplanException(s"Duplicate floorplan element registration ${name} for module ${module.getClass.getName}!")
+    }
+    set.add(name)
+  }
+
+  def getUnusedName(module: RawModule, suggestion: String = "unnamed"): String = {
+    val set = getSet(module)
+    var id = 0
+    while (set.contains(suggestion + s"_${id}")) { id = id + 1 }
+    suggestion + s"_${id}"
+  }
 
 }
 
@@ -59,6 +94,82 @@ object FloorplanUnits {
     }
   }
 
+}
+
+abstract class ChiselElement {
+  val module: RawModule
+  val name: String
+  final private def getName = name
+
+  final private var committed = false
+
+  protected def generateElement(): Element
+
+  final private[chisel] def commit(): Element = {
+    if (committed) throw new ChiselFloorplanException("Cannot commit floorplan more than once!")
+    committed = true
+    val fpir = generateElement()
+    FloorplanAnnotation(module, fpir)
+    fpir
+  }
+
+  FloorplanDatabase.register(module, getName)
+}
+
+final class ChiselLogicRect private[chisel] (
+  val module: RawModule,
+  width: Constraint[LengthUnit],
+  height: Constraint[LengthUnit],
+  area: Constraint[AreaUnit],
+  aspectRatio: Constraint[Rational],
+  hardBoundary: Boolean
+) extends ChiselElement {
+
+  val name = "top" // TODO better name for this
+
+  protected def generateElement(): Element = ConstrainedLogicRect(name, width, height, area, aspectRatio, hardBoundary)
 
 }
 
+final class ChiselPlaceholderRect private[chisel] (
+  val module: RawModule,
+  width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+  aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+) extends ChiselElement {
+
+  val name = FloorplanDatabase.getUnusedName(module)
+
+  protected def generateElement(): Element = ConstrainedPlaceholderRect(name, width, height, area, aspectRatio)
+
+}
+
+final class ChiselWeightedGrid private[chisel] (val name: String, val module: RawModule, x: Int, y: Int, packed: Boolean) extends ChiselElement {
+
+  assert(x > 0)
+  assert(y > 0)
+
+  // TODO add resizing APIs
+  private var xDim = x
+  private var yDim = y
+
+  private val elements = ArraySeq.fill[Option[ChiselElement]](xDim, yDim) { Option.empty[ChiselElement] }
+  private val weights = ArraySeq.fill[Rational](xDim, yDim) { Rational(1) }
+
+  def set(x: Int, y: Int, element: ChiselElement, weight: Rational = Rational(1)): Unit = {
+    if (x >= xDim) throw new IndexOutOfBoundsException(s"X-value ${x} >= ${xDim} in ChiselWeightedGrid")
+    if (y >= yDim) throw new IndexOutOfBoundsException(s"Y-value ${y} >= ${yDim} in ChiselWeightedGrid")
+    elements(x)(y) = Some(element)
+    weights(x)(y) = weight
+  }
+
+  protected def generateElement(): Element = WeightedGrid(
+    name,
+    xDim,
+    yDim,
+    elements.flatten.map(_.getOrElse(new ChiselPlaceholderRect(module)).commit().name),
+    weights.flatten,
+    packed)
+
+}

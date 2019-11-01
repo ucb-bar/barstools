@@ -6,6 +6,7 @@ package barstools.floorplan
 ////////////////////////////////////////////// Base classes
 
 sealed abstract class Element {
+
   val name: String
 
   // TODO make this an Enumeration
@@ -40,36 +41,24 @@ sealed abstract class ConcreteRect extends Primitive {
 
 }
 
-final case class PlaceholderAbstractRect(name: String) extends AbstractRect
-
-final case class PlaceholderConstrainedRect(
+private[floorplan] final case class ConstrainedPlaceholderRect(
   name: String,
-  width: Constraint[LengthUnit],
-  height: Constraint[LengthUnit],
-  area: Constraint[AreaUnit],
-  aspectRatio: Constraint[Rational]) extends ConstrainedRect
+  width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+  aspectRatio: Constraint[Rational] = Unconstrained[Rational]) extends ConstrainedRect
 
 sealed trait MacroLike
 
-final case class AbstractMacro(name: String) extends AbstractRect with MacroLike
+private[floorplan] final case class AbstractMacro(name: String) extends AbstractRect with MacroLike
 
-final case class ConcreteMacro(name: String, width: LengthUnit, height: LengthUnit) extends ConcreteRect with MacroLike
+private[floorplan] final case class ConcreteMacro(name: String, width: LengthUnit, height: LengthUnit) extends ConcreteRect with MacroLike
 
 sealed trait LogicLike {
   val hardBoundary: Boolean
 }
 
-final case class AbstractLogicRect(name: String, hardBoundary: Boolean) extends AbstractRect with LogicLike {
-
-  def constrain(
-    width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-    height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-    area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-    aspectRatio: Constraint[Rational] = Unconstrained[Rational]) = ConstrainedLogicRect(name, width, height, area, aspectRatio, hardBoundary)
-
-}
-
-final case class ConstrainedLogicRect(
+private[floorplan] final case class ConstrainedLogicRect(
   name: String,
   width: Constraint[LengthUnit],
   height: Constraint[LengthUnit],
@@ -77,7 +66,7 @@ final case class ConstrainedLogicRect(
   aspectRatio: Constraint[Rational],
   hardBoundary: Boolean) extends ConstrainedRect with LogicLike
 
-final case class ConcreteLogicRect(name: String, width: LengthUnit, height: LengthUnit, hardBoundary: Boolean) extends ConcreteRect with LogicLike
+private[floorplan] final case class ConcreteLogicRect(name: String, width: LengthUnit, height: LengthUnit, hardBoundary: Boolean) extends ConcreteRect with LogicLike
 
 sealed abstract class Group extends Element
 
@@ -92,11 +81,14 @@ sealed abstract class Grid extends Group {
   def get(x: Int, y: Int) = elements(xDim*y + x)
 }
 
-final case class AbstractGrid(name: String, xDim: Int, yDim: Int, elements: Seq[String]) extends Grid {
-  def level = 2
-}
-
-final case class WeightedGrid(name: String, xDim: Int, yDim: Int, elements: Seq[String], weights: Seq[Int], packed: Boolean) extends Grid {
+private[floorplan] final case class WeightedGrid(
+  name: String,
+  xDim: Int,
+  yDim: Int,
+  elements: Seq[String],
+  weights: Seq[Rational],
+  packed: Boolean
+) extends Grid {
   def level = 1
 }
 
