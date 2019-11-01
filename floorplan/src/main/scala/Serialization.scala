@@ -2,7 +2,7 @@
 package barstools.floorplan
 
 import org.json4s._
-import org.json4s.native.Serialization.{read, write}
+import org.json4s.native.Serialization.{read, write, writePretty}
 import scala.reflect.runtime.universe.typeOf
 
 final case class FloorplanElementRecord(path: Option[String], element: Element)
@@ -18,7 +18,10 @@ object FloorplanSerialization {
   // Because Element is sealed, all of its subclasses are known at compile time, so we can construct type hints for them
   private val typeHintClasses = Seq(
       typeOf[Element],
-      typeOf[Unit]
+      typeOf[Unit],
+      typeOf[Constraint[Rational]],
+      typeOf[Constraint[LengthUnit]],
+      typeOf[Constraint[AreaUnit]],
     ).map(_.typeSymbol.asClass.knownDirectSubclasses.toList).reduce(_ ++ _)
 
   val formats = (new DefaultFormats {
@@ -42,7 +45,7 @@ object FloorplanState {
 
   def fromSeq(seq: Seq[FloorplanElementRecord]): FloorplanState = FloorplanState(seq, seq.map(_.element.level).max)
 
-  def serialize(state: FloorplanState): String = write(state)(FloorplanSerialization.formats)
+  def serialize(state: FloorplanState): String = writePretty(state)(FloorplanSerialization.formats)
   def serialize(seq: Seq[FloorplanElementRecord]): String = serialize(fromSeq(seq))
 
   def deserialize(str: String): FloorplanState = {

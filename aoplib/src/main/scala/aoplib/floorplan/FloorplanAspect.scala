@@ -22,36 +22,8 @@ case class MemberTracker(name: String, targets: Seq[IsMember], finalSelection: S
   }
 }
 
-/*
-case class FloorplanAspect[T <: RawModule](name: String, dir: String, buildFloorplan: T => LayoutBase)
-                                          (implicit tTag: TypeTag[T]) extends Aspect[T] {
-  def collectTrackers(layout: LayoutBase): Seq[MemberTracker] = {
-    def visit(layout: LayoutBase): Seq[MemberTracker] = {
-      val trackers = if(layout.properties.get(TargetKey).nonEmpty) {
-        val (target, finalMapping) = layout.get(TargetKey).asInstanceOf[(IsMember, Seq[IsMember] => Option[IsMember])]
-        Seq(MemberTracker(layout.name, Seq(target), finalMapping))
-      } else Nil
-      layout match {
-        case arr: ArrayLayout => trackers ++ arr.elements.flatMap(visit)
-        case other => trackers
-      }
-    }
-    visit(layout)
-  }
+case class FloorplanAspect[T <: RawModule](buildFloorplan: T => AnnotationSeq)(implicit tTag: TypeTag[T]) extends Aspect[T] {
   override def toAnnotation(top: T): AnnotationSeq = {
-    val layout = buildFloorplan(top)
-    val trackers = collectTrackers(layout)
-    Seq(FloorplanInfo(layout, dir, name), RunFirrtlTransformAnnotation(new FloorplanTransform())) ++ trackers
-  }
-}
-*/
-
-case class FloorplanAspectNew[T <: RawModule](name: String, dir: String, buildFloorplan: T => AnnotationSeq)
-                                          (implicit tTag: TypeTag[T]) extends Aspect[T] {
-  override def toAnnotation(top: T): AnnotationSeq = {
-    buildFloorplan(top) ++ Seq(
-      RunFirrtlTransformAnnotation(new barstools.floorplan.firrtl.GenerateFloorplanIRPass()),
-      barstools.floorplan.firrtl.FloorplanIRFileAnnotation("floorplan.ir")
-    )
+    buildFloorplan(top) :+ RunFirrtlTransformAnnotation(new barstools.floorplan.firrtl.GenerateFloorplanIRPass())
   }
 }

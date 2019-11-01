@@ -4,6 +4,7 @@ package barstools.floorplan.chisel
 import chisel3.{RawModule}
 
 import barstools.floorplan._
+import barstools.floorplan.firrtl.FloorplanModuleAnnotation
 import scala.collection.mutable.{ArraySeq, HashMap, Set, HashSet}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
@@ -25,19 +26,24 @@ object Floorplan {
     packed: Boolean = false
   ) = new ChiselWeightedGrid(name, m, x, y, packed)
 
+  def commitAndGetAnnotations(): Seq[FloorplanModuleAnnotation] = FloorplanDatabase.commitAndGetAnnotations()
+
 }
 
 private[chisel] object FloorplanDatabase {
 
-  private val map = new HashMap[RawModule, Set[String]]()
+  private val nameMap = new HashMap[RawModule, Set[String]]()
+  private val elements = new HashSet[ChiselElement]()
 
-  private def getSet(module: RawModule) = map.getOrElseUpdate(module, new HashSet[String])
+  private def getSet(module: RawModule) = nameMap.getOrElseUpdate(module, new HashSet[String])
 
-  def register(module: RawModule, name: String): Unit = {
+  def register(module: RawModule, element: ChiselElement): Unit = {
+    val name = element.name
     val set = getSet(module)
     if (set.contains(name)) {
       throw new ChiselFloorplanException(s"Duplicate floorplan element registration ${name} for module ${module.getClass.getName}!")
     }
+    elements.add(element)
     set.add(name)
   }
 
@@ -47,6 +53,8 @@ private[chisel] object FloorplanDatabase {
     while (set.contains(suggestion + s"_${id}")) { id = id + 1 }
     suggestion + s"_${id}"
   }
+
+  def commitAndGetAnnotations(): Seq[FloorplanModuleAnnotation] = elements.toSeq.map(_.getAnnotation())
 
 }
 
@@ -105,15 +113,22 @@ abstract class ChiselElement {
 
   protected def generateElement(): Element
 
+  // TODO FIXME this is clunky
+  final private var fpir: Element = null
+
+  def getAnnotation(): FloorplanModuleAnnotation = {
+    if (!committed) this.commit()
+    FloorplanModuleAnnotation(module.toTarget, fpir)
+  }
+
   final private[chisel] def commit(): Element = {
     if (committed) throw new ChiselFloorplanException("Cannot commit floorplan more than once!")
     committed = true
-    val fpir = generateElement()
-    FloorplanAnnotation(module, fpir)
+    fpir = generateElement()
     fpir
   }
 
-  FloorplanDatabase.register(module, getName)
+  FloorplanDatabase.register(module, this)
 }
 
 final class ChiselLogicRect private[chisel] (
