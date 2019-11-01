@@ -16,4 +16,10 @@ case class FloorplanModuleAnnotation(target: ModuleTarget, fpir: String) extends
   def duplicate(t: ModuleTarget) = this.copy(target, fpir)
 }
 
+object FloorplanModuleAnnotation {
+
+  def apply(target: ModuleTarget, element: Element): FloorplanModuleAnnotation = FloorplanModuleAnnotation(target, element.serialize)
+
+}
+
 case class FloorplanIRFileAnnotation(value: String) extends NoTargetAnnotation
