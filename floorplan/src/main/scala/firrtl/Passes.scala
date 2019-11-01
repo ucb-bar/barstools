@@ -29,23 +29,26 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
   def execute(state: CircuitState): CircuitState = {
     // TODO don't need graph if there are no annos, which can be a speedup
     val graph = new InstanceGraph(state.circuit)
-    optSeq(state.annotations.collect({
+    state.annotations.collect({
       case x: FloorplanModuleAnnotation =>
         graph.findInstancesInHierarchy(x.target.name).
           map(_.tail.map(_.name)).
           reduce(_ ++ _).
           map(y => FloorplanElementRecord(Some(y), FloorplanSerialization.deserialize(x.fpir)))
-    }).reduceOption(_ ++ _)).foreach(_.foreach { list =>
-      val filename = state.annotations.collectFirst({
-        case x: FloorplanIRFileAnnotation => x.value
-      }).getOrElse {
-        val opt = options.head.longOption
-        throw new Exception(s"Did not specify a filename for GenerateFloorplanIRPass. Please provide a FloorplanIRFileAnnotation or use the --${opt} option.")
+    }).reduceOption(_ ++ _).foreach{
+      _.foreach {
+        list =>
+        val filename = state.annotations.collectFirst({
+          case x: FloorplanIRFileAnnotation => x.value
+        }).getOrElse {
+          val opt = options.head.longOption
+          throw new Exception(s"Did not specify a filename for GenerateFloorplanIRPass. Please provide a FloorplanIRFileAnnotation or use the --${opt} option.")
+        }
+        val writer = new java.io.FileWriter(filename)
+        writer.write(FloorplanState.serialize(Seq(list)))
+        writer.close()
       }
-      val writer = new java.io.FileWriter(filename)
-      writer.write(FloorplanState.serialize(list))
-      writer.close()
-    })
+    }
     state
   }
 }
