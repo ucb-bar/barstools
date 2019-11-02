@@ -5,7 +5,7 @@ import org.json4s._
 import org.json4s.native.Serialization.{read, write, writePretty}
 import scala.reflect.runtime.universe.typeOf
 
-final case class FloorplanElementRecord(path: Option[String], element: Element)
+final case class FloorplanElementRecord(path: String, element: Element)
 
 final case class FloorplanState(elements: Seq[FloorplanElementRecord], level: Int) {
 
