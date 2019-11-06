@@ -5,6 +5,7 @@ import barstools.floorplan.{FloorplanSerialization, FloorplanElementRecord, Floo
 import firrtl.{CircuitState, LowForm, Namespace, Transform, AnnotationSeq}
 import firrtl.options.{RegisteredTransform, ShellOption}
 import firrtl.analyses.{InstanceGraph}
+import firrtl.annotations.{InstanceTarget, ModuleTarget}
 
 // NOTE: If you rename/add this transform, don't forget to update META-INF
 // See the @note in the RegisteredTransform documentation
@@ -20,14 +21,30 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
     )
   )
 
+
+  private def getInstancePathsFromGraph(graph: InstanceGraph, cktName: String, name: String): Seq[String] = {
+    if (cktName == name) {
+      return Seq("")
+    } else {
+      return graph.findInstancesInHierarchy(name).map(_.map(_.name).mkString(".") + ".")
+    }
+  }
+
+
   def execute(state: CircuitState): CircuitState = {
     // TODO don't need graph if there are no annos, which can be a speedup
     val graph = new InstanceGraph(state.circuit)
+
+    def getPaths(name: String) = getInstancePathsFromGraph(graph, state.circuit.main, name)
+
+    def newRecord(path: String, anno: FloorplanAnnotation) = FloorplanElementRecord(path, FloorplanSerialization.deserialize(anno.fpir))
+
     val list = state.annotations.collect({
-      case x: FloorplanModuleAnnotation =>
-        graph.findInstancesInHierarchy(x.target.name).
-          map(_.map(_.name).mkString(".")).
-          map(FloorplanElementRecord(_, FloorplanSerialization.deserialize(x.fpir)))
+      case x: FloorplanInstanceAnnotation => {
+        val t = x.target
+        getPaths(t.module).map(_ + (t.path.toList.map(_._1.value) :+ t.instance mkString ".")).map(newRecord(_, x))
+      }
+      case x: FloorplanModuleAnnotation => getPaths(x.target.name).map(newRecord(_, x))
     }).flatten
 
     if (list.nonEmpty) {

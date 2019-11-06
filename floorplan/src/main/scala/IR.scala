@@ -7,8 +7,6 @@ package barstools.floorplan
 
 sealed abstract class Element {
 
-  val name: String
-
   // TODO make this an Enumeration
   def level: Int
   def serialize = FloorplanSerialization.serialize(this)
@@ -59,7 +57,6 @@ sealed trait LogicLike {
 }
 
 private[floorplan] final case class ConstrainedLogicRect(
-  name: String,
   width: Constraint[LengthUnit],
   height: Constraint[LengthUnit],
   area: Constraint[AreaUnit],
@@ -73,7 +70,7 @@ sealed abstract class Group extends Element
 sealed abstract class Grid extends Group {
   val xDim: Int
   val yDim: Int
-  val elements: Seq[String]
+  val elements: Seq[(String, String)]
 
   assert(xDim > 0, "X dimension of grid must be positive")
   assert(yDim > 0, "Y dimension of grid must be positive")
@@ -85,11 +82,13 @@ private[floorplan] final case class WeightedGrid(
   name: String,
   xDim: Int,
   yDim: Int,
-  elements: Seq[String],
+  elements: Seq[(String, String)],
   weights: Seq[Rational],
   packed: Boolean
 ) extends Grid {
+
   def level = 1
+
 }
 
 // TODO add more layouts here

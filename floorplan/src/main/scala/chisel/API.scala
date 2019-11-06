@@ -3,8 +3,10 @@ package barstools.floorplan.chisel
 
 import chisel3.{RawModule}
 
+import firrtl.annotations.{InstanceTarget}
+
 import barstools.floorplan._
-import barstools.floorplan.firrtl.FloorplanModuleAnnotation
+import barstools.floorplan.firrtl.{FloorplanAnnotation, FloorplanInstanceAnnotation, FloorplanModuleAnnotation}
 import scala.collection.mutable.{ArraySeq, HashMap, Set, HashSet}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
@@ -47,7 +49,7 @@ object Floorplan {
     elt
   }
 
-  def commitAndGetAnnotations(): Seq[FloorplanModuleAnnotation] = FloorplanDatabase.commitAndGetAnnotations()
+  def commitAndGetAnnotations(): Seq[FloorplanAnnotation] = FloorplanDatabase.commitAndGetAnnotations()
 
 }
 
@@ -75,7 +77,7 @@ private[chisel] object FloorplanDatabase {
     suggestion + s"_${id}"
   }
 
-  def commitAndGetAnnotations(): Seq[FloorplanModuleAnnotation] = {
+  def commitAndGetAnnotations(): Seq[FloorplanAnnotation] = {
     elements.foreach(_.commit())
     elements.toSeq.map(_.getAnnotation())
   }
@@ -128,62 +130,66 @@ object FloorplanUnits {
 
 }
 
-abstract class ChiselElement {
-  val module: RawModule
-  val name: String
-  final private def getName = name
+abstract class ChiselElement(val module: RawModule, val name: String) {
 
   final private var committed = false
 
   protected def generateElement(): Element
 
   // TODO FIXME this is clunky
+  final protected def targetName: (String, String) = (s"${module.toAbsoluteTarget.serialize}", name)
+
+  // TODO FIXME this is clunky too
   final private var fpir: Element = null
 
-  def getAnnotation(): FloorplanModuleAnnotation = {
+  def getAnnotation(): FloorplanAnnotation = {
     if (!committed) throw ChiselFloorplanException("Must commit ChiselElement before getting its annotation!")
-    FloorplanModuleAnnotation(module.toTarget, fpir)
+    FloorplanInstanceAnnotation(module.toAbsoluteTarget.asInstanceOf[InstanceTarget], fpir)
   }
 
-  final private[chisel] def commit(): Element = {
+  final private[chisel] def commit(): (String, String) = {
     if (!committed) {
       committed = true
       fpir = generateElement()
     }
-    fpir
+    targetName
   }
 
 }
 
 final class ChiselLogicRect private[chisel] (
-  val module: RawModule,
+  module: RawModule,
   width: Constraint[LengthUnit],
   height: Constraint[LengthUnit],
   area: Constraint[AreaUnit],
   aspectRatio: Constraint[Rational],
   hardBoundary: Boolean
-) extends ChiselElement {
+) extends ChiselElement(module, "") {
 
-  val name = module.getClass.getName.split('.').last
-
-  protected def generateElement(): Element = ConstrainedLogicRect(name, width, height, area, aspectRatio, hardBoundary)
+  protected def generateElement(): Element = ConstrainedLogicRect(width, height, area, aspectRatio, hardBoundary)
 
 }
 
 final class ChiselPlaceholderRect private[chisel] (
-  val module: RawModule,
-  val name: String,
+  module: RawModule,
+  name: String,
   width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
   aspectRatio: Constraint[Rational] = Unconstrained[Rational]
-) extends ChiselElement {
+) extends ChiselElement(module, name) {
 
   protected def generateElement(): Element = ConstrainedPlaceholderRect(name, width, height, area, aspectRatio)
 
 }
 
-final class ChiselWeightedGrid private[chisel] (val name: String, val module: RawModule, x: Int, y: Int, packed: Boolean) extends ChiselElement {
+final class ChiselWeightedGrid private[chisel] (
+  name: String,
+  module: RawModule,
+  x: Int,
+  y: Int,
+  packed: Boolean
+) extends ChiselElement(module, name) {
 
   assert(x > 0)
   assert(y > 0)
@@ -208,7 +214,7 @@ final class ChiselWeightedGrid private[chisel] (val name: String, val module: Ra
     name,
     xDim,
     yDim,
-    elements.flatten.map(_.getOrElse(Floorplan.createPlaceholderRect(module)).commit().name),
+    elements.flatten.map(_.getOrElse(Floorplan.createPlaceholderRect(module)).commit()),
     weights.flatten,
     packed)
 
