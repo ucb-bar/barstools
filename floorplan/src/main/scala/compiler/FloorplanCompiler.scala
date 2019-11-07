@@ -28,5 +28,6 @@ object FloorplanCompiler extends App {
     throw new Exception("Error parsing options!")
   }
 
-  println(opts.inputFloorplanFile)
+  
+
 }

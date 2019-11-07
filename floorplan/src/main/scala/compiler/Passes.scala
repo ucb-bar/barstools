@@ -24,7 +24,9 @@ class MacroLayoutsPass {
 
 class BottomUpPropagationPass {
 
-  def execute(state: FloorplanState): FloorplanState = ???
+  def execute(state: FloorplanState): FloorplanState = {
+    ???
+  }
 
 }
 
