@@ -11,6 +11,7 @@ object FloorplanSerialization {
   private val typeHintClasses = Seq(
       typeOf[Element],
       typeOf[Unit],
+      typeOf[RelativePlacementAnchor],
       typeOf[Constraint[Rational]],
       typeOf[Constraint[LengthUnit]],
       typeOf[Constraint[AreaUnit]],

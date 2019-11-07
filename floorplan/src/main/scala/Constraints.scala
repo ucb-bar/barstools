@@ -427,3 +427,18 @@ object AndConstraint {
   def apply[T <: HasUnit](a: Constraint[T], b: Constraint[T]): AndConstraint[T] = AndConstraint(Seq(a, b))
 
 }
+
+sealed trait RelativePlacementAnchor
+
+case object LowerLeft extends RelativePlacementAnchor
+case object LowerMiddle extends RelativePlacementAnchor
+case object LowerRight extends RelativePlacementAnchor
+case object CenterLeft extends RelativePlacementAnchor
+case object CenterMiddle extends RelativePlacementAnchor
+case object CenterRight extends RelativePlacementAnchor
+case object UpperLeft extends RelativePlacementAnchor
+case object UpperMiddle extends RelativePlacementAnchor
+case object UpperRight extends RelativePlacementAnchor
+
+final case class RelativePlacementConstraint(value: Constraint[Rational], anchor: RelativePlacementAnchor)
+
