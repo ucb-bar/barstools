@@ -3,10 +3,10 @@ package barstools.floorplan.chisel
 
 import chisel3.{RawModule}
 
-import firrtl.annotations.{InstanceTarget}
+import firrtl.annotations.{ModuleTarget, InstanceTarget}
 
 import barstools.floorplan._
-import barstools.floorplan.firrtl.{FloorplanAnnotation, FloorplanInstanceAnnotation, FloorplanModuleAnnotation}
+import barstools.floorplan.firrtl.{FloorplanAnnotation, FloorplanInstanceAnnotation, FloorplanModuleAnnotation, FloorplanGroupAnnotation}
 import scala.collection.mutable.{ArraySeq, HashMap, Set, HashSet}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
@@ -137,22 +137,51 @@ abstract class ChiselElement(val module: RawModule, val name: String) {
   protected def generateElement(): Element
 
   // TODO FIXME this is clunky
-  final protected def targetName: (String, String) = (s"${module.toAbsoluteTarget.serialize}", name)
+  //final protected def targetName: (String, String) = (s"${module.toAbsoluteTarget.serialize}", name)
 
   // TODO FIXME this is clunky too
-  final private var fpir: Element = null
+  final protected var fpir: Element = null
 
-  def getAnnotation(): FloorplanAnnotation = {
-    if (!committed) throw ChiselFloorplanException("Must commit ChiselElement before getting its annotation!")
-    FloorplanInstanceAnnotation(module.toAbsoluteTarget.asInstanceOf[InstanceTarget], fpir)
-  }
+  def getAnnotation(): FloorplanAnnotation
 
-  final private[chisel] def commit(): (String, String) = {
-    if (!committed) {
+  def isCommitted = committed
+
+  final private[chisel] def commit(): String = {
+    if (!isCommitted) {
       committed = true
       fpir = generateElement()
     }
-    targetName
+    name
+  }
+
+}
+
+abstract class ChiselPrimitiveElement(module: RawModule, name: String) extends ChiselElement(module, name) {
+
+  def getAnnotation(): FloorplanAnnotation = {
+    if (!isCommitted) throw ChiselFloorplanException("Must commit ChiselElement before getting its annotation!")
+    module.toAbsoluteTarget match {
+      case x: InstanceTarget => FloorplanInstanceAnnotation(x, fpir)
+      case x: ModuleTarget => FloorplanModuleAnnotation(x, fpir)
+      case _ => ???
+    }
+  }
+
+}
+
+abstract class ChiselGroupElement(module: RawModule, name: String) extends ChiselElement(module, name) {
+
+  protected val elements: Seq[Option[ChiselElement]]
+
+  def getAnnotation(): FloorplanAnnotation = {
+    if (!isCommitted) throw ChiselFloorplanException("Must commit ChiselElement before getting its annotation!")
+    // The head of elements will be this module, while the remaining ones are the children
+    val elementTargets = this.module.toAbsoluteTarget +: elements.map(_.get.module.toAbsoluteTarget)
+    val elementTargetsMapped: Seq[Seq[InstanceTarget]] = elementTargets.map { x =>
+      assert(x.isInstanceOf[InstanceTarget], "All targets must be InstanceTargets for ChiselGroupElement annotations")
+      Seq(x.asInstanceOf[InstanceTarget])
+    }
+    FloorplanGroupAnnotation(elementTargetsMapped, fpir.asInstanceOf[Group])
   }
 
 }
@@ -164,7 +193,7 @@ final class ChiselLogicRect private[chisel] (
   area: Constraint[AreaUnit],
   aspectRatio: Constraint[Rational],
   hardBoundary: Boolean
-) extends ChiselElement(module, "") {
+) extends ChiselPrimitiveElement(module, "") {
 
   protected def generateElement(): Element = ConstrainedLogicRect(width, height, area, aspectRatio, hardBoundary)
 
@@ -177,7 +206,7 @@ final class ChiselPlaceholderRect private[chisel] (
   height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
   aspectRatio: Constraint[Rational] = Unconstrained[Rational]
-) extends ChiselElement(module, name) {
+) extends ChiselPrimitiveElement(module, name) {
 
   protected def generateElement(): Element = ConstrainedPlaceholderRect(name, width, height, area, aspectRatio)
 
@@ -189,7 +218,7 @@ final class ChiselWeightedGrid private[chisel] (
   x: Int,
   y: Int,
   packed: Boolean
-) extends ChiselElement(module, name) {
+) extends ChiselGroupElement(module, name) {
 
   assert(x > 0)
   assert(y > 0)
@@ -198,24 +227,30 @@ final class ChiselWeightedGrid private[chisel] (
   private var xDim = x
   private var yDim = y
 
-  private val elements = ArraySeq.fill[Option[ChiselElement]](xDim, yDim) { Option.empty[ChiselElement] }
-  private val weights = ArraySeq.fill[Rational](xDim, yDim) { Rational(1) }
+  protected val elements = ArraySeq.fill[Option[ChiselElement]](xDim*yDim) { Option.empty[ChiselElement] }
+  private val weights = ArraySeq.fill[Rational](xDim*yDim) { Rational(1) }
 
   def set(x: Int, y: Int, element: ChiselElement, weight: Rational = Rational(1)): Unit = {
+    if (isCommitted) throw new ChiselFloorplanException("Cannot modify a ChiselWeightedGrid after committing")
     if (x >= xDim) throw new IndexOutOfBoundsException(s"X-value ${x} >= ${xDim} in ChiselWeightedGrid")
     if (y >= yDim) throw new IndexOutOfBoundsException(s"Y-value ${y} >= ${yDim} in ChiselWeightedGrid")
-    elements(x)(y) = Some(element)
-    weights(x)(y) = weight
+    elements(y*xDim + x) = Some(element)
+    weights(y*xDim + x) = weight
   }
 
   def setModule(x: Int, y: Int, elementModule: RawModule, weight: Rational = Rational(1)): Unit = set(x, y, Floorplan.createRect(elementModule), weight)
 
-  protected def generateElement(): Element = WeightedGrid(
-    name,
-    xDim,
-    yDim,
-    elements.flatten.map(_.getOrElse(Floorplan.createPlaceholderRect(module)).commit()),
-    weights.flatten,
-    packed)
+  private def convertNonesToPlaceholders() = elements.transform(_.orElse(Some(Floorplan.createPlaceholderRect(module))))
+
+  protected def generateElement(): Element = {
+    convertNonesToPlaceholders()
+    WeightedGrid(
+      name,
+      xDim,
+      yDim,
+      elements.map(_.get.commit()),
+      weights,
+      packed)
+  }
 
 }
