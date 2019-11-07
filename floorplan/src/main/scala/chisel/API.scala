@@ -44,7 +44,7 @@ object Floorplan {
     y: Int = 1,
     packed: Boolean = false
   ) = {
-    val elt = new ChiselWeightedGrid(name, module, x, y, packed)
+    val elt = new ChiselWeightedGrid(module, name, x, y, packed)
     FloorplanDatabase.register(module, elt)
     elt
   }
@@ -186,13 +186,15 @@ abstract class ChiselGroupElement(module: RawModule, name: String) extends Chise
 
 }
 
+abstract class ChiselLayoutElement(module: RawModule) extends ChiselGroupElement(module, "")
+
 final class ChiselLogicRect private[chisel] (
   module: RawModule,
-  width: Constraint[LengthUnit],
-  height: Constraint[LengthUnit],
-  area: Constraint[AreaUnit],
-  aspectRatio: Constraint[Rational],
-  hardBoundary: Boolean
+  val width: Constraint[LengthUnit],
+  val height: Constraint[LengthUnit],
+  val area: Constraint[AreaUnit],
+  val aspectRatio: Constraint[Rational],
+  val hardBoundary: Boolean
 ) extends ChiselPrimitiveElement(module, "") {
 
   protected def generateElement(): Element = ConstrainedLogicRect(width, height, area, aspectRatio, hardBoundary)
@@ -202,10 +204,10 @@ final class ChiselLogicRect private[chisel] (
 final class ChiselPlaceholderRect private[chisel] (
   module: RawModule,
   name: String,
-  width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-  aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+  val width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  val height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  val area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+  val aspectRatio: Constraint[Rational] = Unconstrained[Rational]
 ) extends ChiselPrimitiveElement(module, name) {
 
   protected def generateElement(): Element = ConstrainedPlaceholderRect(name, width, height, area, aspectRatio)
@@ -213,11 +215,11 @@ final class ChiselPlaceholderRect private[chisel] (
 }
 
 final class ChiselWeightedGrid private[chisel] (
-  name: String,
   module: RawModule,
-  x: Int,
-  y: Int,
-  packed: Boolean
+  name: String,
+  val x: Int,
+  val y: Int,
+  val packed: Boolean
 ) extends ChiselGroupElement(module, name) {
 
   assert(x > 0)
@@ -251,6 +253,38 @@ final class ChiselWeightedGrid private[chisel] (
       elements.map(_.get.commit()),
       weights,
       packed)
+  }
+
+}
+
+
+final class ChiselConstrainedRelativePlacement private[chisel] (
+  module: RawModule,
+  val width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  val height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  val area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+  val aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+) extends ChiselLayoutElement(module) {
+
+  protected val elements = new ArraySeq[Option[ChiselElement]](0)
+  protected val placements = new ArraySeq[RelativePlacementConstraint](0)
+
+  def add(element: ChiselElement, constraint: RelativePlacementConstraint): Unit = {
+    if (isCommitted) throw new ChiselFloorplanException("Cannot modify a ChiselConstrainedRelativePlacement after committing")
+    elements :+ Some(element)
+    placements :+ constraint
+  }
+
+  def addModule(elementModule: RawModule, constraint: RelativePlacementConstraint): Unit = add(Floorplan.createRect(elementModule), constraint)
+
+  protected def generateElement(): Element = {
+    ConstrainedRelativePlacement(
+      elements.map(_.get.commit()),
+      placements,
+      width,
+      height,
+      area,
+      aspectRatio)
   }
 
 }
