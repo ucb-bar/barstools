@@ -5,14 +5,6 @@ import org.json4s._
 import org.json4s.native.Serialization.{read, write, writePretty}
 import scala.reflect.runtime.universe.typeOf
 
-final case class FloorplanElementRecord(path: String, element: Element)
-
-final case class FloorplanState(elements: Seq[FloorplanElementRecord], level: Int) {
-
-  def generateDB: FloorplanState.Database = ???
-
-}
-
 object FloorplanSerialization {
 
   // Because Element is sealed, all of its subclasses are known at compile time, so we can construct type hints for them
@@ -37,18 +29,9 @@ object FloorplanSerialization {
     read[Element](str)
   }
 
-}
+  def serializeState(state: FloorplanState): String = writePretty(state)(formats)
 
-object FloorplanState {
-
-  type Database = Map[String, Element]
-
-  def fromSeq(seq: Seq[FloorplanElementRecord]): FloorplanState = FloorplanState(seq, seq.map(_.element.level).max)
-
-  def serialize(state: FloorplanState): String = writePretty(state)(FloorplanSerialization.formats)
-  def serialize(seq: Seq[FloorplanElementRecord]): String = serialize(fromSeq(seq))
-
-  def deserialize(str: String): FloorplanState = {
+  def deserializeState(str: String): FloorplanState = {
     implicit val formats = FloorplanSerialization.formats
     read[FloorplanState](str)
   }
