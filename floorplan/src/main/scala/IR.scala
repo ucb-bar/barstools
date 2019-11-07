@@ -65,12 +65,18 @@ private[floorplan] final case class ConstrainedLogicRect(
 
 private[floorplan] final case class ConcreteLogicRect(name: String, width: LengthUnit, height: LengthUnit, hardBoundary: Boolean) extends ConcreteRect with LogicLike
 
-sealed abstract class Group extends Element
+sealed abstract class Group extends Element {
+
+  val elements: Seq[String]
+
+  def mapElements(f: ((String, Int)) => String): Group
+
+}
 
 sealed abstract class Grid extends Group {
   val xDim: Int
   val yDim: Int
-  val elements: Seq[(String, String)]
+  val elements: Seq[String]
 
   assert(xDim > 0, "X dimension of grid must be positive")
   assert(yDim > 0, "Y dimension of grid must be positive")
@@ -82,12 +88,14 @@ private[floorplan] final case class WeightedGrid(
   name: String,
   xDim: Int,
   yDim: Int,
-  elements: Seq[(String, String)],
+  elements: Seq[String],
   weights: Seq[Rational],
   packed: Boolean
 ) extends Grid {
 
   def level = 1
+
+  def mapElements(f: ((String, Int)) => String) = this.copy(name, xDim, yDim, elements.zipWithIndex.map(f), weights, packed)
 
 }
 
