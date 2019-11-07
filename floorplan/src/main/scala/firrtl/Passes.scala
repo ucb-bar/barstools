@@ -35,16 +35,27 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
     // TODO don't need graph if there are no annos, which can be a speedup
     val graph = new InstanceGraph(state.circuit)
 
-    def getPaths(name: String) = getInstancePathsFromGraph(graph, state.circuit.main, name)
-
+    def getPaths(name: String): Seq[String] = getInstancePathsFromGraph(graph, state.circuit.main, name)
+    def getInstancePath(t: InstanceTarget): String = {
+      val result = getPaths(t.module).map(_ + (t.path.toList.map(_._1.value) :+ t.instance mkString "."))
+      if (result.size > 1) throw new Exception(s"Too many instances for InstanceTarget ${t}! Fix me!")
+      if (result.size == 0) throw new Exception(s"InstanceTarget ${t} does not exist!")
+      result(0)
+    }
     def newRecord(path: String, anno: FloorplanAnnotation) = FloorplanElementRecord(path, FloorplanSerialization.deserialize(anno.fpir))
 
     val list = state.annotations.collect({
-      case x: FloorplanInstanceAnnotation => {
-        val t = x.target
-        getPaths(t.module).map(_ + (t.path.toList.map(_._1.value) :+ t.instance mkString ".")).map(newRecord(_, x))
-      }
+      case x: FloorplanInstanceAnnotation => Seq(newRecord(getInstancePath(x.target), x))
       case x: FloorplanModuleAnnotation => getPaths(x.target.name).map(newRecord(_, x))
+      case x: FloorplanGroupAnnotation => {
+        val paths = x.targets.map(_(0).asInstanceOf[InstanceTarget]).map(getInstancePath)
+        // paths(0) is special; it's the path to the module the element is attached to
+        val element = FloorplanSerialization.
+          deserialize(x.fpir).
+          asInstanceOf[barstools.floorplan.Group].
+          mapElements { case (name, id) => paths(id + 1) + "#" + name }
+        Seq(FloorplanElementRecord(paths(0), element))
+      }
     }).flatten
 
     if (list.nonEmpty) {
