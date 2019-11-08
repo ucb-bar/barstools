@@ -24,8 +24,8 @@ case class FloorplanInstanceAnnotation(target: InstanceTarget, fpir: String) ext
   def duplicate(t: InstanceTarget) = this.copy(target, fpir)
 }
 
-case class FloorplanGroupAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
-  def duplicate(t: Seq[Seq[Target]]) = this.copy(targets, fpir)
+case class FloorplanGroupAnnotation(targets: Seq[Seq[InstanceTarget]], fpir: String) extends MultiTargetAnnotation[InstanceTarget] with FloorplanAnnotation {
+  def duplicate(t: Seq[Seq[InstanceTarget]]) = this.copy(targets, fpir)
 }
 
 object FloorplanModuleAnnotation {
@@ -39,7 +39,7 @@ object FloorplanInstanceAnnotation {
 object FloorplanGroupAnnotation {
   //def apply(targets: Seq[Target], fpir: String): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets.map(Seq(_)), fpir)
   //def apply(targets: Seq[Target], element: Element): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets, element.serialize)
-  def apply(targets: Seq[Seq[Target]], element: Group): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets, element.serialize)
+  def apply(targets: Seq[Seq[InstanceTarget]], element: Group): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets, element.serialize)
 }
 
 case class FloorplanIRFileAnnotation(value: String) extends NoTargetAnnotation

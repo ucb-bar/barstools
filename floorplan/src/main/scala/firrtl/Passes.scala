@@ -48,7 +48,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
       case x: FloorplanInstanceAnnotation => Seq(newRecord(getInstancePath(x.target), x))
       case x: FloorplanModuleAnnotation => getPaths(x.target.name).map(newRecord(_, x))
       case x: FloorplanGroupAnnotation => {
-        val paths = x.targets.map(_(0).asInstanceOf[InstanceTarget]).map(getInstancePath)
+        val paths = x.targets.map(_(0)).map(getInstancePath)
         // paths(0) is special; it's the path to the module the element is attached to
         val element = FloorplanSerialization.
           deserialize(x.fpir).
