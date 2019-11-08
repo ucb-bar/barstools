@@ -2,7 +2,7 @@
 package barstools.floorplan.compiler
 
 import scala.collection.mutable.{HashMap}
-import barstools.floorplan.{Element, FloorplanState}
+import barstools.floorplan.{Element, FloorplanState, FloorplanElementRecord}
 
 class FloorplanTree(state: FloorplanState) {
 
@@ -42,6 +42,19 @@ class FloorplanTree(state: FloorplanState) {
     }
 
     def getElement(path: Seq[String], tag: String): Element = (if (path.isEmpty) this else getNode(path)).getElement(tag)
+
+    def getElements: Seq[(String, Element)] = {
+      elements.toSeq ++ (children.mapValues(_.getElements).toSeq.map { case (name, elts) =>
+        elts.map { case (path, elt) =>
+          val newpath = if (name == "") path else s"${name}.${path}"
+          (newpath, elt)
+        }
+      }).flatten
+    }
+
+    def mapElements(f: (Element) => Element): Seq[(String, Element)] = {
+      ???
+    }
   }
 
   val root = new Node(None, "")
@@ -70,6 +83,13 @@ class FloorplanTree(state: FloorplanState) {
     val (path, tag) = parsePathAndTag(str)
     root.getElement(path, tag)
   }
+
+  def toState: FloorplanState = {
+    val records = root.getElements.map { case (path, elt) => FloorplanElementRecord(path, elt) }
+    FloorplanState(records, records.map(_.element.level).max)
+  }
+
+  //def traverse(
 
 }
 
