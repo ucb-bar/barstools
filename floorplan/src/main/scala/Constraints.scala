@@ -428,17 +428,28 @@ object AndConstraint {
 
 }
 
-sealed trait RelativePlacementAnchor
+sealed trait PlacementAnchor
 
-case object LowerLeft extends RelativePlacementAnchor
-case object LowerMiddle extends RelativePlacementAnchor
-case object LowerRight extends RelativePlacementAnchor
-case object CenterLeft extends RelativePlacementAnchor
-case object CenterMiddle extends RelativePlacementAnchor
-case object CenterRight extends RelativePlacementAnchor
-case object UpperLeft extends RelativePlacementAnchor
-case object UpperMiddle extends RelativePlacementAnchor
-case object UpperRight extends RelativePlacementAnchor
+class LowerLeft extends PlacementAnchor
+class LowerMiddle extends PlacementAnchor
+class LowerRight extends PlacementAnchor
+class CenterLeft extends PlacementAnchor
+class CenterMiddle extends PlacementAnchor
+class CenterRight extends PlacementAnchor
+class UpperLeft extends PlacementAnchor
+class UpperMiddle extends PlacementAnchor
+class UpperRight extends PlacementAnchor
 
-final case class RelativePlacementConstraint(value: Constraint[Rational], anchor: RelativePlacementAnchor)
+object LowerLeft { def apply() = new LowerLeft }
+object LowerMiddle { def apply() = new LowerMiddle }
+object LowerRight { def apply() = new LowerRight }
+object CenterLeft { def apply() = new CenterLeft }
+object CenterMiddle { def apply() = new CenterMiddle }
+object CenterRight { def apply() = new CenterRight }
+object UpperLeft { def apply() = new UpperLeft }
+object UpperMiddle { def apply() = new UpperMiddle }
+object UpperRight { def apply() = new UpperRight }
+
+final case class RatioPlacementConstraint(x: Constraint[Rational], y: Constraint[Rational], anchor: PlacementAnchor = LowerLeft())
+final case class LengthPlacementConstraint(x: Constraint[LengthUnit], y: Constraint[LengthUnit], anchor: PlacementAnchor = LowerLeft())
 

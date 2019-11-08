@@ -110,9 +110,24 @@ sealed abstract class Layout extends Group with IsModuleTop
 sealed abstract class ConstrainedLayout extends Layout with ConstrainedRectLike
 sealed abstract class ConcreteLayout extends Layout with ConcreteRectLike
 
-private[floorplan] final case class ConstrainedRelativePlacement(
+private[floorplan] final case class ConstrainedRatioLayout(
   elements: Seq[String],
-  placements: Seq[RelativePlacementConstraint],
+  placements: Seq[RatioPlacementConstraint],
+  width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+  aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+) extends ConstrainedLayout {
+
+  def level = 1
+
+  def mapElements(f: ((String, Int)) => String) = this.copy(mapElementsHelper(f), placements, width, height, area, aspectRatio)
+
+}
+
+private[floorplan] final case class ConstrainedLengthLayout(
+  elements: Seq[String],
+  placements: Seq[LengthPlacementConstraint],
   width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   area: Constraint[AreaUnit] = Unconstrained[AreaUnit],

@@ -25,6 +25,7 @@ class MacroLayoutsPass {
 class BottomUpPropagationPass {
 
   def execute(state: FloorplanState): FloorplanState = {
+    val tree = FloorplanTree(state)
     ???
   }
 

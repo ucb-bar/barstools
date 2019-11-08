@@ -7,7 +7,7 @@ import firrtl.annotations.{ModuleTarget, InstanceTarget}
 
 import barstools.floorplan._
 import barstools.floorplan.firrtl.{FloorplanAnnotation, FloorplanInstanceAnnotation, FloorplanModuleAnnotation, FloorplanGroupAnnotation}
-import scala.collection.mutable.{ArraySeq, HashMap, Set, HashSet}
+import scala.collection.mutable.{ArraySeq, ArrayBuffer, HashMap, Set, HashSet}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
 
@@ -21,6 +21,28 @@ object Floorplan {
     hardBoundary: Boolean = true
   ) = {
     val elt = new ChiselLogicRect(module, width, height, area, aspectRatio, hardBoundary)
+    FloorplanDatabase.register(module, elt)
+    elt
+  }
+
+  def createRatioLayout[T <: RawModule](module: T,
+    width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+    height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+    area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+    aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+  ) = {
+    val elt = new ChiselConstrainedRatioLayout(module, width, height, area, aspectRatio)
+    FloorplanDatabase.register(module, elt)
+    elt
+  }
+
+  def createLengthLayout[T <: RawModule](module: T,
+    width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+    height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+    area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+    aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+  ) = {
+    val elt = new ChiselConstrainedLengthLayout(module, width, height, area, aspectRatio)
     FloorplanDatabase.register(module, elt)
     elt
   }
@@ -229,6 +251,7 @@ final class ChiselWeightedGrid private[chisel] (
   private var xDim = x
   private var yDim = y
 
+  // TODO change these data structures
   protected val elements = ArraySeq.fill[Option[ChiselElement]](xDim*yDim) { Option.empty[ChiselElement] }
   private val weights = ArraySeq.fill[Rational](xDim*yDim) { Rational(1) }
 
@@ -257,8 +280,7 @@ final class ChiselWeightedGrid private[chisel] (
 
 }
 
-
-final class ChiselConstrainedRelativePlacement private[chisel] (
+final class ChiselConstrainedRatioLayout private[chisel] (
   module: RawModule,
   val width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   val height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
@@ -266,19 +288,56 @@ final class ChiselConstrainedRelativePlacement private[chisel] (
   val aspectRatio: Constraint[Rational] = Unconstrained[Rational]
 ) extends ChiselLayoutElement(module) {
 
-  protected val elements = new ArraySeq[Option[ChiselElement]](0)
-  protected val placements = new ArraySeq[RelativePlacementConstraint](0)
+  protected val elements = new ArrayBuffer[Option[ChiselElement]]()
+  protected val placements = new ArrayBuffer[RatioPlacementConstraint]()
 
-  def add(element: ChiselElement, constraint: RelativePlacementConstraint): Unit = {
-    if (isCommitted) throw new ChiselFloorplanException("Cannot modify a ChiselConstrainedRelativePlacement after committing")
-    elements :+ Some(element)
-    placements :+ constraint
+  def add(element: ChiselElement, constraint: RatioPlacementConstraint): Unit = {
+    if (isCommitted) throw new ChiselFloorplanException("Cannot modify a ChiselConstrainedPlacement after committing")
+    elements.append(Some(element))
+    placements.append(constraint)
   }
 
-  def addModule(elementModule: RawModule, constraint: RelativePlacementConstraint): Unit = add(Floorplan.createRect(elementModule), constraint)
+  def add(element: ChiselElement, x: Constraint[Rational], y: Constraint[Rational], anchor: PlacementAnchor = LowerLeft()): Unit = add(element, RatioPlacementConstraint(x, y, anchor))
+
+  def addModule(elementModule: RawModule, constraint: RatioPlacementConstraint): Unit = add(Floorplan.createRect(elementModule), constraint)
+  def addModule(elementModule: RawModule, x: Constraint[Rational], y: Constraint[Rational], anchor: PlacementAnchor = LowerLeft()): Unit = addModule(elementModule, RatioPlacementConstraint(x, y, anchor))
 
   protected def generateElement(): Element = {
-    ConstrainedRelativePlacement(
+    ConstrainedRatioLayout(
+      elements.map(_.get.commit()),
+      placements,
+      width,
+      height,
+      area,
+      aspectRatio)
+  }
+
+}
+
+final class ChiselConstrainedLengthLayout private[chisel] (
+  module: RawModule,
+  val width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  val height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  val area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+  val aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+) extends ChiselLayoutElement(module) {
+
+  protected val elements = new ArrayBuffer[Option[ChiselElement]]()
+  protected val placements = new ArrayBuffer[LengthPlacementConstraint]()
+
+  def add(element: ChiselElement, constraint: LengthPlacementConstraint): Unit = {
+    if (isCommitted) throw new ChiselFloorplanException("Cannot modify a ChiselConstrainedPlacement after committing")
+    elements.append(Some(element))
+    placements.append(constraint)
+  }
+
+  def add(element: ChiselElement, x: Constraint[LengthUnit], y: Constraint[LengthUnit], anchor: PlacementAnchor = LowerLeft()): Unit = add(element, LengthPlacementConstraint(x, y, anchor))
+
+  def addModule(elementModule: RawModule, constraint: LengthPlacementConstraint): Unit = add(Floorplan.createRect(elementModule), constraint)
+  def addModule(elementModule: RawModule, x: Constraint[LengthUnit], y: Constraint[LengthUnit], anchor: PlacementAnchor = LowerLeft()): Unit = addModule(elementModule, LengthPlacementConstraint(x, y, anchor))
+
+  protected def generateElement(): Element = {
+    ConstrainedLengthLayout(
       elements.map(_.get.commit()),
       placements,
       width,
