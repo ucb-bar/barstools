@@ -5,12 +5,15 @@ package barstools.tapeout.transforms
 import chisel3.internal.InstanceId
 import firrtl.PrimOps.Not
 import firrtl.annotations.{Annotation, CircuitName, ModuleName, Named}
-import firrtl.ir.{Input, UIntType, IntWidth, Module, Port, DefNode, NoInfo, Reference, DoPrim, Block, Circuit}
+import firrtl.ir.{Block, Circuit, DefNode, DoPrim, Input, IntWidth, Module, NoInfo, Port, Reference, UIntType}
 import firrtl.passes.Pass
 import firrtl.{CircuitForm, CircuitState, LowForm, Transform}
+import chisel3.experimental.annotate
+import transforms.LagacyAnnotation
 
 object ResetInverterAnnotation {
   def apply(target: ModuleName): Annotation = Annotation(target, classOf[ResetInverterTransform], "invert")
+
   def unapply(a: Annotation): Option[Named] = a match {
     case Annotation(m, t, "invert") if t == classOf[ResetInverterTransform] => Some(m)
     case _ => None
@@ -19,6 +22,7 @@ object ResetInverterAnnotation {
 
 object ResetN extends Pass {
   private val Bool = UIntType(IntWidth(1))
+
   // Only works on Modules with a Bool port named reset
   def invertReset(mod: Module): Module = {
     // Check that it actually has reset
@@ -43,6 +47,7 @@ object ResetN extends Pass {
 
 class ResetInverterTransform extends Transform {
   override def inputForm: CircuitForm = LowForm
+
   override def outputForm: CircuitForm = LowForm
 
   override def execute(state: CircuitState): CircuitState = {
@@ -59,6 +64,7 @@ class ResetInverterTransform extends Transform {
 trait ResetInverter {
   self: chisel3.Module =>
   def invert(component: InstanceId): Unit = {
-    annotate(chisel3.experimental.ChiselAnnotation(component, classOf[ResetInverterTransform], "invert"))
+    //    annotate(chisel3.experimental.ChiselAnnotation(component, classOf[ResetInverterTransform], "invert"))
+    annotate(LagacyAnnotation(component, classOf[ResetInverterTransform], "invert"))
   }
 }

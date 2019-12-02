@@ -2,12 +2,14 @@
 
 package barstools.tapeout.transforms.retime
 
+import chisel3.experimental.annotate
 import chisel3.internal.InstanceId
 import firrtl.PrimOps.Not
-import firrtl.annotations.{Annotation, CircuitName, ModuleName, Named, ComponentName}
-import firrtl.ir.{Input, UIntType, IntWidth, Module, Port, DefNode, NoInfo, Reference, DoPrim, Block, Circuit}
+import firrtl.annotations.{Annotation, CircuitName, ComponentName, ModuleName, Named}
+import firrtl.ir.{Block, Circuit, DefNode, DoPrim, Input, IntWidth, Module, NoInfo, Port, Reference, UIntType}
 import firrtl.passes.Pass
 import firrtl.{CircuitForm, CircuitState, LowForm, Transform}
+import transforms.LagacyAnnotation
 
 object RetimeAnnotation {
   def apply(target: ModuleName): Annotation = Annotation(target, classOf[RetimeTransform], "retime")
@@ -32,7 +34,7 @@ class RetimeTransform extends Transform {
         case _ =>
           throw new Exception(s"There should be RetimeAnnotations, got ${seq.mkString(" -- ")}")
       }
-      state
+        state
     }
   }
 }
@@ -40,6 +42,6 @@ class RetimeTransform extends Transform {
 trait RetimeLib {
   self: chisel3.Module =>
   def retime(component: InstanceId): Unit = {
-    annotate(chisel3.experimental.ChiselAnnotation(component, classOf[RetimeTransform], "retime"))
+    annotate(LagacyAnnotation(component, classOf[RetimeTransform], "retime"))
   }
 }
