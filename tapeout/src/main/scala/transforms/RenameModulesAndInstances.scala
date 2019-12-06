@@ -40,6 +40,6 @@ class RenameModulesAndInstances(rename: (String) => String) extends Transform {
 
   def execute(state: CircuitState): CircuitState = {
     val (ret, renames) = run(state)
-    state.copy(circuit = ret, renames = Some(renames))
+    state.copy(circuit = ret, renames = Some(renames), annotations = state.annotations)
   }
 }

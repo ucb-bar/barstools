@@ -12,6 +12,7 @@ import firrtl.passes.memlib.ReplSeqMemAnnotation
 import firrtl.transforms.BlackBoxResourceFileNameAnno
 import net.jcazevedo.moultingyaml._
 import com.typesafe.scalalogging.LazyLogging
+import chisel3.util.experimental.LoadMemoryTransform
 
 trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
   var tapeoutOptions = TapeoutOptions()
@@ -26,8 +27,8 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         harnessOutput = Some(x)
       )
     }.text {
-      "use this to generate a harness at <harness-output>"
-    }
+    "use this to generate a harness at <harness-output>"
+  }
 
   parser.opt[String]("syn-top")
     .abbr("tst")
@@ -37,8 +38,8 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         synTop = Some(x)
       )
     }.text {
-      "use this to set synTop"
-    }
+    "use this to set synTop"
+  }
 
   parser.opt[String]("top-fir")
     .abbr("tsf")
@@ -48,8 +49,8 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         topFir = Some(x)
       )
     }.text {
-      "use this to set topFir"
-    }
+    "use this to set topFir"
+  }
 
   parser.opt[String]("top-anno-out")
     .abbr("tsaof")
@@ -59,8 +60,8 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         topAnnoOut = Some(x)
       )
     }.text {
-      "use this to set topAnnoOut"
-    }
+    "use this to set topAnnoOut"
+  }
 
   parser.opt[String]("top-dotf-out")
     .abbr("tdf")
@@ -70,8 +71,8 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         topDotfOut = Some(x)
       )
     }.text {
-      "use this to set the filename for the top resource .f file"
-    }
+    "use this to set the filename for the top resource .f file"
+  }
 
   parser.opt[String]("harness-top")
     .abbr("tht")
@@ -81,8 +82,8 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         harnessTop = Some(x)
       )
     }.text {
-      "use this to set harnessTop"
-    }
+    "use this to set harnessTop"
+  }
 
   parser.opt[String]("harness-fir")
     .abbr("thf")
@@ -92,8 +93,8 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         harnessFir = Some(x)
       )
     }.text {
-      "use this to set harnessFir"
-    }
+    "use this to set harnessFir"
+  }
 
   parser.opt[String]("harness-anno-out")
     .abbr("thaof")
@@ -103,8 +104,8 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         harnessAnnoOut = Some(x)
       )
     }.text {
-      "use this to set harnessAnnoOut"
-    }
+    "use this to set harnessAnnoOut"
+  }
 
   parser.opt[String]("harness-dotf-out")
     .abbr("hdf")
@@ -114,8 +115,8 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         harnessDotfOut = Some(x)
       )
     }.text {
-      "use this to set the filename for the harness resource .f file"
-    }
+    "use this to set the filename for the harness resource .f file"
+  }
 
   parser.opt[String]("harness-conf")
     .abbr("thconf")
@@ -125,23 +126,23 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
         harnessConf = Some(x)
       )
     }.text {
-      "use this to set the harness conf file location"
-    }
+    "use this to set the harness conf file location"
+  }
 
 }
 
 case class TapeoutOptions(
-  harnessOutput: Option[String] = None,
-  synTop: Option[String] = None,
-  topFir: Option[String] = None,
-  topAnnoOut: Option[String] = None,
-  topDotfOut: Option[String] = None,
-  harnessTop: Option[String] = None,
-  harnessFir: Option[String] = None,
-  harnessAnnoOut: Option[String] = None,
-  harnessDotfOut: Option[String] = None,
-  harnessConf: Option[String] = None
-) extends LazyLogging
+                           harnessOutput: Option[String] = None,
+                           synTop: Option[String] = None,
+                           topFir: Option[String] = None,
+                           topAnnoOut: Option[String] = None,
+                           topDotfOut: Option[String] = None,
+                           harnessTop: Option[String] = None,
+                           harnessFir: Option[String] = None,
+                           harnessAnnoOut: Option[String] = None,
+                           harnessDotfOut: Option[String] = None,
+                           harnessConf: Option[String] = None
+                         ) extends LazyLogging
 
 // Requires two phases, one to collect modules below synTop in the hierarchy
 // and a second to remove those modules to generate the test harness
@@ -188,7 +189,8 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
       new ConvertToExtMod((m) => m.name == synTop.get),
       new RemoveUnusedModules,
       new AvoidExtModuleCollisions(topExtModules),
-      new RenameModulesAndInstances((old) => if (externals contains old) old else (old + "_in" + harnessTop.get))
+      new RenameModulesAndInstances((old) => if (externals contains old) old else (old + "_in" + harnessTop.get)),
+      new LoadMemoryTransform
     )
   }
 
