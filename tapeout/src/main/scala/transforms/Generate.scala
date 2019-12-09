@@ -14,7 +14,8 @@ import net.jcazevedo.moultingyaml._
 import com.typesafe.scalalogging.LazyLogging
 import chisel3.util.experimental.LoadMemoryTransform
 
-trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
+trait HasTapeoutOptions {
+  self: ExecutionOptionsManager with HasFirrtlOptions =>
   var tapeoutOptions = TapeoutOptions()
 
   parser.note("tapeout options")
@@ -120,7 +121,7 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
 
   parser.opt[String]("harness-conf")
     .abbr("thconf")
-    .valueName ("<harness-conf-file>")
+    .valueName("<harness-conf-file>")
     .foreach { x =>
       tapeoutOptions = tapeoutOptions.copy(
         harnessConf = Some(x)
@@ -132,21 +133,22 @@ trait HasTapeoutOptions { self: ExecutionOptionsManager with HasFirrtlOptions =>
 }
 
 case class TapeoutOptions(
-                           harnessOutput: Option[String] = None,
-                           synTop: Option[String] = None,
-                           topFir: Option[String] = None,
-                           topAnnoOut: Option[String] = None,
-                           topDotfOut: Option[String] = None,
-                           harnessTop: Option[String] = None,
-                           harnessFir: Option[String] = None,
-                           harnessAnnoOut: Option[String] = None,
-                           harnessDotfOut: Option[String] = None,
-                           harnessConf: Option[String] = None
-                         ) extends LazyLogging
+  harnessOutput: Option[String] = None,
+  synTop: Option[String] = None,
+  topFir: Option[String] = None,
+  topAnnoOut: Option[String] = None,
+  topDotfOut: Option[String] = None,
+  harnessTop: Option[String] = None,
+  harnessFir: Option[String] = None,
+  harnessAnnoOut: Option[String] = None,
+  harnessDotfOut: Option[String] = None,
+  harnessConf: Option[String] = None
+) extends LazyLogging
 
 // Requires two phases, one to collect modules below synTop in the hierarchy
 // and a second to remove those modules to generate the test harness
-sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
+sealed trait GenerateTopAndHarnessApp extends LazyLogging {
+  this: App =>
   lazy val optionsManager = {
     val optionsManager = new ExecutionOptionsManager("tapeout") with HasFirrtlOptions with HasTapeoutOptions
     if (!optionsManager.parse(args)) {
@@ -176,7 +178,9 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
 
   class AvoidExtModuleCollisions(mustLink: Seq[ExtModule]) extends Transform {
     def inputForm = HighForm
+
     def outputForm = HighForm
+
     def execute(state: CircuitState): CircuitState = {
       state.copy(circuit = state.circuit.copy(modules = state.circuit.modules ++ mustLink))
     }
@@ -221,7 +225,7 @@ sealed trait GenerateTopAndHarnessApp extends LazyLogging { this: App =>
     result match {
       case x: FirrtlExecutionSuccess =>
         dump(x, tapeoutOptions.topFir, tapeoutOptions.topAnnoOut)
-        x.circuitState.circuit.modules.collect{ case e: ExtModule => e }
+        x.circuitState.circuit.modules.collect { case e: ExtModule => e }
       case x =>
         throw new Exception(s"executeTop failed while executing FIRRTL!\n${x}")
     }
