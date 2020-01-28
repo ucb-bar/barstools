@@ -13,6 +13,7 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= Seq("chisel3","chisel-iotesters").map {
     dep: String => "edu.berkeley.cs" %% dep % sys.props.getOrElse(dep + "Version", defaultVersions(dep))
   },
+  libraryDependencies ++= Seq("com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"),
   libraryDependencies in Test ++= Seq(
     "org.scalatest" %% "scalatest" % "2.2.5" % "test",
     "org.scalacheck" %% "scalacheck" % "1.12.4" % "test"

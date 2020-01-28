@@ -289,8 +289,8 @@ class MacroCompilerPass(mems: Option[Seq[Macro]],
      * address bits into account. */
     if (mem.src.depth > lib.src.depth) {
       mem.src.ports foreach { port =>
-        val high = ceilLog2(mem.src.depth)
-        val low = ceilLog2(lib.src.depth)
+        val high = getUIntWidth(mem.src.depth - 1)
+        val low = getUIntWidth(lib.src.depth - 1)
         val ref = WRef(port.address.name)
         val nodeName = s"${ref.name}_sel"
         val tpe = UIntType(IntWidth(high-low))

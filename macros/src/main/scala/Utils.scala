@@ -6,7 +6,7 @@ import firrtl._
 import firrtl.ir._
 import firrtl.PrimOps
 import firrtl.passes.memlib.{MemConf, MemPort, ReadPort, WritePort, ReadWritePort, MaskedWritePort, MaskedReadWritePort}
-import firrtl.Utils.{ceilLog2, BoolType}
+import firrtl.Utils.{getUIntWidth, BoolType}
 import mdf.macrolib.{Constant, MacroPort, SRAMMacro}
 import mdf.macrolib.{PolarizedPort, PortPolarity, ActiveLow, ActiveHigh, NegativeEdge, PositiveEdge, MacroExtraPort}
 import java.io.File
@@ -19,7 +19,7 @@ class FirrtlMacroPort(port: MacroPort) {
   val isWriter = port.input.nonEmpty && port.output.isEmpty
   val isReadWriter = port.input.nonEmpty && port.output.nonEmpty
 
-  val addrType = UIntType(IntWidth(ceilLog2(port.depth.get) max 1))
+  val addrType = UIntType(IntWidth(getUIntWidth(port.depth.get - 1) max 1))
   val dataType = UIntType(IntWidth(port.width.get))
   val maskType = UIntType(IntWidth(port.width.get / port.effectiveMaskGran))
 
