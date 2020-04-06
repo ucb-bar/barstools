@@ -1,0 +1,61 @@
+
+Placement/Boundary constraints
+
+
+Schema:
+
+- `Element` is the base abstract class
+
+- `Primitive` extends `Element` (abstract)
+  - name (String)
+  - target (InstanceTarget) ?? (some way of tying this to an instance)
+
+- `Rect` extends `Primitive` (abstract)
+  - x (LengthUnit)
+  - y (LengthUnit)
+  - w (LengthUnit)
+  - h (LengthUnit)
+  - rot (Rotation)
+
+- `Macro` extends `Rect`
+
+- `RouteBlockage` extends `Rect`
+  - layer (String)
+
+- `PlaceBlockage` extends `Rect`
+
+- `SeqMem` extends `Rect`
+
+- `Group` extends `Element` (abstract)
+
+- `Grid` extends `Group`
+  - elements (Array2D[Element])
+
+- `HorizontalArray` extends `Array`
+  - elements.height = 1
+
+- `VerticalArray` extends `Array`
+  - elements.width = 1
+
+- `LayoutOptions` extends `Element` (abstract)
+  - layouts (List[Group])
+
+- `PriorityLayoutOptions` extends `LayoutOptions`
+
+
+
+IR Level 0
+- `Rect`s must contain x, y, rot
+
+
+IR Level 1
+- `Rect`s must contain w, h
+
+
+IR Level 2
+- `Rect`s must contain name, target, type
+
+
+
+- Need to have an "inline" way of saying "Replace the floorplan of this block with some external hammer IR"
+
