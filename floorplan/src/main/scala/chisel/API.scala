@@ -3,10 +3,10 @@ package barstools.floorplan.chisel
 
 import chisel3.{RawModule}
 
-import firrtl.annotations.{ModuleTarget, InstanceTarget}
+import firrtl.annotations.{ModuleTarget, InstanceTarget, Annotation}
 
 import barstools.floorplan._
-import barstools.floorplan.firrtl.{FloorplanAnnotation, FloorplanInstanceAnnotation, FloorplanModuleAnnotation, FloorplanGroupAnnotation}
+import barstools.floorplan.firrtl.{FloorplanAnnotation, FloorplanInstanceAnnotation, FloorplanModuleAnnotation, FloorplanGroupAnnotation, GenerateFloorplanIR}
 import scala.collection.mutable.{ArraySeq, ArrayBuffer, HashMap, Set, HashSet}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
@@ -21,10 +21,11 @@ object Floorplan {
     hardBoundary: Boolean = true
   ) = {
     val elt = new ChiselLogicRect(module, width, height, area, aspectRatio, hardBoundary)
-    FloorplanDatabase.register(module, elt)
+    //FloorplanDatabase.register(module, elt)
     elt
   }
 
+  /*
   def createRatioLayout[T <: RawModule](module: T,
     width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
     height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
@@ -35,7 +36,9 @@ object Floorplan {
     FloorplanDatabase.register(module, elt)
     elt
   }
+  */
 
+  /*
   def createLengthLayout[T <: RawModule](module: T,
     width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
     height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
@@ -46,6 +49,7 @@ object Floorplan {
     FloorplanDatabase.register(module, elt)
     elt
   }
+  */
 
   def createPlaceholderRect[T <: RawModule](module: T,
     name: Option[String] = None,
@@ -54,12 +58,13 @@ object Floorplan {
     area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
     aspectRatio: Constraint[Rational] = Unconstrained[Rational]
   ) = {
-    val nameStr = name.getOrElse(FloorplanDatabase.getUnusedName(module))
-    val elt = new ChiselPlaceholderRect(module, nameStr, width, height, area, aspectRatio)
-    FloorplanDatabase.register(module, elt)
-    elt
+    //val nameStr = name.getOrElse(FloorplanDatabase.getUnusedName(module))
+    val elt = new ChiselPlaceholderRect(module, name.getOrElse("TODO"), width, height, area, aspectRatio)
+    //FloorplanDatabase.register(module, elt)
+    Seq(elt) ++ GenerateFloorplanIR.emit()
   }
 
+  /*
   def createGrid[T <: RawModule](module: T,
     name: String,
     x: Int = 1,
@@ -70,11 +75,13 @@ object Floorplan {
     FloorplanDatabase.register(module, elt)
     elt
   }
+  */
 
-  def commitAndGetAnnotations(): Seq[FloorplanAnnotation] = FloorplanDatabase.commitAndGetAnnotations()
+  //def commitAndGetAnnotations(): Seq[FloorplanAnnotation] = FloorplanDatabase.commitAndGetAnnotations()
 
 }
 
+/*
 private[chisel] object FloorplanDatabase {
 
   private val nameMap = new HashMap[RawModule, Set[String]]()
@@ -105,6 +112,7 @@ private[chisel] object FloorplanDatabase {
   }
 
 }
+*/
 
 object FloorplanUnits {
 
@@ -154,7 +162,7 @@ object FloorplanUnits {
 
 abstract class ChiselElement(val module: RawModule, val name: String) {
 
-  final private var committed = false
+  //final private var committed = false
 
   protected def generateElement(): Element
 
@@ -162,10 +170,14 @@ abstract class ChiselElement(val module: RawModule, val name: String) {
   //final protected def targetName: (String, String) = (s"${module.toAbsoluteTarget.serialize}", name)
 
   // TODO FIXME this is clunky too
-  final protected var fpir: Element = null
+  //final protected var fpir: Element = null
+  final val fpir = generateElement()
 
-  def getAnnotation(): FloorplanAnnotation
+  protected def getFloorplanAnnotation(): FloorplanAnnotation
 
+  def getAnnotations(): Seq[Annotation] = GenerateFloorplanIR.emit() :+ getFloorplanAnnotation()
+
+/*
   def isCommitted = committed
 
   final private[chisel] def commit(): String = {
@@ -175,13 +187,14 @@ abstract class ChiselElement(val module: RawModule, val name: String) {
     }
     name
   }
+*/
 
 }
 
 abstract class ChiselPrimitiveElement(module: RawModule, name: String) extends ChiselElement(module, name) {
 
-  def getAnnotation(): FloorplanAnnotation = {
-    if (!isCommitted) throw ChiselFloorplanException("Must commit ChiselElement before getting its annotation!")
+  def getFloorplanAnnotation() = {
+    //if (!isCommitted) throw ChiselFloorplanException("Must commit ChiselElement before getting its annotation!")
     module.toAbsoluteTarget match {
       case x: InstanceTarget => FloorplanInstanceAnnotation(x, fpir)
       case x: ModuleTarget => FloorplanModuleAnnotation(x, fpir)
@@ -191,6 +204,7 @@ abstract class ChiselPrimitiveElement(module: RawModule, name: String) extends C
 
 }
 
+/*
 abstract class ChiselGroupElement(module: RawModule, name: String) extends ChiselElement(module, name) {
 
   protected val elements: Seq[Option[ChiselElement]]
@@ -207,8 +221,11 @@ abstract class ChiselGroupElement(module: RawModule, name: String) extends Chise
   }
 
 }
+*/
 
+/*
 abstract class ChiselLayoutElement(module: RawModule) extends ChiselGroupElement(module, "")
+*/
 
 final class ChiselLogicRect private[chisel] (
   module: RawModule,
@@ -236,6 +253,7 @@ final class ChiselPlaceholderRect private[chisel] (
 
 }
 
+/*
 final class ChiselWeightedGrid private[chisel] (
   module: RawModule,
   name: String,
@@ -279,7 +297,9 @@ final class ChiselWeightedGrid private[chisel] (
   }
 
 }
+*/
 
+/*
 final class ChiselConstrainedRatioLayout private[chisel] (
   module: RawModule,
   val width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
@@ -313,7 +333,9 @@ final class ChiselConstrainedRatioLayout private[chisel] (
   }
 
 }
+*/
 
+/*
 final class ChiselConstrainedLengthLayout private[chisel] (
   module: RawModule,
   val width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
@@ -347,3 +369,4 @@ final class ChiselConstrainedLengthLayout private[chisel] (
   }
 
 }
+*/

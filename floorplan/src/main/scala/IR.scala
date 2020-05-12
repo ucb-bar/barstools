@@ -55,20 +55,15 @@ private[floorplan] final case class AbstractMacro(name: String) extends Abstract
 
 private[floorplan] final case class ConcreteMacro(name: String, width: LengthUnit, height: LengthUnit) extends ConcreteRectPrimitive with MacroLike
 
-sealed trait IsModuleTop {
-  // Basically prevent subclasses from implementing name
-  final def name = ""
-}
-
 private[floorplan] final case class ConstrainedLogicRect(
   width: Constraint[LengthUnit],
   height: Constraint[LengthUnit],
   area: Constraint[AreaUnit],
   aspectRatio: Constraint[Rational],
   hardBoundary: Boolean
-) extends ConstrainedRectPrimitive with IsModuleTop
+) extends ConstrainedRectPrimitive
 
-private[floorplan] final case class ConcreteLogicRect(width: LengthUnit, height: LengthUnit, hardBoundary: Boolean) extends ConcreteRectPrimitive with IsModuleTop
+private[floorplan] final case class ConcreteLogicRect(width: LengthUnit, height: LengthUnit, hardBoundary: Boolean) extends ConcreteRectPrimitive
 
 sealed abstract class Group extends Element {
 
@@ -106,7 +101,7 @@ private[floorplan] final case class WeightedGrid(
 
 }
 
-sealed abstract class Layout extends Group with IsModuleTop
+sealed abstract class Layout extends Group
 sealed abstract class ConstrainedLayout extends Layout with ConstrainedRectLike
 sealed abstract class ConcreteLayout extends Layout with ConcreteRectLike
 
