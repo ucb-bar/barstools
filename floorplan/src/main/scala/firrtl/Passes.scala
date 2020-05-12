@@ -2,16 +2,19 @@
 package barstools.floorplan.firrtl
 
 import barstools.floorplan.{FloorplanSerialization, FloorplanElementRecord, FloorplanState}
-import firrtl.{CircuitState, LowForm, Namespace, Transform, AnnotationSeq}
-import firrtl.options.{RegisteredTransform, ShellOption}
+import firrtl.{CircuitState, Namespace, Transform, AnnotationSeq, VerilogEmitter, DependencyAPIMigration}
+import firrtl.options.{Dependency, RegisteredTransform, ShellOption}
 import firrtl.analyses.{InstanceGraph}
 import firrtl.annotations.{InstanceTarget, ModuleTarget}
 
 // NOTE: If you rename/add this transform, don't forget to update META-INF
 // See the @note in the RegisteredTransform documentation
-class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
-  def inputForm = LowForm
-  def outputForm = LowForm
+class GenerateFloorplanIRPass extends Transform with RegisteredTransform with DependencyAPIMigration {
+
+  override def prerequisites = Seq(Dependency[VerilogEmitter])
+  override def optionalPrerequisites = Nil
+  override def dependents = Nil
+  override def invalidates(xform: Transform) = false
 
   val options = Seq(
     new ShellOption[String](
@@ -20,7 +23,6 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform {
       helpText = s"Set the floorplan IR file name"
     )
   )
-
 
   private def getInstancePathsFromGraph(graph: InstanceGraph, cktName: String, name: String): Seq[String] = {
     if (cktName == name) {

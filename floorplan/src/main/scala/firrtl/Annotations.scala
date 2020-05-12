@@ -3,7 +3,8 @@ package barstools.floorplan.firrtl
 
 
 import barstools.floorplan.{Element, Group}
-import firrtl.annotations.{Annotation, NoTargetAnnotation, SingleTargetAnnotation, MultiTargetAnnotation, Target, ModuleTarget, InstanceTarget, ReferenceTarget, IsModule}
+import firrtl.annotations._
+import firrtl.stage.{RunFirrtlTransformAnnotation}
 
 // John: Right now we are using ModuleTarget, which will mean that all instances of the same master
 // will have the same floorplan. This is probably OK for now, but eventually we will want to support
@@ -17,15 +18,15 @@ trait FloorplanAnnotation extends Annotation {
 }
 
 case class FloorplanModuleAnnotation(target: ModuleTarget, fpir: String) extends SingleTargetAnnotation[ModuleTarget] with FloorplanAnnotation {
-  def duplicate(t: ModuleTarget) = this.copy(target, fpir)
+  def duplicate(t: ModuleTarget) = this.copy(t, fpir)
 }
 
 case class FloorplanInstanceAnnotation(target: InstanceTarget, fpir: String) extends SingleTargetAnnotation[InstanceTarget] with FloorplanAnnotation {
-  def duplicate(t: InstanceTarget) = this.copy(target, fpir)
+  def duplicate(t: InstanceTarget) = this.copy(t, fpir)
 }
 
 case class FloorplanGroupAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
-  def duplicate(t: Seq[Seq[Target]]) = this.copy(targets, fpir)
+  def duplicate(t: Seq[Seq[Target]]) = this.copy(t, fpir)
 }
 
 object FloorplanModuleAnnotation {
@@ -43,3 +44,14 @@ object FloorplanGroupAnnotation {
 }
 
 case class FloorplanIRFileAnnotation(value: String) extends NoTargetAnnotation
+
+object GenerateFloorplanIR {
+  private var emitted = false
+
+  def emit(): Seq[RunFirrtlTransformAnnotation] = {
+    if (emitted) Nil else {
+      emitted = true
+      Seq(RunFirrtlTransformAnnotation(new GenerateFloorplanIRPass))
+    }
+  }
+}
