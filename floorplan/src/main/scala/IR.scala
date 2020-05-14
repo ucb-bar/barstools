@@ -7,6 +7,7 @@ package barstools.floorplan
 
 sealed abstract class Element {
 
+  def name: String
   // TODO make this an Enumeration
   def level: Int
   def serialize = FloorplanSerialization.serialize(this)
@@ -18,15 +19,15 @@ sealed abstract class Primitive extends Element
 ////////////////////////////////////////////// Rect shape
 
 trait ConstrainedRectLike {
-  val width: Constraint[LengthUnit]
-  val height: Constraint[LengthUnit]
-  val area: Constraint[AreaUnit]
-  val aspectRatio: Constraint[Rational]
+  def width: Constraint[LengthUnit]
+  def height: Constraint[LengthUnit]
+  def area: Constraint[AreaUnit]
+  def aspectRatio: Constraint[Rational]
 }
 
 trait ConcreteRectLike {
-  val width: LengthUnit
-  val height: LengthUnit
+  def width: LengthUnit
+  def height: LengthUnit
 }
 
 sealed abstract class AbstractRectPrimitive extends Primitive {
@@ -41,7 +42,7 @@ sealed abstract class ConcreteRectPrimitive extends Primitive with ConcreteRectL
   final def level = 0
 }
 
-private[floorplan] final case class ConstrainedPlaceholderRect(
+private[floorplan] final case class ConstrainedDummyRect(
   name: String,
   width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
@@ -61,13 +62,17 @@ private[floorplan] final case class ConstrainedLogicRect(
   area: Constraint[AreaUnit],
   aspectRatio: Constraint[Rational],
   hardBoundary: Boolean
-) extends ConstrainedRectPrimitive
+) extends ConstrainedRectPrimitive {
+  def name = ""
+}
 
-private[floorplan] final case class ConcreteLogicRect(width: LengthUnit, height: LengthUnit, hardBoundary: Boolean) extends ConcreteRectPrimitive
+private[floorplan] final case class ConcreteLogicRect(width: LengthUnit, height: LengthUnit, hardBoundary: Boolean) extends ConcreteRectPrimitive {
+  def name = ""
+}
 
 sealed abstract class Group extends Element {
 
-  val elements: Seq[String]
+  def elements: Seq[String]
 
   def mapElements(f: ((String, Int)) => String): Group
 
@@ -76,9 +81,9 @@ sealed abstract class Group extends Element {
 }
 
 sealed abstract class Grid extends Group {
-  val xDim: Int
-  val yDim: Int
-  val elements: Seq[String]
+  def xDim: Int
+  def yDim: Int
+  def elements: Seq[String]
 
   assert(xDim > 0, "X dimension of grid must be positive")
   assert(yDim > 0, "Y dimension of grid must be positive")
@@ -101,6 +106,7 @@ private[floorplan] final case class WeightedGrid(
 
 }
 
+/*
 sealed abstract class Layout extends Group
 sealed abstract class ConstrainedLayout extends Layout with ConstrainedRectLike
 sealed abstract class ConcreteLayout extends Layout with ConcreteRectLike
@@ -134,5 +140,7 @@ private[floorplan] final case class ConstrainedLengthLayout(
   def mapElements(f: ((String, Int)) => String) = this.copy(mapElementsHelper(f), placements, width, height, area, aspectRatio)
 
 }
+
+*/
 
 // TODO add more layouts here

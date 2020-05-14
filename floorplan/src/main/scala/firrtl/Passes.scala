@@ -55,7 +55,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
         val element = FloorplanSerialization.
           deserialize(x.fpir).
           asInstanceOf[barstools.floorplan.Group].
-          mapElements { case (name, id) => paths(id + 1) + "#" + name }
+          mapElements { case (name, id) => paths(id + 1) + (if (name == "") "" else "#" + name) }
         Seq(FloorplanElementRecord(paths(0), element))
       }
     }).flatten
