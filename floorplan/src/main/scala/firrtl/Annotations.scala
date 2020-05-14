@@ -40,7 +40,7 @@ object FloorplanInstanceAnnotation {
 object FloorplanGroupAnnotation {
   //def apply(targets: Seq[Target], fpir: String): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets.map(Seq(_)), fpir)
   //def apply(targets: Seq[Target], element: Element): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets, element.serialize)
-  def apply(targets: Seq[Seq[Target]], element: Group): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets, element.serialize)
+  def apply(targets: Seq[Seq[InstanceTarget]], element: Group): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets, element.serialize)
 }
 
 case class FloorplanIRFileAnnotation(value: String) extends NoTargetAnnotation
