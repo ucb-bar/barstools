@@ -89,17 +89,17 @@ class TopModuleWithClks(val divBy: Int, val phases: Seq[Int]) extends TopModule(
 
   // Most complicated: test chain of clock generators
   val gen1 = Module(new ModWithNestedClk(divBy, phases, syncReset = true))
-  io.gen1.bbOutClk := Vec(gen1.io.bbOutClk.map(x => x.asUInt))
-  io.gen1.clkDivOut := Vec(gen1.io.clkDivOut.map(x => x.asUInt))
+  io.gen1.bbOutClk := VecInit(gen1.io.bbOutClk.map(x => x.asUInt))
+  io.gen1.clkDivOut := VecInit(gen1.io.clkDivOut.map(x => x.asUInt))
   gen1.io.inClk := clock
   // ClkDiv on generated clk -> reset occurs before first input clk edge
   val gen2 = Module(new ModWithNestedClk(divBy, phases, syncReset = false))
-  io.gen2.bbOutClk := Vec(gen2.io.bbOutClk.map(x => x.asUInt))
-  io.gen2.clkDivOut := Vec(gen2.io.clkDivOut.map(x => x.asUInt))
+  io.gen2.bbOutClk := VecInit(gen2.io.bbOutClk.map(x => x.asUInt))
+  io.gen2.clkDivOut := VecInit(gen2.io.clkDivOut.map(x => x.asUInt))
   gen2.io.inClk := gen1.io.clkDivOut.last
   val gen3 = Module(new ModWithNestedClk(divBy, phases, syncReset = false))
-  io.gen3.bbOutClk := Vec(gen3.io.bbOutClk.map(x => x.asUInt))
-  io.gen3.clkDivOut := Vec(gen3.io.clkDivOut.map(x => x.asUInt))
+  io.gen3.bbOutClk := VecInit(gen3.io.bbOutClk.map(x => x.asUInt))
+  io.gen3.clkDivOut := VecInit(gen3.io.clkDivOut.map(x => x.asUInt))
   gen3.io.inClk := gen1.io.clkDivOut.last
 }
 

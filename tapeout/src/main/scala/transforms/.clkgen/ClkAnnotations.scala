@@ -170,9 +170,9 @@ object HasClkAnnotation {
 // Applies to both black box + normal module
 trait IsClkModule {
 
-  self: chisel3.Module =>
+  self: BaseModule =>
 
-  doNotDedup(this)
+  doNotDedup(this.asInstanceOf[Module])
 
   private def extractElementNames(signal: Data): Seq[String] = {
     val names = signal match {
@@ -199,7 +199,8 @@ trait IsClkModule {
   }
 
   def getIOName(signal: Element): String = {
-    val possibleNames = extractElements(io).zip(extractElementNames(io)).map {
+    val implicitIO = this.asInstanceOf[Module].io
+    val possibleNames = extractElements(implicitIO).zip(extractElementNames(implicitIO)).map {
       case (sig, name) if sig == signal => Some(name)
       case _ => None
     }.flatten
@@ -209,7 +210,9 @@ trait IsClkModule {
 
   def annotateDerivedClks(tpe: ClkModType, generatedClks: Seq[GeneratedClk]): Unit =
     annotateDerivedClks(ClkModAnnotation(tpe.serialize, generatedClks))
-  def annotateDerivedClks(anno: ClkModAnnotation): Unit = annotateDerivedClks(this, anno)
+  def annotateDerivedClks(anno: ClkModAnnotation): Unit = {
+    annotateDerivedClks(this.asInstanceOf[Module], anno)
+  }
   def annotateDerivedClks(m: Module, anno: ClkModAnnotation): Unit =
     annotate(TargetClkModAnnoC(m, anno))
 

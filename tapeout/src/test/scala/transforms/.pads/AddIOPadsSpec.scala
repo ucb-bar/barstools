@@ -14,7 +14,7 @@ class BB extends BlackBox with HasBlackBoxInline {
     val c = Input(SInt(14.W))
     val z = Output(SInt(16.W))
     val analog1 = Analog(3.W)
-    val analog2 = analog1.chiselCloneType  
+    val analog2 = chiselTypeOf(analog1)
   })
   // Generates a "FakeBB.v" file with the following Verilog module
   setInline("FakeBB.v",
@@ -43,13 +43,13 @@ class ExampleTopModuleWithBB extends TopModule(
     )) {
   val io = IO(new Bundle {
     val a = Input(UInt(15.W))
-    val b = a.chiselCloneType
+    val b = chiselTypeOf(a)
     val c = Input(SInt(14.W))
     val x = Output(UInt(16.W))
-    val y = x.chiselCloneType
+    val y = chiselTypeOf(x)
     val z = Output(SInt(16.W))
     val analog1 = Analog(3.W)
-    val analog2 = analog1.chiselCloneType
+    val analog2 = chiselTypeOf(analog1)
     val v = Output(Vec(3, UInt(5.W)))
   })
 

@@ -1,14 +1,14 @@
 // See LICENSE for license details.
 
 val defaultVersions = Map(
-  "chisel3" -> "3.2-SNAPSHOT",
-  "chisel-iotesters" -> "1.3-SNAPSHOT"
+  "chisel3" -> "3.3-SNAPSHOT",
+  "chisel-iotesters" -> "1.4-SNAPSHOT"
 )
 
 lazy val commonSettings = Seq(
   organization := "edu.berkeley.cs",
   version := "0.1-SNAPSHOT",
-  scalaVersion := "2.12.8",
+  scalaVersion := "2.12.10",
   scalacOptions := Seq("-deprecation", "-feature", "-language:reflectiveCalls", "-Xsource:2.11"),
   libraryDependencies ++= Seq("chisel3","chisel-iotesters").map {
     dep: String => "edu.berkeley.cs" %% dep % sys.props.getOrElse(dep + "Version", defaultVersions(dep))
