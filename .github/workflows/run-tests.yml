@@ -61,7 +61,8 @@ jobs:
 
   all_tests_passed:
     name: "all tests passed"
-    needs: [test, doc, mill]
+#    needs: [test, doc, mill]
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - run: echo Success!
