@@ -15,6 +15,8 @@ lazy val commonSettings = Seq(
   },
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "3.2.2" % "test",
+    "org.json4s" %% "json4s-jackson" % "3.6.1",
+    "org.json4s" %% "json4s-native" % "3.6.1",
   ),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("snapshots"),
