@@ -30,6 +30,12 @@ trait ConcreteRectLike {
   def height: LengthUnit
 }
 
+object IRLevel {
+
+  def max = 2
+
+}
+
 sealed abstract class AbstractRectPrimitive extends Primitive {
   final def level = 2
 }

@@ -6,7 +6,7 @@ import chisel3.{RawModule}
 import firrtl.annotations.{ModuleTarget, InstanceTarget, Annotation}
 
 import barstools.floorplan._
-import barstools.floorplan.firrtl.{FloorplanAnnotation, FloorplanInstanceAnnotation, FloorplanModuleAnnotation, FloorplanGroupAnnotation, GenerateFloorplanIR}
+import barstools.floorplan.firrtl.{FloorplanAnnotation, FloorplanInstanceAnnotation, FloorplanModuleAnnotation, FloorplanGroupAnnotation}
 import scala.collection.mutable.{ArraySeq, ArrayBuffer, HashMap, Set, HashSet}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
@@ -153,16 +153,17 @@ abstract class ChiselElement(val module: RawModule, val name: String) {
 
   protected def generateElement(): Element
 
+  // TODO if there are no other annotations, this separation may no longer be needed
   private[chisel] def getFloorplanAnnotations(): Seq[FloorplanAnnotation]
 
-  def getAnnotations(): Seq[Annotation] = GenerateFloorplanIR.emit() ++ getFloorplanAnnotations()
+  def getAnnotations(): Seq[Annotation] = getFloorplanAnnotations()
 
 }
 
 abstract class ChiselPrimitiveElement(module: RawModule, name: String) extends ChiselElement(module, name) {
 
   private[chisel] def getFloorplanAnnotations() = {
-    module.toAbsoluteTarget match {
+    module.toTarget match {
       case x: InstanceTarget => Seq(FloorplanInstanceAnnotation(x, generateElement()))
       case x: ModuleTarget => Seq(FloorplanModuleAnnotation(x, generateElement()))
       case _ => ???
@@ -181,7 +182,7 @@ abstract class ChiselGroupElement(module: RawModule, name: String) extends Chise
   private[chisel] def getFloorplanAnnotations(): Seq[FloorplanAnnotation] = {
     // The head of elements will be this module, while the remaining ones are the children
     val fpir = generateElement().asInstanceOf[Group]
-    val elementTargets = this.module.toAbsoluteTarget +: elements.map(_.get.module.toAbsoluteTarget)
+    val elementTargets = this.module.toTarget +: elements.map(_.get.module.toTarget)
     val elementTargetsMapped: Seq[Seq[InstanceTarget]] = elementTargets.map { x =>
       assert(x.isInstanceOf[InstanceTarget], "All targets must be InstanceTargets for ChiselGroupElement annotations")
       Seq(x.asInstanceOf[InstanceTarget])

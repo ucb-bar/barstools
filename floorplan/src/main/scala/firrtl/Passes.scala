@@ -4,7 +4,7 @@ package barstools.floorplan.firrtl
 import barstools.floorplan.{FloorplanSerialization, FloorplanElementRecord, FloorplanState}
 import firrtl.{CircuitState, Namespace, Transform, AnnotationSeq, VerilogEmitter, DependencyAPIMigration}
 import firrtl.options.{Dependency, RegisteredTransform, ShellOption}
-import firrtl.analyses.{InstanceGraph}
+import firrtl.analyses.{InstanceKeyGraph}
 import firrtl.annotations.{InstanceTarget, ModuleTarget}
 
 // NOTE: If you rename/add this transform, don't forget to update META-INF
@@ -24,18 +24,18 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
     )
   )
 
-  private def getInstancePathsFromGraph(graph: InstanceGraph, cktName: String, name: String): Seq[String] = {
+  private def getInstancePathsFromGraph(graph: InstanceKeyGraph, cktName: String, name: String): Seq[String] = {
     if (cktName == name) {
-      return Seq("")
+      Seq("")
     } else {
-      return graph.findInstancesInHierarchy(name).map(_.map(_.name).mkString(".") + ".")
+      graph.findInstancesInHierarchy(name).map(_.map(_.name).mkString(".") + ".")
     }
   }
 
 
   def execute(state: CircuitState): CircuitState = {
     // TODO don't need graph if there are no annos, which can be a speedup
-    val graph = new InstanceGraph(state.circuit)
+    val graph = InstanceKeyGraph(state.circuit)
 
     def getPaths(name: String): Seq[String] = getInstancePathsFromGraph(graph, state.circuit.main, name)
     def getInstancePath(t: InstanceTarget): String = {
@@ -47,9 +47,14 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
     def newRecord(path: String, anno: FloorplanAnnotation) = FloorplanElementRecord(path, FloorplanSerialization.deserialize(anno.fpir))
 
     val list = state.annotations.collect({
-      case x: FloorplanInstanceAnnotation => Seq(newRecord(getInstancePath(x.target), x))
-      case x: FloorplanModuleAnnotation => getPaths(x.target.name).map(newRecord(_, x))
+      case x: FloorplanInstanceAnnotation =>
+        throw new Exception("Don't use this yet")
+        //Seq(newRecord(getInstancePath(x.target), x))
+      case x: FloorplanModuleAnnotation =>
+        getPaths(x.target.name).map(newRecord(_, x))
       case x: FloorplanGroupAnnotation => {
+        throw new Exception("Don't use this yet")
+        /*
         val paths = x.targets.map(_(0).asInstanceOf[InstanceTarget]).map(getInstancePath)
         // paths(0) is special; it's the path to the module the element is attached to
         val element = FloorplanSerialization.
@@ -57,20 +62,20 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
           asInstanceOf[barstools.floorplan.Group].
           mapElements { case (name, id) => paths(id + 1) + (if (name == "") "" else "#" + name) }
         Seq(FloorplanElementRecord(paths(0), element))
+        */
       }
     }).flatten
 
-    if (list.nonEmpty) {
-      val filename = state.annotations.collectFirst({
-        case x: FloorplanIRFileAnnotation => x.value
-      }).getOrElse {
-        val opt = options.head.longOption
-        throw new Exception(s"Did not specify a filename for GenerateFloorplanIRPass. Please provide a FloorplanIRFileAnnotation or use the --${opt} option.")
-      }
-      val writer = new java.io.FileWriter(filename)
-      writer.write(FloorplanState.serialize(list))
-      writer.close()
+    val filename = state.annotations.collectFirst({
+      case x: FloorplanIRFileAnnotation => x.value
+    }).getOrElse {
+      val opt = options.head.longOption
+      throw new Exception(s"Did not specify a filename for GenerateFloorplanIRPass. Please provide a FloorplanIRFileAnnotation or use the --${opt} option.")
     }
+    val writer = new java.io.FileWriter(filename)
+    writer.write(FloorplanState.serialize(list))
+    writer.close()
+
     state
   }
 }

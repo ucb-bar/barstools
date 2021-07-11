@@ -7,7 +7,7 @@ final case class FloorplanState(elements: Seq[FloorplanElementRecord], level: In
 
 object FloorplanState {
 
-  def fromSeq(seq: Seq[FloorplanElementRecord]): FloorplanState = FloorplanState(seq, seq.map(_.element.level).max)
+  def fromSeq(seq: Seq[FloorplanElementRecord]): FloorplanState = FloorplanState(seq, (Seq(IRLevel.max) ++ seq.map(_.element.level)).max)
 
   def serialize(state: FloorplanState): String = FloorplanSerialization.serializeState(state)
   def serialize(seq: Seq[FloorplanElementRecord]): String = serialize(fromSeq(seq))

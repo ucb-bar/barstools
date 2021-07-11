@@ -45,13 +45,3 @@ object FloorplanGroupAnnotation {
 
 case class FloorplanIRFileAnnotation(value: String) extends NoTargetAnnotation
 
-object GenerateFloorplanIR {
-  private var emitted = false
-
-  def emit(): Seq[RunFirrtlTransformAnnotation] = {
-    if (emitted) Nil else {
-      emitted = true
-      Seq(RunFirrtlTransformAnnotation(new GenerateFloorplanIRPass))
-    }
-  }
-}
