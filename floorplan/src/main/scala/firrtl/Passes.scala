@@ -5,7 +5,7 @@ import barstools.floorplan.{FloorplanSerialization, FloorplanElementRecord, Floo
 import firrtl.{CircuitState, Namespace, Transform, AnnotationSeq, VerilogEmitter, DependencyAPIMigration}
 import firrtl.options.{Dependency, RegisteredTransform, ShellOption}
 import firrtl.analyses.{InstanceKeyGraph}
-import firrtl.annotations.{InstanceTarget, ModuleTarget}
+import firrtl.annotations.{InstanceTarget}
 
 // NOTE: If you rename/add this transform, don't forget to update META-INF
 // See the @note in the RegisteredTransform documentation
@@ -34,37 +34,16 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
 
 
   def execute(state: CircuitState): CircuitState = {
-    // TODO don't need graph if there are no annos, which can be a speedup
-    val graph = InstanceKeyGraph(state.circuit)
 
-    def getPaths(name: String): Seq[String] = getInstancePathsFromGraph(graph, state.circuit.main, name)
-    def getInstancePath(t: InstanceTarget): String = {
-      val result = getPaths(t.module).map(_ + (t.path.toList.map(_._1.value) :+ t.instance mkString "."))
-      if (result.size > 1) throw new Exception(s"Too many instances for InstanceTarget ${t}! Fix me!")
-      if (result.size == 0) throw new Exception(s"InstanceTarget ${t} does not exist!")
-      result(0)
-    }
+    def getInstancePath(t: InstanceTarget): String = t.asPath.toList.map(_._1.value).mkString(".")
     def newRecord(path: String, anno: FloorplanAnnotation) = FloorplanElementRecord(path, FloorplanSerialization.deserialize(anno.fpir))
 
     val list = state.annotations.collect({
-      case x: FloorplanInstanceAnnotation =>
-        throw new Exception("Don't use this yet")
-        //Seq(newRecord(getInstancePath(x.target), x))
-      case x: FloorplanModuleAnnotation =>
-        getPaths(x.target.name).map(newRecord(_, x))
-      case x: FloorplanGroupAnnotation => {
-        throw new Exception("Don't use this yet")
-        /*
-        val paths = x.targets.map(_(0).asInstanceOf[InstanceTarget]).map(getInstancePath)
-        // paths(0) is special; it's the path to the module the element is attached to
-        val element = FloorplanSerialization.
-          deserialize(x.fpir).
-          asInstanceOf[barstools.floorplan.Group].
-          mapElements { case (name, id) => paths(id + 1) + (if (name == "") "" else "#" + name) }
-        Seq(FloorplanElementRecord(paths(0), element))
-        */
-      }
-    }).flatten
+      case x: NoReferenceFloorplanAnnotation =>
+        newRecord(getInstancePath(x.target), x)
+      case x: InstanceFloorplanAnnotation if x.targets.flatten.length > 0 =>
+        newRecord(getInstancePath(x.targets(0)(0).asInstanceOf[InstanceTarget]), x)
+    })
 
     val filename = state.annotations.collectFirst({
       case x: FloorplanIRFileAnnotation => x.value
