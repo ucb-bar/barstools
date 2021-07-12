@@ -4,6 +4,8 @@ package barstools.floorplan.compiler
 import scala.collection.mutable.{HashMap}
 import barstools.floorplan.{Element, FloorplanState, FloorplanElementRecord}
 
+// TODO all of this is out of date
+
 class FloorplanTree(state: FloorplanState) {
 
   class Node(val parent: Option[Node], val name: String) {
@@ -68,7 +70,7 @@ class FloorplanTree(state: FloorplanState) {
   }
 
   state.elements.foreach { record =>
-    val (path, tag) = parsePathAndTag(record.path)
+    val (path, tag) = parsePathAndTag(record.root)
     root.addElement(path, tag, record.element)
   }
 
@@ -85,7 +87,7 @@ class FloorplanTree(state: FloorplanState) {
   }
 
   def toState: FloorplanState = {
-    val records = root.getElements.map { case (path, elt) => FloorplanElementRecord(path, elt) }
+    val records = root.getElements.map { case (path, elt) => FloorplanElementRecord(path, None, elt) } // TODO this is broken but unused right now
     FloorplanState(records, records.map(_.element.level).max)
   }
 

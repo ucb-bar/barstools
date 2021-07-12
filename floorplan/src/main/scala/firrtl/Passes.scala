@@ -24,25 +24,25 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
     )
   )
 
-  private def getInstancePathsFromGraph(graph: InstanceKeyGraph, cktName: String, name: String): Seq[String] = {
-    if (cktName == name) {
-      Seq("")
-    } else {
-      graph.findInstancesInHierarchy(name).map(_.map(_.name).mkString(".") + ".")
-    }
-  }
-
-
   def execute(state: CircuitState): CircuitState = {
 
-    def getInstancePath(t: InstanceTarget): String = t.asPath.toList.map(_._1.value).mkString(".")
-    def newRecord(path: String, anno: FloorplanAnnotation) = FloorplanElementRecord(path, FloorplanSerialization.deserialize(anno.fpir))
+    def getInstancePath(t: InstanceTarget): String = "/" + t.asPath.toList.map(_._1.value).mkString("/")
+
+    def getRelativePath(root: InstanceTarget, inst: InstanceTarget): String = {
+      val rootPath = root.asPath
+      val instPath = inst.asPath
+      assert(instPath.take(rootPath.length) == rootPath, s"InstanceTarget ${instPath} must be inside ${rootPath}")
+      instPath.drop(rootPath.length).toList.map(_._1.value).mkString("/")
+    }
+
+    def newRecord(path: String, ref: Option[String], anno: FloorplanAnnotation) = FloorplanElementRecord(path, ref, FloorplanSerialization.deserialize(anno.fpir))
 
     val list = state.annotations.collect({
       case x: NoReferenceFloorplanAnnotation =>
-        newRecord(getInstancePath(x.target), x)
+        newRecord(getInstancePath(x.target), None, x)
       case x: InstanceFloorplanAnnotation if x.targets.flatten.length > 0 =>
-        newRecord(getInstancePath(x.targets(0)(0).asInstanceOf[InstanceTarget]), x)
+        newRecord(getInstancePath(x.targets(0)(0).asInstanceOf[InstanceTarget]),
+          Some(getRelativePath(x.targets(0)(0).asInstanceOf[InstanceTarget], x.targets(1)(0).asInstanceOf[InstanceTarget])), x)
     })
 
     val filename = state.annotations.collectFirst({
