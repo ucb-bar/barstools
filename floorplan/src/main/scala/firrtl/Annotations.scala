@@ -6,41 +6,36 @@ import barstools.floorplan.{Element, Group}
 import firrtl.annotations._
 import firrtl.stage.{RunFirrtlTransformAnnotation}
 
-// John: Right now we are using ModuleTarget, which will mean that all instances of the same master
-// will have the same floorplan. This is probably OK for now, but eventually we will want to support
-// instance targets as well, which have some deduping issues.
+// John '21: We're going to get rid of ModuleTarget support for now. InstanceTargets may break dedup, but they don't support heterogeneous configs and are
+// kind of redundant with InstanceTargets. InstanceTarget behavior is a little more intuitive for writing the Aspects.
 
-// John: Another note. To make this a bit easier, I'm going to make floorplan IR embedded in this annotation rather than relying on
+// John '20: To make this a bit easier, I'm going to make floorplan IR embedded in this annotation rather than relying on
 // the annotation to serialize the case class correctly (it doesn't currently serialize type parameters, which makes this a bit painful)
 // We'll probably want to change this later
 trait FloorplanAnnotation extends Annotation {
   val fpir: String
 }
 
-case class FloorplanModuleAnnotation(target: ModuleTarget, fpir: String) extends SingleTargetAnnotation[ModuleTarget] with FloorplanAnnotation {
-  def duplicate(t: ModuleTarget) = this.copy(t, fpir)
+case class InstanceFloorplanAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
+
+  assert(targets.length == 2, "InstanceFloorplanAnnotation requires 2 targets")
+  //assert(targets.flatten.filterNot(_.isInstanceOf[InstanceTarget]).isEmpty, "InstanceFloorplanAnnotation requires InstanceTarget targets")
+
+  def duplicate(t: Seq[Seq[Target]]) = {
+    this.copy(t, fpir)
+  }
 }
 
-case class FloorplanInstanceAnnotation(target: InstanceTarget, fpir: String) extends SingleTargetAnnotation[InstanceTarget] with FloorplanAnnotation {
+case class NoReferenceFloorplanAnnotation(target: InstanceTarget, fpir: String) extends SingleTargetAnnotation[InstanceTarget] with FloorplanAnnotation {
   def duplicate(t: InstanceTarget) = this.copy(t, fpir)
 }
 
-case class FloorplanGroupAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
-  def duplicate(t: Seq[Seq[Target]]) = this.copy(t, fpir)
+object InstanceFloorplanAnnotation {
+  def apply(targets: Seq[Seq[Target]], element: Element): InstanceFloorplanAnnotation = InstanceFloorplanAnnotation(targets, element.serialize)
 }
 
-object FloorplanModuleAnnotation {
-  def apply(target: ModuleTarget, element: Element): FloorplanModuleAnnotation = FloorplanModuleAnnotation(target, element.serialize)
-}
-
-object FloorplanInstanceAnnotation {
-  def apply(target: InstanceTarget, element: Element): FloorplanInstanceAnnotation = FloorplanInstanceAnnotation(target, element.serialize)
-}
-
-object FloorplanGroupAnnotation {
-  //def apply(targets: Seq[Target], fpir: String): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets.map(Seq(_)), fpir)
-  //def apply(targets: Seq[Target], element: Element): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets, element.serialize)
-  def apply(targets: Seq[Seq[InstanceTarget]], element: Group): FloorplanGroupAnnotation = FloorplanGroupAnnotation(targets, element.serialize)
+object NoReferenceFloorplanAnnotation {
+  def apply(target: InstanceTarget, element: Element): NoReferenceFloorplanAnnotation = NoReferenceFloorplanAnnotation(target, element.serialize)
 }
 
 case class FloorplanIRFileAnnotation(value: String) extends NoTargetAnnotation
