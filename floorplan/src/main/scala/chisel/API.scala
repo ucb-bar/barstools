@@ -25,12 +25,13 @@ final class ChiselFloorplanContext private[chisel] (val root: InstanceTarget, to
     area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
     aspectRatio: Constraint[Rational] = Unconstrained[Rational],
     hardBoundary: Boolean = true
-  ) {
+  ): ChiselElement = {
     val inst: InstanceTarget = module.toAbsoluteTarget.asInstanceOf[InstanceTarget]
     val name = FloorplanDatabase.getUnusedName(root, inst.instance)
     val elt = new ChiselLogicRect(root, name, inst, width, height, area, aspectRatio, hardBoundary)
     FloorplanDatabase.register(root, elt)
     elementBuf.append(elt)
+    elt
   }
 
   def createDummy(
@@ -39,11 +40,12 @@ final class ChiselFloorplanContext private[chisel] (val root: InstanceTarget, to
     height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
     area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
     aspectRatio: Constraint[Rational] = Unconstrained[Rational]
-  ) {
+  ): ChiselElement = {
     val nameStr = FloorplanDatabase.getUnusedName(root, name)
     val elt = new ChiselDummyRect(root, nameStr, width, height, area, aspectRatio)
     FloorplanDatabase.register(root, elt)
     elementBuf.append(elt)
+    elt
   }
 
 /*
