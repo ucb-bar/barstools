@@ -47,8 +47,8 @@ class SynFlopsPass(synflops: Boolean, libs: Seq[Macro]) extends firrtl.passes.Pa
           )
         )
       )
-      val mod_macro = new MacroCompilerPass(None, None, None, None).compile(lib, lib_macro)
-      val (real_mod, real_macro) = mod_macro.get
+      val mod_macro = (new MacroCompilerPass(None, None, None, None, None)).compile(lib, lib_macro)
+      val (real_mod, real_macro, insts) = mod_macro.get
 
       val mem = DefMemory(
         NoInfo,
