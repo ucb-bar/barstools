@@ -17,29 +17,11 @@ trait FloorplanAnnotation extends Annotation {
 }
 
 case class InstanceFloorplanAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
-
-/*
-  assert(targets.length == 2, "InstanceFloorplanAnnotation requires 2 targets")
-  assert(targets(0)(0).isInstanceOf[InstanceTarget], "Root must be an InstanceTarget")
-  assert(targets(1)(0).isInstanceOf[InstanceTarget], "Instance must be an InstanceTarget")
-*/
-
-  def duplicate(t: Seq[Seq[Target]]) = {
-    this.copy(t, fpir)
-  }
+  def duplicate(t: Seq[Seq[Target]]) = this.copy(t, fpir)
 }
 
 case class ReferenceFloorplanAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
-
-/*
-  assert(targets.length == 2, "InstanceFloorplanAnnotation requires 2 targets")
-  assert(targets(0)(0).isInstanceOf[InstanceTarget], "Root must be an InstanceTarget")
-  assert(targets(1)(0).isInstanceOf[ReferenceTarget], "Ref must be an ReferenceTarget")
-*/
-
-  def duplicate(t: Seq[Seq[Target]]) = {
-    this.copy(t, fpir)
-  }
+  def duplicate(t: Seq[Seq[Target]]) = this.copy(t, fpir)
 }
 
 case class NoReferenceFloorplanAnnotation(target: InstanceTarget, fpir: String) extends SingleTargetAnnotation[InstanceTarget] with FloorplanAnnotation {
