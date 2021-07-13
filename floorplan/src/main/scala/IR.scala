@@ -103,3 +103,26 @@ private[floorplan] final case class WeightedGrid(
 }
 
 
+////////////////////////////////////////////// MemElements and Macros
+
+// Reference to a MemElement
+private[floorplan] final case class MemElement(
+  name: String
+) extends Primitive {
+  def level = 2
+}
+
+// Container for MemElements
+private[floorplan] final case class MemElementArray(
+  name: String,
+  elements: Seq[Option[String]]
+) extends Group {
+  def level = 2
+}
+
+private[floorplan] final case class ConcreteMacro (
+  name: String,
+  width: LengthUnit,
+  height: LengthUnit
+) extends ConcreteRectPrimitive
+
