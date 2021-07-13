@@ -20,7 +20,7 @@ case class InstanceFloorplanAnnotation(targets: Seq[Seq[Target]], fpir: String) 
   def duplicate(t: Seq[Seq[Target]]) = this.copy(t, fpir)
 }
 
-case class ReferenceFloorplanAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
+case class MemFloorplanAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
   def duplicate(t: Seq[Seq[Target]]) = this.copy(t, fpir)
 }
 
@@ -32,8 +32,8 @@ object InstanceFloorplanAnnotation {
   def apply(targets: Seq[Seq[Target]], element: Element): InstanceFloorplanAnnotation = InstanceFloorplanAnnotation(targets, element.serialize)
 }
 
-object ReferenceFloorplanAnnotation {
-  def apply(targets: Seq[Seq[Target]], element: Element): ReferenceFloorplanAnnotation = ReferenceFloorplanAnnotation(targets, element.serialize)
+object MemFloorplanAnnotation {
+  def apply(targets: Seq[Seq[Target]], element: Element): MemFloorplanAnnotation = MemFloorplanAnnotation(targets, element.serialize)
 }
 
 object NoReferenceFloorplanAnnotation {

@@ -6,7 +6,7 @@ import chisel3.{RawModule}
 import firrtl.annotations.{ReferenceTarget, InstanceTarget, Target, Annotation}
 
 import barstools.floorplan._
-import barstools.floorplan.firrtl.{FloorplanAnnotation, ReferenceFloorplanAnnotation, InstanceFloorplanAnnotation, NoReferenceFloorplanAnnotation}
+import barstools.floorplan.firrtl.{FloorplanAnnotation, MemFloorplanAnnotation, InstanceFloorplanAnnotation, NoReferenceFloorplanAnnotation}
 import scala.collection.mutable.{ArraySeq, ArrayBuffer, HashMap, Set, HashSet}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
@@ -53,7 +53,7 @@ final class ChiselFloorplanContext private[chisel] (val root: InstanceTarget, to
   ): ChiselElement = {
     val ref = mem.toAbsoluteTarget
     val name = FloorplanDatabase.getUnusedName(root, ref.ref)
-    val elt = new ChiselMemElement(root, name, ref)
+    val elt = new ChiselMem(root, name, ref)
     FloorplanDatabase.register(root, elt)
     elementBuf.append(elt)
     elt
@@ -181,8 +181,8 @@ sealed abstract class ChiselInstanceElement(root: InstanceTarget, name: String, 
   private[chisel] def getFloorplanAnnotations() = Seq(InstanceFloorplanAnnotation(Seq(Seq(root), Seq(instance)), generateElement()))
 }
 
-sealed abstract class ChiselReferenceElement(root: InstanceTarget, name: String, val reference: ReferenceTarget) extends ChiselElement(root, name) {
-  private[chisel] def getFloorplanAnnotations() = Seq(ReferenceFloorplanAnnotation(Seq(Seq(root), Seq(reference)), generateElement()))
+sealed abstract class ChiselMemElement(root: InstanceTarget, name: String, val reference: ReferenceTarget) extends ChiselElement(root, name) {
+  private[chisel] def getFloorplanAnnotations() = Seq(MemFloorplanAnnotation(Seq(Seq(root), Seq(reference)), generateElement()))
 }
 
 sealed abstract class ChiselGroupElement(root: InstanceTarget, name: String) extends ChiselElement(root, name) {
@@ -218,11 +218,11 @@ final class ChiselDummyRect private[chisel] (
 
 }
 
-final class ChiselMemElement private[chisel] (
+final class ChiselMem private[chisel] (
   root: InstanceTarget,
   name: String,
   reference: ReferenceTarget
-) extends ChiselReferenceElement(root, name, reference) {
+) extends ChiselMemElement(root, name, reference) {
 
   protected def generateElement(): Element = MemElement(name)
 

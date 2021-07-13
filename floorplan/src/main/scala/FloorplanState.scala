@@ -1,7 +1,7 @@
 // See LICENSE for license details
 package barstools.floorplan
 
-final case class FloorplanElementRecord(root: String, inst: Option[String], element: Element)
+final case class FloorplanElementRecord(root: String, inst: Option[String], element: Element, memExt: Option[String] = None)
 
 final case class FloorplanState(elements: Seq[FloorplanElementRecord], level: Int)
 
