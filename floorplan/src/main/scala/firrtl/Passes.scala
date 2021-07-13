@@ -5,7 +5,7 @@ import barstools.floorplan.{FloorplanSerialization, FloorplanElementRecord, Floo
 import firrtl.{CircuitState, Namespace, Transform, AnnotationSeq, VerilogEmitter, DependencyAPIMigration}
 import firrtl.options.{Dependency, RegisteredTransform, ShellOption}
 import firrtl.analyses.{InstanceKeyGraph}
-import firrtl.annotations.{InstanceTarget}
+import firrtl.annotations.{InstanceTarget, ReferenceTarget, IsComponent}
 
 // NOTE: If you rename/add this transform, don't forget to update META-INF
 // See the @note in the RegisteredTransform documentation
@@ -28,11 +28,16 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
 
     def getInstancePath(t: InstanceTarget): String = "/" + t.asPath.toList.map(_._1.value).mkString("/")
 
-    def getRelativePath(root: InstanceTarget, inst: InstanceTarget): String = {
+    def getRelativePath(root: InstanceTarget, inst: IsComponent): String = {
       val rootPath = root.asPath
       val instPath = inst.asPath
       assert(instPath.take(rootPath.length) == rootPath, s"InstanceTarget ${instPath} must be inside ${rootPath}")
-      instPath.drop(rootPath.length).toList.map(_._1.value).mkString("/")
+      val pathStr = instPath.drop(rootPath.length).toList.map(_._1.value).mkString("/")
+      inst match {
+        case x: InstanceTarget => pathStr
+        case x: ReferenceTarget => pathStr + "." + x.ref
+        case _ => ??? // Shouldn't exist
+      }
     }
 
     def newRecord(path: String, ref: Option[String], anno: FloorplanAnnotation) = FloorplanElementRecord(path, ref, FloorplanSerialization.deserialize(anno.fpir))
@@ -40,9 +45,12 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
     val list = state.annotations.collect({
       case x: NoReferenceFloorplanAnnotation =>
         newRecord(getInstancePath(x.target), None, x)
-      case x: InstanceFloorplanAnnotation if x.targets.flatten.length > 0 =>
+      case x: InstanceFloorplanAnnotation if x.targets.flatten.length == 2 =>
         newRecord(getInstancePath(x.targets(0)(0).asInstanceOf[InstanceTarget]),
           Some(getRelativePath(x.targets(0)(0).asInstanceOf[InstanceTarget], x.targets(1)(0).asInstanceOf[InstanceTarget])), x)
+      case x: ReferenceFloorplanAnnotation if x.targets.flatten.length == 2 =>
+        newRecord(getInstancePath(x.targets(0)(0).asInstanceOf[InstanceTarget]),
+          Some(getRelativePath(x.targets(0)(0).asInstanceOf[InstanceTarget], x.targets(1)(0).asInstanceOf[ReferenceTarget])), x)
     })
 
     val filename = state.annotations.collectFirst({

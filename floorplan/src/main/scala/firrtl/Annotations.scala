@@ -18,8 +18,24 @@ trait FloorplanAnnotation extends Annotation {
 
 case class InstanceFloorplanAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
 
+/*
   assert(targets.length == 2, "InstanceFloorplanAnnotation requires 2 targets")
-  //assert(targets.flatten.filterNot(_.isInstanceOf[InstanceTarget]).isEmpty, "InstanceFloorplanAnnotation requires InstanceTarget targets")
+  assert(targets(0)(0).isInstanceOf[InstanceTarget], "Root must be an InstanceTarget")
+  assert(targets(1)(0).isInstanceOf[InstanceTarget], "Instance must be an InstanceTarget")
+*/
+
+  def duplicate(t: Seq[Seq[Target]]) = {
+    this.copy(t, fpir)
+  }
+}
+
+case class ReferenceFloorplanAnnotation(targets: Seq[Seq[Target]], fpir: String) extends MultiTargetAnnotation with FloorplanAnnotation {
+
+/*
+  assert(targets.length == 2, "InstanceFloorplanAnnotation requires 2 targets")
+  assert(targets(0)(0).isInstanceOf[InstanceTarget], "Root must be an InstanceTarget")
+  assert(targets(1)(0).isInstanceOf[ReferenceTarget], "Ref must be an ReferenceTarget")
+*/
 
   def duplicate(t: Seq[Seq[Target]]) = {
     this.copy(t, fpir)
@@ -32,6 +48,10 @@ case class NoReferenceFloorplanAnnotation(target: InstanceTarget, fpir: String) 
 
 object InstanceFloorplanAnnotation {
   def apply(targets: Seq[Seq[Target]], element: Element): InstanceFloorplanAnnotation = InstanceFloorplanAnnotation(targets, element.serialize)
+}
+
+object ReferenceFloorplanAnnotation {
+  def apply(targets: Seq[Seq[Target]], element: Element): ReferenceFloorplanAnnotation = ReferenceFloorplanAnnotation(targets, element.serialize)
 }
 
 object NoReferenceFloorplanAnnotation {
