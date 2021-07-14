@@ -46,6 +46,10 @@ object IRLevel {
   def max = 2
 }
 
+sealed abstract class AbstractRectPrimitive extends Primitive {
+  final def level = 2
+}
+
 sealed abstract class ConstrainedRectPrimitive extends Primitive with ConstrainedRectLike {
   final def level = 1
 }
@@ -119,6 +123,11 @@ private[floorplan] final case class MemElementArray(
 ) extends Group {
   def level = 2
 }
+
+private[floorplan] final case class AbstractMacro (
+  name: String
+) extends AbstractRectPrimitive
+
 
 private[floorplan] final case class ConcreteMacro (
   name: String,
