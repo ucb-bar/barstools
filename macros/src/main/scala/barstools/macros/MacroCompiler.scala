@@ -136,7 +136,7 @@ class MacroCompilerPass(
   libs:       Option[Seq[Macro]],
   compilers:  Option[SRAMCompiler],
   hammerIR:   Option[String],
-  instMap:   Option[String],
+  instMap:    Option[String],
   costMetric: CostMetric = CostMetric.default,
   mode:       MacroCompilerAnnotation.CompilerMode = MacroCompilerAnnotation.Default)
     extends firrtl.passes.Pass {

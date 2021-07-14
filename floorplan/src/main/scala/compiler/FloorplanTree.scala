@@ -69,7 +69,7 @@ class FloorplanTree(state: FloorplanState) {
     (path, tag)
   }
 
-  state.elements.foreach { record =>
+  state.records.foreach { record =>
     val (path, tag) = parsePathAndTag(record.root)
     root.addElement(path, tag, record.element)
   }
