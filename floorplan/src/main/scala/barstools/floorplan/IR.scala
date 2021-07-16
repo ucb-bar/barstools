@@ -112,23 +112,42 @@ private[floorplan] final case class WeightedGrid(
 // Reference to a MemElement
 private[floorplan] final case class MemElement(
   name: String
-) extends Primitive {
-  def level = 2
-}
+) extends AbstractRectPrimitive
 
 // Container for MemElements
 private[floorplan] final case class MemElementArray(
   name: String,
-  elements: Seq[Option[String]]
-) extends Group {
+  elements: Seq[Option[String]],
+  width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+  aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+) extends Group with ConstrainedRectLike {
   def level = 2
 }
 
+// Container for MemElements that have been converted to Macros
+// This may be unnecessary, but the purpose of this is to let the floorplan
+// tool treat memory macros differently than generic macros, since they
+// are more commonly arrayed
+private[floorplan] final case class MemMacroArray(
+  name: String,
+  elements: Seq[Option[String]],
+  width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
+  area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
+  aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+) extends Group with ConstrainedRectLike {
+  def level = 1
+}
+
+// Reference to a macro blackbox with unknown dimensions
+// Do not use for SyncReadMem objects; use MemElement instead
 private[floorplan] final case class AbstractMacro (
   name: String
 ) extends AbstractRectPrimitive
 
-
+// Reference to a macro blackbox that has known dimensions
 private[floorplan] final case class ConcreteMacro (
   name: String,
   width: LengthUnit,

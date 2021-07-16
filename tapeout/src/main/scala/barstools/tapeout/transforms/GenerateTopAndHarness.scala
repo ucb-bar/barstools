@@ -67,6 +67,7 @@ private class GenerateTopAndHarness(annotations: AnnotationSeq) extends LazyLogg
     val annos = new FirrtlStage().execute(
       Array.empty,
       annotations ++ Seq(
+        RunFirrtlTransformAnnotation(Dependency[FloorplanReParentTransform]),
         RunFirrtlTransformAnnotation(Dependency[ReParentCircuit]),
         RunFirrtlTransformAnnotation(Dependency[RemoveUnusedModules])
       ) ++
