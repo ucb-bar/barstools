@@ -1,9 +1,9 @@
 // See LICENSE for license details
 package barstools.floorplan.chisel
 
-import chisel3.{RawModule}
+import chisel3.{RawModule, MemBase, Data}
 
-import firrtl.annotations.{ReferenceTarget, InstanceTarget, Target, Annotation}
+import firrtl.annotations.{ReferenceTarget, InstanceTarget, ModuleTarget, Target, Annotation}
 
 import barstools.floorplan._
 import barstools.floorplan.firrtl.{FloorplanAnnotation, MemFloorplanAnnotation, InstanceFloorplanAnnotation, NoReferenceFloorplanAnnotation}
@@ -11,11 +11,17 @@ import scala.collection.mutable.{ArraySeq, ArrayBuffer, HashMap, Set, HashSet}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
 
-final class ChiselFloorplanContext private[chisel] (val root: InstanceTarget, topElement: ChiselElement) {
+final class ChiselFloorplanContext private[chisel] (val root: Target, topElement: ChiselElement) {
 
   private[chisel] val elementBuf = new ArrayBuffer[ChiselElement]()
 
   elementBuf.append(topElement)
+
+  private def addElement[T <: ChiselElement](e: T): T = {
+    FloorplanDatabase.register(root, e)
+    elementBuf.append(e)
+    e
+  }
 
   def elements: Seq[ChiselElement] = elementBuf.toSeq
 
@@ -25,13 +31,11 @@ final class ChiselFloorplanContext private[chisel] (val root: InstanceTarget, to
     area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
     aspectRatio: Constraint[Rational] = Unconstrained[Rational],
     hardBoundary: Boolean = true
-  ): ChiselElement = {
-    val inst: InstanceTarget = module.toAbsoluteTarget.asInstanceOf[InstanceTarget]
-    val name = FloorplanDatabase.getUnusedName(root, inst.instance)
+  ): ChiselLogicRect = {
+    val inst: Target = module.toAbsoluteTarget
+    val name = FloorplanDatabase.getUnusedName(root, inst)
     val elt = new ChiselLogicRect(root, name, inst, width, height, area, aspectRatio, hardBoundary)
-    FloorplanDatabase.register(root, elt)
-    elementBuf.append(elt)
-    elt
+    addElement(elt)
   }
 
   def createDummy(
@@ -40,37 +44,32 @@ final class ChiselFloorplanContext private[chisel] (val root: InstanceTarget, to
     height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
     area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
     aspectRatio: Constraint[Rational] = Unconstrained[Rational]
-  ): ChiselElement = {
+  ): ChiselDummyRect = {
     val nameStr = FloorplanDatabase.getUnusedName(root, name)
     val elt = new ChiselDummyRect(root, nameStr, width, height, area, aspectRatio)
-    FloorplanDatabase.register(root, elt)
-    elementBuf.append(elt)
-    elt
+    addElement(elt)
   }
 
-  def addMem[T <: chisel3.Data](
-    mem: chisel3.MemBase[T]
-  ): ChiselElement = {
+  def createMemArray(name: Option[String] = None): ChiselMemArray = {
+    val nameStr = FloorplanDatabase.getUnusedName(root, name)
+    val elt = new ChiselMemArray(root, nameStr, this)
+    addElement(elt)
+  }
+
+  def addHier[T <: RawModule](module: T): ChiselHierarchicalBarrier = {
+    val inst: Target = module.toAbsoluteTarget
+    val name = FloorplanDatabase.getUnusedName(root, inst)
+    val elt = new ChiselHierarchicalBarrier(root, name, inst)
+    addElement(elt)
+  }
+
+  private[chisel] def addMem[T <: Data](mem: MemBase[T]): ChiselMem = {
     val ref = mem.toAbsoluteTarget
-    val name = FloorplanDatabase.getUnusedName(root, ref.ref)
+    val name = FloorplanDatabase.getUnusedName(root, ref)
     val elt = new ChiselMem(root, name, ref)
-    FloorplanDatabase.register(root, elt)
-    elementBuf.append(elt)
-    elt
+    addElement(elt)
   }
 
-/*
-  def grid[T <: RawModule](module: T,
-    name: String,
-    x: Int = 1,
-    y: Int = 1,
-    packed: Boolean = false
-  ) = {
-    val elt = new ChiselWeightedGrid(module, name, x, y, packed)
-    FloorplanDatabase.register(module, elt)
-    elt
-  }
-  */
 }
 
 object Floorplan {
@@ -82,8 +81,13 @@ object Floorplan {
     aspectRatio: Constraint[Rational] = Unconstrained[Rational],
     hardBoundary: Boolean = true
   ) = {
-    val root: InstanceTarget = module.toAbsoluteTarget.asInstanceOf[InstanceTarget]
-    val name = FloorplanDatabase.getUnusedName(root, root.ofModule)
+    val root: Target = module.toAbsoluteTarget
+    val modName = root match {
+      case r: InstanceTarget => r.ofModule
+      case r: ModuleTarget => r.module
+      case _ => ???
+    }
+    val name = FloorplanDatabase.getUnusedName(root, modName)
     val elt = new ChiselLogicRect(root, name, root, width, height, area, aspectRatio, hardBoundary)
     FloorplanDatabase.register(root, elt)
     new ChiselFloorplanContext(root, elt)
@@ -93,30 +97,42 @@ object Floorplan {
 
 private[chisel] object FloorplanDatabase {
 
-  private val nameMap = new HashMap[InstanceTarget, Set[String]]()
+  private val nameMap = new HashMap[Target, Set[String]]()
   private val elements = new HashSet[ChiselElement]()
 
-  private def getSet(root: InstanceTarget) = nameMap.getOrElseUpdate(root, new HashSet[String])
+  private def getSet(root: Target) = nameMap.getOrElseUpdate(root, new HashSet[String])
 
   // TODO I'm not sure this is necessary anymore
-  def register(root: InstanceTarget, element: ChiselElement): Unit = {
+  def register(root: Target, element: ChiselElement): Unit = {
     val name = element.name
     val set = getSet(root)
     if (set.contains(name)) {
-      throw new ChiselFloorplanException(s"Duplicate floorplan element registration ${name} for InstanceTarget "+root.asPath.toList.map(_._1.value).mkString(".")+"!")
+      throw new ChiselFloorplanException(s"Duplicate floorplan element registration ${name} for Target "+root.toString+"!")
     }
     elements.add(element)
     set.add(name)
   }
 
-  def getUnusedName(root: InstanceTarget, suggestion: Option[String]): String = getUnusedName(root, suggestion.getOrElse("unnamed"))
+  def getUnusedName(root: Target): String = getUnusedName(root, None)
 
-  def getUnusedName(root: InstanceTarget, suggestion: String): String = {
+  def getUnusedName(root: Target, suggestion: Option[String]): String = getUnusedName(root, suggestion.getOrElse("unnamed"))
+
+  def getUnusedName(root: Target, suggestion: String): String = {
     val set = getSet(root)
     var id = 0
     // This is slow and bad, but hopefully rare
     while (set.contains(suggestion + s"_${id}")) { id = id + 1 }
     suggestion + s"_${id}"
+  }
+
+  def getUnusedName(root: Target, inst: Target): String = {
+    val instName = inst match {
+      case t: InstanceTarget => t.instance
+      case t: ModuleTarget => t.module
+      case t: ReferenceTarget => t.ref
+      case _ => ???
+    }
+    getUnusedName(root, instName)
   }
 
 }
@@ -167,71 +183,107 @@ object FloorplanUnits {
 
 }
 
-sealed abstract class ChiselElement(val root: InstanceTarget, val name: String) {
+sealed abstract class ChiselElement(val root: Target, val name: String) {
   protected def generateElement(): Element
   private[chisel] def getFloorplanAnnotations(): Seq[FloorplanAnnotation]
   def getAnnotations(): Seq[Annotation] = getFloorplanAnnotations()
 }
 
-sealed abstract class ChiselDummyElement(root: InstanceTarget, name: String) extends ChiselElement(root, name) {
+sealed abstract class ChiselDummyElement(root: Target, name: String) extends ChiselElement(root, name) {
   private[chisel] def getFloorplanAnnotations() = Seq(NoReferenceFloorplanAnnotation(root, generateElement()))
 }
 
-sealed abstract class ChiselInstanceElement(root: InstanceTarget, name: String, val instance: InstanceTarget) extends ChiselElement(root, name) {
+sealed abstract class ChiselInstanceElement(root: Target, name: String, val instance: Target) extends ChiselElement(root, name) {
   private[chisel] def getFloorplanAnnotations() = Seq(InstanceFloorplanAnnotation(Seq(Seq(root), Seq(instance)), generateElement()))
 }
 
-sealed abstract class ChiselMemElement(root: InstanceTarget, name: String, val reference: ReferenceTarget) extends ChiselElement(root, name) {
+sealed abstract class ChiselMemElement(root: Target, name: String, val reference: ReferenceTarget) extends ChiselElement(root, name) {
   private[chisel] def getFloorplanAnnotations() = Seq(MemFloorplanAnnotation(Seq(Seq(root), Seq(reference)), generateElement()))
 }
 
-sealed abstract class ChiselGroupElement(root: InstanceTarget, name: String) extends ChiselElement(root, name) {
-  protected def elements: Seq[Option[ChiselElement]]
+sealed abstract class ChiselGroupElement(root: Target, name: String, val context: ChiselFloorplanContext) extends ChiselElement(root, name) {
+  protected def initialSize: Int
+  private val elements = Seq.fill(initialSize)(Option.empty[ChiselElement]).toBuffer
+  private var isCommitted = false
+
+  protected def generateGroupElement(names: Seq[Option[String]]): Group
+
+  protected def generateElement(): Group = {
+    isCommitted = true
+    generateGroupElement(elements.map(_.map(_.name)))
+  }
+
+  private[chisel] def placeElementAt(e: ChiselElement, idx: Int) {
+    assert(!isCommitted, "Cannot add elements after committing")
+    // This is only supported in scala 2.13
+    //elements.padToInPlace(idx+1, None)
+    for (i <- elements.length until (idx+1)) elements += None
+    elements(idx) = Some(e)
+  }
+
+  private[chisel] def addElement(e: ChiselElement) {
+    assert(!isCommitted, "Cannot add elements after committing")
+    elements += Some(e)
+  }
+
   private[chisel] def getFloorplanAnnotations() = Seq(NoReferenceFloorplanAnnotation(root, generateElement()))
 }
 
-final class ChiselLogicRect private[chisel] (
-  root: InstanceTarget,
+final class ChiselHierarchicalBarrier private[chisel] (
+  root: Target,
   name: String,
-  instance: InstanceTarget,
+  instance: Target
+) extends ChiselInstanceElement(root, name, instance) {
+  protected def generateElement(): Element = HierarchicalBarrier(name)
+}
+
+final class ChiselLogicRect private[chisel] (
+  root: Target,
+  name: String,
+  instance: Target,
   val width: Constraint[LengthUnit],
   val height: Constraint[LengthUnit],
   val area: Constraint[AreaUnit],
   val aspectRatio: Constraint[Rational],
   val hardBoundary: Boolean
 ) extends ChiselInstanceElement(root, name, instance) {
-
   protected def generateElement(): Element = ConstrainedLogicRect(name, width, height, area, aspectRatio, hardBoundary)
-
 }
 
 final class ChiselDummyRect private[chisel] (
-  root: InstanceTarget,
+  root: Target,
   name: String,
   val width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   val height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   val area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
   val aspectRatio: Constraint[Rational] = Unconstrained[Rational]
 ) extends ChiselDummyElement(root, name) {
-
   protected def generateElement(): Element = ConstrainedDummyRect(name, width, height, area, aspectRatio)
-
 }
 
 final class ChiselMem private[chisel] (
-  root: InstanceTarget,
+  root: Target,
   name: String,
   reference: ReferenceTarget
 ) extends ChiselMemElement(root, name, reference) {
-
   protected def generateElement(): Element = MemElement(name)
+}
 
+final class ChiselMemArray private[chisel] (
+  root: Target,
+  name: String,
+  context: ChiselFloorplanContext
+) extends ChiselGroupElement(root, name, context) {
+  protected def initialSize = 0
+  protected def generateGroupElement(names: Seq[Option[String]]): Group = MemElementArray(name, names)
+
+  def addMem[T <: Data](mem: MemBase[T]) = this.addElement(this.context.addMem(mem))
 }
 
 
 /*
 final class ChiselWeightedGrid private[chisel] (
-  root: InstanceTarget,
+  root: Target,
   name: String,
   val xDim: Int,
   val yDim: Int,
@@ -265,7 +317,7 @@ final class ChiselWeightedGrid private[chisel] (
     set(x, y, element, weight)
   }
 
-  def set(x: Int, y: Int, root: InstanceTarget): Unit = set(x, y, module, Rational(1))
+  def set(x: Int, y: Int, root: Target): Unit = set(x, y, module, Rational(1))
 
   protected def generateElement(): Element = {
     _isCommitted = true
