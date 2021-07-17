@@ -40,9 +40,9 @@ object FloorplanCompiler extends App {
     throw new Exception("Error parsing options!")
   }
 
-  // TODO make FloorplanPasses customizable
+  // TODO make Passes customizable
   val fpStateIn = FloorplanState.fromFiles(opts.inFiles)
-  val fpStateOut = FloorplanPasses(opts).foldLeft(fpStateIn) { (state, pass) => pass.execute(state) }
+  val fpStateOut = Pass.all(opts).foldLeft(fpStateIn) { (state, pass) => pass.execute(state) }
   FloorplanState.toFile(opts.outFile, opts.outFmt, fpStateOut)
 
 }
