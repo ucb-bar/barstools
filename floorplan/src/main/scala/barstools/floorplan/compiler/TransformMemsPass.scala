@@ -4,45 +4,9 @@ package barstools.floorplan.compiler
 import firrtl.annotations.TargetToken.{Instance, OfModule}
 
 import barstools.floorplan._
+
 import scala.collection.{Map, Set}
 import scala.collection.mutable.{HashMap, HashSet}
-
-
-object FloorplanPasses {
-
-  // TODO make this customizable
-  def apply(opts: FloorplanOptions): Seq[Pass] = {
-    val instMap = MemInstMap.fromFiles(opts.memInstMapFiles)
-    val sbAnnos = Seq() // TODO
-    Seq(
-      new SidebandAnnotationPass(sbAnnos),
-      new TransformMemsPass(instMap),
-      new TopDownPropagationPass,
-      new BottomUpPropagationPass,
-      new ResolveConstraintsPass
-    )
-  }
-}
-
-abstract class Pass {
-  def execute(state: FloorplanState): FloorplanState
-}
-
-class SidebandAnnotationPass(annos: Seq[SidebandAnnotation]) extends Pass {
-  def execute(state: FloorplanState): FloorplanState = state // TODO
-}
-
-class TopDownPropagationPass extends Pass {
-  def execute(state: FloorplanState): FloorplanState = state // TODO
-}
-
-class BottomUpPropagationPass extends Pass {
-  def execute(state: FloorplanState): FloorplanState = state // TODO
-}
-
-class ResolveConstraintsPass extends Pass {
-  def execute(state: FloorplanState): FloorplanState = state // TODO
-}
 
 class TransformMemsPass(instMap: Map[OfModule, Seq[(Instance, OfModule)]]) extends Pass {
 
