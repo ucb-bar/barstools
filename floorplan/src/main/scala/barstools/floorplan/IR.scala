@@ -168,7 +168,16 @@ private[floorplan] final case class WeightedGrid(
   weights: Seq[BigDecimal],
   packed: Boolean
 ) extends Grid {
-  def level = 2
+  def level = 1
+}
+
+private[floorplan] final case class ElasticGrid(
+  name: String,
+  xDim: Int,
+  yDim: Int,
+  elements: Seq[Option[String]]
+) extends Grid {
+  def level = 1
 }
 
 
