@@ -16,16 +16,23 @@ sealed abstract class Element {
   def serialize = FloorplanSerialization.serialize(this)
 }
 
-sealed abstract class Primitive extends Element
+sealed abstract class ElementWithParent extends Element {
+  def parent: String
+}
 
-sealed abstract class Group extends Element {
+sealed abstract class Primitive extends ElementWithParent
+
+sealed abstract class Group extends ElementWithParent {
   def elements: Seq[Option[String]]
 }
+
+sealed abstract class Top extends Element
 
 ////////////////////////////////////////////// Hierarchical barrier
 
 private[floorplan] final case class HierarchicalBarrier(
-  name: String
+  name: String,
+  parent: String
 ) extends Primitive {
   final def level = 0
 }
@@ -73,6 +80,7 @@ sealed abstract class PlacedRectPrimitive extends Primitive with PlacedRectLike 
 
 private[floorplan] final case class ConstrainedSpacerRect(
   name: String,
+  parent: String,
   width: Constraint = Unconstrained(),
   height: Constraint = Unconstrained(),
   area: Constraint = Unconstrained(),
@@ -81,6 +89,7 @@ private[floorplan] final case class ConstrainedSpacerRect(
 
 private[floorplan] final case class SizedSpacerRect(
   name: String,
+  parent: String,
   x: BigDecimal,
   y: BigDecimal,
   width: BigDecimal,
@@ -99,6 +108,7 @@ object Margins {
 
 private[floorplan] final case class ConstrainedLogicRect(
   name: String,
+  parent: String,
   width: Constraint,
   height: Constraint,
   area: Constraint,
@@ -108,6 +118,7 @@ private[floorplan] final case class ConstrainedLogicRect(
 
 private[floorplan] final case class SizedLogicRect(
   name: String,
+  parent: String,
   width: BigDecimal,
   height: BigDecimal,
   hardBoundary: Boolean
@@ -115,6 +126,7 @@ private[floorplan] final case class SizedLogicRect(
 
 private[floorplan] final case class PlacedLogicRect(
   name: String,
+  parent: String,
   x: BigDecimal,
   y: BigDecimal,
   width: BigDecimal,
@@ -125,23 +137,28 @@ private[floorplan] final case class PlacedLogicRect(
 
 private[floorplan] final case class ConstrainedHierarchicalTop(
   name: String,
+  topGroup: String,
   width: Constraint,
   height: Constraint,
   area: Constraint,
   aspectRatio: Constraint,
   margins: Margins,
   hardBoundary: Boolean
-) extends ConstrainedRectPrimitive
+) extends Top with ConstrainedRectLike {
+  final def level = 2
+}
 
 private[floorplan] final case class PlacedHierarchicalTop(
   name: String,
+  topGroup: String,
   width: BigDecimal,
   height: BigDecimal,
   margins: Margins,
   hardBoundary: Boolean
-) extends PlacedRectPrimitive {
-  def x = BigDecimal(0)
-  def y = BigDecimal(0)
+) extends Top with PlacedRectLike {
+  final def x = BigDecimal(0)
+  final def y = BigDecimal(0)
+  final def level = 0
 }
 
 ////////////////////////////////////////////// Aggregate (Group) things
@@ -159,6 +176,7 @@ sealed abstract class Grid extends Group {
 
 private[floorplan] final case class WeightedGrid(
   name: String,
+  parent: String,
   xDim: Int,
   yDim: Int,
   elements: Seq[Option[String]],
@@ -170,6 +188,7 @@ private[floorplan] final case class WeightedGrid(
 
 private[floorplan] final case class ElasticGrid(
   name: String,
+  parent: String,
   xDim: Int,
   yDim: Int,
   elements: Seq[Option[String]]
@@ -182,12 +201,14 @@ private[floorplan] final case class ElasticGrid(
 
 // Reference to a MemElement
 private[floorplan] final case class MemElement(
-  name: String
+  name: String,
+  parent: String
 ) extends AbstractRectPrimitive
 
 // Container for MemElements
 private[floorplan] final case class MemElementArray(
   name: String,
+  parent: String,
   elements: Seq[Option[String]],
   width: Constraint = Unconstrained(),
   height: Constraint = Unconstrained(),
@@ -203,6 +224,7 @@ private[floorplan] final case class MemElementArray(
 // are more commonly arrayed
 private[floorplan] final case class MemMacroArray(
   name: String,
+  parent: String,
   elements: Seq[Option[String]],
   width: Constraint = Unconstrained(),
   height: Constraint = Unconstrained(),
@@ -215,12 +237,14 @@ private[floorplan] final case class MemMacroArray(
 // Reference to a macro blackbox with unknown dimensions
 // Do not use for SyncReadMem objects; use MemElement instead
 private[floorplan] final case class AbstractMacro (
-  name: String
+  name: String,
+  parent: String
 ) extends AbstractRectPrimitive
 
 // Reference to a macro blackbox that has known dimensions
 private[floorplan] final case class SizedMacro (
   name: String,
+  parent: String,
   width: BigDecimal,
   height: BigDecimal
 ) extends SizedRectPrimitive
@@ -228,6 +252,7 @@ private[floorplan] final case class SizedMacro (
 // Reference to a macro blackbox that has known dimensions and has been placed
 private[floorplan] final case class PlacedMacro (
   name: String,
+  parent: String,
   x: BigDecimal,
   y: BigDecimal,
   width: BigDecimal,

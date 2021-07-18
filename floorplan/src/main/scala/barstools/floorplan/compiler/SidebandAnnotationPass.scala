@@ -51,6 +51,7 @@ class SidebandAnnotationPass(val sbMap: Map[String, SidebandAnnotation]) extends
             assert(sb.width.isDefined && sb.height.isDefined, "Macro sideband annotations must include width and height")
             SizedMacro(
               name = e.name,
+              parent = e.parent,
               width = sb.width.get,
               height = sb.height.get
             )

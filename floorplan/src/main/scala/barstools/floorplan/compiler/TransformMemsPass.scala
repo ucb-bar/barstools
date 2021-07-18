@@ -34,7 +34,7 @@ class TransformMemsPass(instMap: Map[OfModule, Seq[(Instance, OfModule)]]) exten
           // TODO fail gracefully if key does not exist
           instMap(OfModule(record.ofModule.get)).map { case (inst: Instance, ofMod: OfModule) =>
             nameSet.remove(e.name)
-            val element = AbstractMacro(getUniqueName(e.name + "_" + ofMod.value))
+            val element = AbstractMacro(getUniqueName(e.name + "_" + ofMod.value), e.parent)
             renameMap.update(e.name, renameMap.getOrElse(e.name, Set()) ++ Set(element.name))
             FloorplanElementRecord(
               root = record.root,
@@ -50,6 +50,7 @@ class TransformMemsPass(instMap: Map[OfModule, Seq[(Instance, OfModule)]]) exten
         case e: MemElementArray =>
           val element = MemMacroArray(
             name = e.name,
+            parent = e.parent,
             elements = e.elements.filter(_.isDefined).flatMap(x => renameMap(x.get)).map(x => Some(x)),
             width = e.width,
             height = e.height,
