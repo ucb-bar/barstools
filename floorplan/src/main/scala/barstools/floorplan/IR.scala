@@ -25,7 +25,8 @@ sealed abstract class Group extends Element {
 ////////////////////////////////////////////// Hierarchical barrier
 
 private[floorplan] final case class HierarchicalBarrier(
-  name: String
+  name: String,
+  ofModule: String
 ) extends Primitive {
   final def level = 0
 }
@@ -89,6 +90,14 @@ private[floorplan] final case class SizedSpacerRect(
 
 // No PlacedSpacerRect exists because they're only for spacing
 
+/////////////////////////// Hierarchical top modules
+
+case class Margins(left: BigDecimal, right: BigDecimal, top: BigDecimal, bottom: BigDecimal)
+
+object Margins {
+  def empty = Margins(BigDecimal(0), BigDecimal(0), BigDecimal(0), BigDecimal(0))
+}
+
 private[floorplan] final case class ConstrainedLogicRect(
   name: String,
   width: Constraint,
@@ -113,6 +122,30 @@ private[floorplan] final case class PlacedLogicRect(
   height: BigDecimal,
   hardBoundary: Boolean
 ) extends PlacedRectPrimitive
+
+
+private[floorplan] final case class ConstrainedHierarchicalTop(
+  name: String,
+  ofModule: String,
+  width: Constraint,
+  height: Constraint,
+  area: Constraint,
+  aspectRatio: Constraint,
+  margins: Margins,
+  hardBoundary: Boolean
+) extends ConstrainedRectPrimitive
+
+private[floorplan] final case class PlacedHierarchicalTop(
+  name: String,
+  ofModule: String,
+  width: BigDecimal,
+  height: BigDecimal,
+  margins: Margins,
+  hardBoundary: Boolean
+) extends PlacedRectPrimitive {
+  def x = BigDecimal(0)
+  def y = BigDecimal(0)
+}
 
 ////////////////////////////////////////////// Aggregate (Group) things
 

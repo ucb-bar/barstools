@@ -25,16 +25,15 @@ object HammerIR {
             width = toMicrons(c.width),
             height = toMicrons(c.height),
             master = Some(c.ofModule),
-            margins = Some(PlacementMargins(0.0,0.0,0.0,0.0)), // TODO represent this in FPIR
+            margins = None,
             top_layer = None, // TODO need this for macros
             layers = None, // TODO need this for macros
             obs_types = None // TODO need this for macros
           ))
         case c: PlacedLogicRect =>
-          val isTop = (record.root.split("/").length == 1) && (record.inst.get.split("/").length == 1)
           Some(PlacementConstraint(
             path = record.fullPath,
-            typ = if (isTop) PlacementType.toplevel else PlacementType.placement,
+            typ = PlacementType.placement,
             orientation = Orientation.r0, // TODO represent this in FPIR
             x = toMicrons(c.x),
             y = toMicrons(c.y),
@@ -42,7 +41,23 @@ object HammerIR {
             width = toMicrons(c.width),
             height = toMicrons(c.height),
             master = None,
-            margins = if (isTop) Some(PlacementMargins(0.0,0.0,0.0,0.0)) else None, // TODO represent this in FPIR
+            margins = None,
+            top_layer = None,
+            layers = None,
+            obs_types = None
+          ))
+        case c: PlacedHierarchicalTop =>
+          Some(PlacementConstraint(
+            path = record.fullPath,
+            typ = PlacementType.placement,
+            orientation = Orientation.r0,
+            x = toMicrons(c.x),
+            y = toMicrons(c.y),
+            create_physical = Some(false),
+            width = toMicrons(c.width),
+            height = toMicrons(c.height),
+            master = None,
+            margins = Some(PlacementMargins(c.margins)),
             top_layer = None,
             layers = None,
             obs_types = None
@@ -54,12 +69,8 @@ object HammerIR {
   }
 
   def serialize(h: HammerIR): String = HammerSerialization.serialize(h)
-
   def deserialize(s: String): HammerIR = HammerSerialization.deserialize(s)
-
-  def toMicrons(l: BigDecimal): Double = {
-    0.0 // TODO
-  }
+  def toMicrons(l: BigDecimal): Double = l.toDouble
 }
 
 final case class HammerIR private[hammer] (
@@ -103,4 +114,13 @@ final case class PlacementMargins private[hammer] (
   top: Double,
   bottom: Double
 )
+
+object PlacementMargins {
+  def apply(m: barstools.floorplan.Margins): PlacementMargins = PlacementMargins(
+    left=m.left.toDouble,
+    right=m.right.toDouble,
+    top=m.top.toDouble,
+    bottom=m.bottom.toDouble
+  )
+}
 
