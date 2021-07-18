@@ -25,8 +25,7 @@ sealed abstract class Group extends Element {
 ////////////////////////////////////////////// Hierarchical barrier
 
 private[floorplan] final case class HierarchicalBarrier(
-  name: String,
-  ofModule: String
+  name: String
 ) extends Primitive {
   final def level = 0
 }
@@ -100,7 +99,6 @@ object Margins {
 
 private[floorplan] final case class ConstrainedLogicRect(
   name: String,
-  ofModule: String,
   width: Constraint,
   height: Constraint,
   area: Constraint,
@@ -110,7 +108,6 @@ private[floorplan] final case class ConstrainedLogicRect(
 
 private[floorplan] final case class SizedLogicRect(
   name: String,
-  ofModule: String,
   width: BigDecimal,
   height: BigDecimal,
   hardBoundary: Boolean
@@ -118,7 +115,6 @@ private[floorplan] final case class SizedLogicRect(
 
 private[floorplan] final case class PlacedLogicRect(
   name: String,
-  ofModule: String,
   x: BigDecimal,
   y: BigDecimal,
   width: BigDecimal,
@@ -129,7 +125,6 @@ private[floorplan] final case class PlacedLogicRect(
 
 private[floorplan] final case class ConstrainedHierarchicalTop(
   name: String,
-  ofModule: String,
   width: Constraint,
   height: Constraint,
   area: Constraint,
@@ -140,7 +135,6 @@ private[floorplan] final case class ConstrainedHierarchicalTop(
 
 private[floorplan] final case class PlacedHierarchicalTop(
   name: String,
-  ofModule: String,
   width: BigDecimal,
   height: BigDecimal,
   margins: Margins,
@@ -221,14 +215,12 @@ private[floorplan] final case class MemMacroArray(
 // Reference to a macro blackbox with unknown dimensions
 // Do not use for SyncReadMem objects; use MemElement instead
 private[floorplan] final case class AbstractMacro (
-  name: String,
-  ofModule: String
+  name: String
 ) extends AbstractRectPrimitive
 
 // Reference to a macro blackbox that has known dimensions
 private[floorplan] final case class SizedMacro (
   name: String,
-  ofModule: String, // TODO we should replace this with the OfModule in the Record
   width: BigDecimal,
   height: BigDecimal
 ) extends SizedRectPrimitive
@@ -236,7 +228,6 @@ private[floorplan] final case class SizedMacro (
 // Reference to a macro blackbox that has known dimensions and has been placed
 private[floorplan] final case class PlacedMacro (
   name: String,
-  ofModule: String,
   x: BigDecimal,
   y: BigDecimal,
   width: BigDecimal,

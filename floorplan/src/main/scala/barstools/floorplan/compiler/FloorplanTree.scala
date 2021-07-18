@@ -3,6 +3,7 @@ package barstools.floorplan.compiler
 
 import scala.collection.mutable.{HashMap}
 import barstools.floorplan.{Element, FloorplanState, FloorplanElementRecord}
+/*
 
 // TODO all of this is out of date
 
@@ -100,3 +101,4 @@ object FloorplanTree {
   def apply(state: FloorplanState) = new FloorplanTree(state)
 
 }
+*/

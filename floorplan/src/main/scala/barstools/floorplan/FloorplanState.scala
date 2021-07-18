@@ -4,7 +4,7 @@ package barstools.floorplan
 import barstools.floorplan.hammer.HammerIR
 import java.io.{File, FileWriter}
 
-final case class FloorplanElementRecord(root: String, inst: Option[String], element: Element, memExt: Option[String] = None) {
+final case class FloorplanElementRecord(root: String, inst: Option[String], ofModule: Option[String], element: Element, memExt: Option[String] = None) {
   def fullPath = root + inst.map(x => "/" + x).getOrElse("")
 }
 

@@ -24,7 +24,7 @@ object HammerIR {
             create_physical = Some(false),
             width = toMicrons(c.width),
             height = toMicrons(c.height),
-            master = Some(c.ofModule),
+            master = record.ofModule,
             margins = None,
             top_layer = None, // TODO need this for macros
             layers = None, // TODO need this for macros
