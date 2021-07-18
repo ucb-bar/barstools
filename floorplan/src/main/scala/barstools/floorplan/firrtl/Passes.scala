@@ -43,19 +43,19 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
       }).getOrElse("")
     }
 
-    def newRecord(path: String, ref: Option[String], anno: FloorplanAnnotation, ext: Option[String] = None) =
-      FloorplanElementRecord(path, ref, FloorplanSerialization.deserialize(anno.fpir), ext)
+    def newRecord(path: String, ref: Option[String], ofModule: Option[String], anno: FloorplanAnnotation) =
+      FloorplanElementRecord(path, ref, ofModule, FloorplanSerialization.deserialize(anno.fpir))
 
     val list = state.annotations.collect({
       case x: NoReferenceFloorplanAnnotation =>
-        val rootTarget = x.target match {
-          case y: InstanceTarget => Some(y)
+        val (rootTarget, ofModule) = x.target match {
+          case y: InstanceTarget => (Some(y), Some(y.ofModule))
           case y: ModuleTarget =>
             assert(y.module == state.circuit.main, "ModuleTarget is only supported for the top module")
-            Option.empty[InstanceTarget]
+            (Option.empty[InstanceTarget], Some(y.module))
           case _ => ???
         }
-        newRecord(getInstancePath(rootTarget), None, x)
+        newRecord(getInstancePath(rootTarget), None, ofModule, x)
       case x: InstanceFloorplanAnnotation if x.targets.flatten.length == 2 =>
         val rootTarget = x.targets(0)(0) match {
           case y: InstanceTarget => Some(y)
@@ -64,14 +64,14 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
             Option.empty[InstanceTarget]
           case _ => ???
         }
-        val instTarget = x.targets(1)(0) match {
-          case y: InstanceTarget => Some(y)
+        val (instTarget, ofModule) = x.targets(1)(0) match {
+          case y: InstanceTarget => (Some(y), Some(y.ofModule))
           case y: ModuleTarget =>
             assert(y.module == state.circuit.main, "ModuleTarget is only supported for the top module")
-            Option.empty[InstanceTarget]
+            (Option.empty[InstanceTarget], Some(y.module))
           case _ => ???
         }
-        newRecord(getInstancePath(rootTarget), Some(getRelativePath(rootTarget, instTarget)), x)
+        newRecord(getInstancePath(rootTarget), Some(getRelativePath(rootTarget, instTarget)), ofModule, x)
       case x: MemFloorplanAnnotation if x.targets.flatten.length == 2 =>
         val rootTarget = x.targets(0)(0) match {
           case y: InstanceTarget => Some(y)
@@ -95,7 +95,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
           instance=ext,
           ofModule=ext,
           path=refTarget.path :+ (Instance(refTarget.ref), OfModule(mem)))
-        newRecord(getInstancePath(rootTarget), Some(getRelativePath(rootTarget, Some(newTarget))), x, Some(ext))
+        newRecord(getInstancePath(rootTarget), Some(getRelativePath(rootTarget, Some(newTarget))), Some(ext), x)
     })
 
     val filename = state.annotations.collectFirst({

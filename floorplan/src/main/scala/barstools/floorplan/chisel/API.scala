@@ -289,12 +289,7 @@ final class ChiselHierarchicalTop private[chisel] (
   val margins: Margins,
   val hardBoundary: Boolean
 ) extends ChiselNoReferenceElement(root, name) {
-  val ofModule = root match {
-    case t: InstanceTarget => t.ofModule
-    case t: ModuleTarget => t.module
-    case _ => ???
-  }
-  protected def generateElement(): Element = ConstrainedHierarchicalTop(name, ofModule, width, height, area, aspectRatio, margins, hardBoundary)
+  protected def generateElement(): Element = ConstrainedHierarchicalTop(name, width, height, area, aspectRatio, margins, hardBoundary)
 }
 
 final class ChiselHierarchicalBarrier private[chisel] (
@@ -302,7 +297,7 @@ final class ChiselHierarchicalBarrier private[chisel] (
   name: String,
   instance: InstanceTarget
 ) extends ChiselInstanceElement(root, name, instance) {
-  protected def generateElement(): Element = HierarchicalBarrier(name, instance.ofModule)
+  protected def generateElement(): Element = HierarchicalBarrier(name)
 }
 
 final class ChiselLogicRect private[chisel] (
@@ -315,7 +310,7 @@ final class ChiselLogicRect private[chisel] (
   val aspectRatio: Constraint,
   val hardBoundary: Boolean
 ) extends ChiselInstanceElement(root, name, instance) {
-  protected def generateElement(): Element = ConstrainedLogicRect(name, instance.ofModule, width, height, area, aspectRatio, hardBoundary)
+  protected def generateElement(): Element = ConstrainedLogicRect(name, width, height, area, aspectRatio, hardBoundary)
 }
 
 final class ChiselSpacerRect private[chisel] (
