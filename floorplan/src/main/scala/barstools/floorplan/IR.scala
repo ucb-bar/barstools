@@ -25,7 +25,7 @@ sealed abstract class Group extends Element {
 private[floorplan] final case class HierarchicalBarrier(
   name: String
 ) extends Primitive {
-  final def level = 0 // Maybe 1
+  final def level = 0
 }
 
 ////////////////////////////////////////////// Rectangular things
@@ -37,34 +37,55 @@ trait ConstrainedRectLike {
   def aspectRatio: Constraint[Rational]
 }
 
-trait ConcreteRectLike {
+trait SizedRectLike {
+  def width: LengthUnit
+  def height: LengthUnit
+}
+
+trait PlacedRectLike {
+  def x: LengthUnit
+  def y: LengthUnit
   def width: LengthUnit
   def height: LengthUnit
 }
 
 object IRLevel {
-  def max = 2
+  def max = 3
 }
 
 sealed abstract class AbstractRectPrimitive extends Primitive {
-  final def level = 2
+  final def level = 3
 }
 
 sealed abstract class ConstrainedRectPrimitive extends Primitive with ConstrainedRectLike {
+  final def level = 2
+}
+
+sealed abstract class SizedRectPrimitive extends Primitive with SizedRectLike {
   final def level = 1
 }
 
-sealed abstract class ConcreteRectPrimitive extends Primitive with ConcreteRectLike {
+sealed abstract class PlacedRectPrimitive extends Primitive with PlacedRectLike {
   final def level = 0
 }
 
-private[floorplan] final case class ConstrainedDummyRect(
+private[floorplan] final case class ConstrainedSpacerRect(
   name: String,
   width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
   aspectRatio: Constraint[Rational] = Unconstrained[Rational]
 ) extends ConstrainedRectPrimitive
+
+private[floorplan] final case class SizedSpacerRect(
+  name: String,
+  x: LengthUnit,
+  y: LengthUnit,
+  width: LengthUnit,
+  height: LengthUnit
+) extends SizedRectPrimitive
+
+// No PlacedSpacerRect exists because they're only for spacing
 
 private[floorplan] final case class ConstrainedLogicRect(
   name: String,
@@ -75,12 +96,21 @@ private[floorplan] final case class ConstrainedLogicRect(
   hardBoundary: Boolean
 ) extends ConstrainedRectPrimitive
 
-private[floorplan] final case class ConcreteLogicRect(
+private[floorplan] final case class SizedLogicRect(
   name: String,
   width: LengthUnit,
   height: LengthUnit,
   hardBoundary: Boolean
-) extends ConcreteRectPrimitive
+) extends SizedRectPrimitive
+
+private[floorplan] final case class PlacedLogicRect(
+  name: String,
+  x: LengthUnit,
+  y: LengthUnit,
+  width: LengthUnit,
+  height: LengthUnit,
+  hardBoundary: Boolean
+) extends PlacedRectPrimitive
 
 ////////////////////////////////////////////// Aggregate (Group) things
 
@@ -103,7 +133,7 @@ private[floorplan] final case class WeightedGrid(
   weights: Seq[Rational],
   packed: Boolean
 ) extends Grid {
-  def level = 1
+  def level = 2
 }
 
 
@@ -123,7 +153,7 @@ private[floorplan] final case class MemElementArray(
   area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
   aspectRatio: Constraint[Rational] = Unconstrained[Rational]
 ) extends Group with ConstrainedRectLike {
-  def level = 2
+  def level = 3
 }
 
 // Container for MemElements that have been converted to Macros
@@ -138,19 +168,31 @@ private[floorplan] final case class MemMacroArray(
   area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
   aspectRatio: Constraint[Rational] = Unconstrained[Rational]
 ) extends Group with ConstrainedRectLike {
-  def level = 1
+  def level = 2
 }
 
 // Reference to a macro blackbox with unknown dimensions
 // Do not use for SyncReadMem objects; use MemElement instead
 private[floorplan] final case class AbstractMacro (
-  name: String
+  name: String,
+  ofModule: String
 ) extends AbstractRectPrimitive
 
 // Reference to a macro blackbox that has known dimensions
-private[floorplan] final case class ConcreteMacro (
+private[floorplan] final case class SizedMacro (
   name: String,
+  ofModule: String,
   width: LengthUnit,
   height: LengthUnit
-) extends ConcreteRectPrimitive
+) extends SizedRectPrimitive
+
+// Reference to a macro blackbox that has known dimensions and has been placed
+private[floorplan] final case class PlacedMacro (
+  name: String,
+  ofModule: String,
+  x: LengthUnit,
+  y: LengthUnit,
+  width: LengthUnit,
+  height: LengthUnit
+) extends PlacedRectPrimitive
 
