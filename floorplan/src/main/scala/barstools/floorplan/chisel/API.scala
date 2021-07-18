@@ -12,7 +12,7 @@ import scala.math.{BigInt, BigDecimal}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
 
-final class ChiselFloorplanContext private[chisel] (val root: Target, topElement: ChiselElement) {
+final class ChiselFloorplanContext private[chisel] (val root: Target, val topElement: ChiselHierarchicalTop) {
 
   private[chisel] val elementBuf = new ArrayBuffer[ChiselElement]()
 
@@ -68,7 +68,7 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, topElement
   def createElasticArray(dim: Int): ChiselElasticArray = createElasticArray(dim, Direction.Horizontal, None)
   def createElasticArray(elts: Seq[ChiselElement], dir: Direction = Direction.Horizontal, name: Option[String] = None): ChiselElasticArray = {
     val ary = createElasticArray(elts.length, dir, name)
-    elts.zipWithIndex.foreach { case (e, i) => ary.placeElementAt(e, i) }
+    elts.zipWithIndex.foreach { case (e, i) => ary.placeAt(e, i) }
     ary
   }
 
@@ -90,6 +90,11 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, topElement
     val name = FloorplanDatabase.getUnusedName(root, ref)
     val elt = new ChiselMem(root, name, ref)
     addElement(elt)
+  }
+
+  def setTopGroup[T <: ChiselGroupElement](g: T): T = {
+    topElement.setTopGroup(g)
+    g
   }
 
 }
@@ -223,6 +228,20 @@ sealed abstract class ChiselElement(val root: Target, val name: String) {
   protected def generateElement(): Element
   private[chisel] def getFloorplanAnnotations(): Seq[FloorplanAnnotation]
   def getAnnotations(): Seq[Annotation] = getFloorplanAnnotations()
+  private var parent = Option.empty[CanBeParent]
+  private[chisel] def setParent(p: CanBeParent) {
+    assert(!this.parent.isDefined, "Element cannot have multiple parents")
+    this.parent = Some(p)
+  }
+  protected def parentName: String = {
+    assert(this.parent.isDefined, "Parent is not defined for this element")
+    this.parent.get.name
+  }
+}
+
+sealed trait CanBeParent {
+  this: ChiselElement =>
+  def name: String
 }
 
 sealed abstract class ChiselNoReferenceElement(root: Target, name: String) extends ChiselElement(root, name) {
@@ -237,7 +256,9 @@ sealed abstract class ChiselMemElement(root: Target, name: String, val reference
   private[chisel] def getFloorplanAnnotations() = Seq(MemFloorplanAnnotation(Seq(Seq(root), Seq(reference)), generateElement()))
 }
 
-sealed abstract class ChiselGroupElement(root: Target, name: String, val context: ChiselFloorplanContext) extends ChiselElement(root, name) {
+sealed abstract class ChiselGroupElement(root: Target, name: String, val context: ChiselFloorplanContext)
+  extends ChiselElement(root, name) with CanBeParent {
+
   protected def initialSize: Int
   protected val elements = Seq.fill(initialSize)(Option.empty[ChiselElement]).toBuffer
   protected var isCommitted = false
@@ -249,13 +270,15 @@ sealed abstract class ChiselGroupElement(root: Target, name: String, val context
     generateGroupElement(elements.map(_.map(_.name)))
   }
 
-  private[chisel] def _placeElementAt(e: ChiselElement, idx: Int) {
+  private[chisel] def _placeAt[T <: ChiselElement](e: T, idx: Int): T = {
     assert(!isCommitted, "Cannot add elements after committing")
     // This is only supported in scala 2.13
     //elements.padToInPlace(idx+1, None)
     for (i <- elements.length until (idx+1)) elements += None
     assert(!elements(idx).isDefined, "Already added at this location")
     elements(idx) = Some(e)
+    e.setParent(this)
+    e
   }
 
   private[chisel] def getFloorplanAnnotations() = Seq(NoReferenceFloorplanAnnotation(root, generateElement()))
@@ -266,6 +289,7 @@ abstract class ChiselArrayElement(root: Target, name: String, context: ChiselFlo
   private[chisel] def addElement(e: ChiselElement) {
     assert(!isCommitted, "Cannot add elements after committing")
     elements += Some(e)
+    e.setParent(this)
   }
 
 }
@@ -275,7 +299,7 @@ abstract class ChiselGridElement(root: Target, name: String, context: ChiselFloo
   protected def initialSize = xDim * yDim
   protected def toIdx(x: Int, y: Int): Int = xDim*y + x
 
-  def placeElementAt(e: ChiselElement, x: Int, y: Int) { _placeElementAt(e, toIdx(x, y)) }
+  def placeAt[T <: ChiselElement](e: T, x: Int, y: Int): T = _placeAt(e, toIdx(x, y))
 
 }
 
@@ -288,8 +312,21 @@ final class ChiselHierarchicalTop private[chisel] (
   val aspectRatio: Constraint,
   val margins: Margins,
   val hardBoundary: Boolean
-) extends ChiselNoReferenceElement(root, name) {
-  protected def generateElement(): Element = ConstrainedHierarchicalTop(name, width, height, area, aspectRatio, margins, hardBoundary)
+) extends ChiselNoReferenceElement(root, name) with CanBeParent {
+  private var topGroup = Option.empty[ChiselGroupElement]
+
+  private def topGroupName: String = {
+    assert(this.topGroup.isDefined, "HierarchicalTop needs a topGroup")
+    this.topGroup.get.name
+  }
+
+  protected def generateElement(): Element = ConstrainedHierarchicalTop(name, topGroupName, width, height, area, aspectRatio, margins, hardBoundary)
+
+  private[chisel] def setTopGroup(t: ChiselGroupElement) {
+    assert(!this.topGroup.isDefined, "Cannot set topGroup twice")
+    t.setParent(this)
+    this.topGroup = Some(t)
+  }
 }
 
 final class ChiselHierarchicalBarrier private[chisel] (
@@ -297,7 +334,7 @@ final class ChiselHierarchicalBarrier private[chisel] (
   name: String,
   instance: InstanceTarget
 ) extends ChiselInstanceElement(root, name, instance) {
-  protected def generateElement(): Element = HierarchicalBarrier(name)
+  protected def generateElement(): Element = HierarchicalBarrier(name, parentName)
 }
 
 final class ChiselLogicRect private[chisel] (
@@ -310,7 +347,7 @@ final class ChiselLogicRect private[chisel] (
   val aspectRatio: Constraint,
   val hardBoundary: Boolean
 ) extends ChiselInstanceElement(root, name, instance) {
-  protected def generateElement(): Element = ConstrainedLogicRect(name, width, height, area, aspectRatio, hardBoundary)
+  protected def generateElement(): Element = ConstrainedLogicRect(name, parentName, width, height, area, aspectRatio, hardBoundary)
 }
 
 final class ChiselSpacerRect private[chisel] (
@@ -321,7 +358,7 @@ final class ChiselSpacerRect private[chisel] (
   val area: Constraint = Unconstrained(),
   val aspectRatio: Constraint = Unconstrained()
 ) extends ChiselNoReferenceElement(root, name) {
-  protected def generateElement(): Element = ConstrainedSpacerRect(name, width, height, area, aspectRatio)
+  protected def generateElement(): Element = ConstrainedSpacerRect(name, parentName, width, height, area, aspectRatio)
 }
 
 final class ChiselMem private[chisel] (
@@ -329,7 +366,7 @@ final class ChiselMem private[chisel] (
   name: String,
   reference: ReferenceTarget
 ) extends ChiselMemElement(root, name, reference) {
-  protected def generateElement(): Element = MemElement(name)
+  protected def generateElement(): Element = MemElement(name, parentName)
 }
 
 final class ChiselMemArray private[chisel] (
@@ -338,7 +375,7 @@ final class ChiselMemArray private[chisel] (
   context: ChiselFloorplanContext
 ) extends ChiselArrayElement(root, name, context) {
   protected def initialSize = 0
-  protected def generateGroupElement(names: Seq[Option[String]]): Group = MemElementArray(name, names)
+  protected def generateGroupElement(names: Seq[Option[String]]): Group = MemElementArray(name, parentName, names)
 
   def addMem[T <: Data](mem: MemBase[T]) = this.addElement(this.context.addMem(mem))
 }
@@ -350,7 +387,7 @@ class ChiselElasticGrid private[chisel] (
   xDim: Int,
   yDim: Int
 ) extends ChiselGridElement(root, name, context, xDim, yDim) {
-  final protected def generateGroupElement(names: Seq[Option[String]]): Group = ElasticGrid(name, xDim, yDim, names)
+  final protected def generateGroupElement(names: Seq[Option[String]]): Group = ElasticGrid(name, parentName, xDim, yDim, names)
 }
 
 class ChiselElasticArray private[chisel] (
@@ -360,5 +397,5 @@ class ChiselElasticArray private[chisel] (
   dim: Int,
   val dir: Direction
 ) extends ChiselElasticGrid(root, name, context, dir.ifH(dim,1), dir.ifV(dim,1)) {
-  def placeElementAt(e: ChiselElement, i: Int) { placeElementAt(e, dir.ifH(i,0), dir.ifV(0,i)) }
+  def placeAt[T <: ChiselElement](e: T, i: Int): T = placeAt(e, dir.ifH(i,0), dir.ifV(0,i))
 }
