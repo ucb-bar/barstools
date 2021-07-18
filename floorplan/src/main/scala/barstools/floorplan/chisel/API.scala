@@ -58,7 +58,7 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, topElement
   }
 
   def addHier[T <: RawModule](module: T): ChiselHierarchicalBarrier = {
-    val inst: Target = module.toAbsoluteTarget
+    val inst = module.toAbsoluteTarget.asInstanceOf[InstanceTarget]
     val name = FloorplanDatabase.getUnusedName(root, inst)
     val elt = new ChiselHierarchicalBarrier(root, name, inst)
     addElement(elt)
@@ -80,7 +80,8 @@ object Floorplan {
     height: Constraint = Unconstrained(),
     area: Constraint = Unconstrained(),
     aspectRatio: Constraint = Unconstrained(),
-    hardBoundary: Boolean = true
+    hardBoundary: Boolean = true,
+    margins: Margins = Margins.empty
   ) = {
     val root: Target = module.toAbsoluteTarget
     val modName = root match {
@@ -89,7 +90,7 @@ object Floorplan {
       case _ => ???
     }
     val name = FloorplanDatabase.getUnusedName(root, modName)
-    val elt = new ChiselLogicRect(root, name, root, width, height, area, aspectRatio, hardBoundary)
+    val elt = new ChiselHierarchicalTop(root, name, width, height, area, aspectRatio, margins, hardBoundary)
     FloorplanDatabase.register(root, elt)
     new ChiselFloorplanContext(root, elt)
   }
@@ -190,7 +191,7 @@ sealed abstract class ChiselElement(val root: Target, val name: String) {
   def getAnnotations(): Seq[Annotation] = getFloorplanAnnotations()
 }
 
-sealed abstract class ChiselSpacerElement(root: Target, name: String) extends ChiselElement(root, name) {
+sealed abstract class ChiselNoReferenceElement(root: Target, name: String) extends ChiselElement(root, name) {
   private[chisel] def getFloorplanAnnotations() = Seq(NoReferenceFloorplanAnnotation(root, generateElement()))
 }
 
@@ -230,12 +231,30 @@ sealed abstract class ChiselGroupElement(root: Target, name: String, val context
   private[chisel] def getFloorplanAnnotations() = Seq(NoReferenceFloorplanAnnotation(root, generateElement()))
 }
 
+final class ChiselHierarchicalTop private[chisel] (
+  root: Target,
+  name: String,
+  val width: Constraint,
+  val height: Constraint,
+  val area: Constraint,
+  val aspectRatio: Constraint,
+  val margins: Margins,
+  val hardBoundary: Boolean
+) extends ChiselNoReferenceElement(root, name) {
+  val ofModule = root match {
+    case t: InstanceTarget => t.ofModule
+    case t: ModuleTarget => t.module
+    case _ => ???
+  }
+  protected def generateElement(): Element = ConstrainedHierarchicalTop(name, ofModule, width, height, area, aspectRatio, margins, hardBoundary)
+}
+
 final class ChiselHierarchicalBarrier private[chisel] (
   root: Target,
   name: String,
-  instance: Target
+  instance: InstanceTarget
 ) extends ChiselInstanceElement(root, name, instance) {
-  protected def generateElement(): Element = HierarchicalBarrier(name)
+  protected def generateElement(): Element = HierarchicalBarrier(name, instance.ofModule)
 }
 
 final class ChiselLogicRect private[chisel] (
@@ -258,7 +277,7 @@ final class ChiselSpacerRect private[chisel] (
   val height: Constraint = Unconstrained(),
   val area: Constraint = Unconstrained(),
   val aspectRatio: Constraint = Unconstrained()
-) extends ChiselSpacerElement(root, name) {
+) extends ChiselNoReferenceElement(root, name) {
   protected def generateElement(): Element = ConstrainedSpacerRect(name, width, height, area, aspectRatio)
 }
 
