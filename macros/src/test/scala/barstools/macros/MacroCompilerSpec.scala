@@ -120,6 +120,7 @@ abstract class MacroCompilerSpec extends AnyFlatSpec with Matchers {
         libs,
         None,
         None,
+        None,
         getCostMetric,
         if (synflops) MacroCompilerAnnotation.Synflops else MacroCompilerAnnotation.Default
       ),
