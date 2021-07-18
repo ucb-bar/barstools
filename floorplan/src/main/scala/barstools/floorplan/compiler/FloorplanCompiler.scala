@@ -7,6 +7,7 @@ case class FloorplanOptions(
   outFile: String = "",
   outFmt: OutputFormat = OutputFormat.HammerIR,
   inFiles: Seq[String] = Seq(),
+  sbAnnoFiles: Seq[String] = Seq(),
   memInstMapFiles: Seq[String] = Seq()
 )
 
@@ -31,6 +32,12 @@ object FloorplanCompiler extends App {
       valueName("<mem inst file>").
       action((x, c) => c.copy(memInstMapFiles = c.memInstMapFiles :+ x)).
       text("file containing the memory instance map")
+
+    opt[String]('b', "sideband-anno-file").
+      required().
+      valueName("<sideband anno file>").
+      action((x, c) => c.copy(sbAnnoFiles = c.sbAnnoFiles :+ x)).
+      text("output file name")
 
     opt[Unit]('f', "output-fpir").
       action((x, c) => c.copy(outFmt = OutputFormat.FloorplanIR)).
