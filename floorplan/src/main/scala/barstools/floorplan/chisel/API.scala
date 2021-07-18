@@ -38,15 +38,15 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, topElement
     addElement(elt)
   }
 
-  def createDummy(
+  def createSpacer(
     name: Option[String] = None,
     width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
     height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
     area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
     aspectRatio: Constraint[Rational] = Unconstrained[Rational]
-  ): ChiselDummyRect = {
+  ): ChiselSpacerRect = {
     val nameStr = FloorplanDatabase.getUnusedName(root, name)
-    val elt = new ChiselDummyRect(root, nameStr, width, height, area, aspectRatio)
+    val elt = new ChiselSpacerRect(root, nameStr, width, height, area, aspectRatio)
     addElement(elt)
   }
 
@@ -189,7 +189,7 @@ sealed abstract class ChiselElement(val root: Target, val name: String) {
   def getAnnotations(): Seq[Annotation] = getFloorplanAnnotations()
 }
 
-sealed abstract class ChiselDummyElement(root: Target, name: String) extends ChiselElement(root, name) {
+sealed abstract class ChiselSpacerElement(root: Target, name: String) extends ChiselElement(root, name) {
   private[chisel] def getFloorplanAnnotations() = Seq(NoReferenceFloorplanAnnotation(root, generateElement()))
 }
 
@@ -250,15 +250,15 @@ final class ChiselLogicRect private[chisel] (
   protected def generateElement(): Element = ConstrainedLogicRect(name, width, height, area, aspectRatio, hardBoundary)
 }
 
-final class ChiselDummyRect private[chisel] (
+final class ChiselSpacerRect private[chisel] (
   root: Target,
   name: String,
   val width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   val height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
   val area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
   val aspectRatio: Constraint[Rational] = Unconstrained[Rational]
-) extends ChiselDummyElement(root, name) {
-  protected def generateElement(): Element = ConstrainedDummyRect(name, width, height, area, aspectRatio)
+) extends ChiselSpacerElement(root, name) {
+  protected def generateElement(): Element = ConstrainedSpacerRect(name, width, height, area, aspectRatio)
 }
 
 final class ChiselMem private[chisel] (
