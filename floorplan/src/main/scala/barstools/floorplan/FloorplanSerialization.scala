@@ -12,9 +12,7 @@ object FloorplanSerialization {
       typeOf[Element],
       typeOf[Unit],
       typeOf[PlacementAnchor],
-      typeOf[Constraint[Rational]],
-      typeOf[Constraint[LengthUnit]],
-      typeOf[Constraint[AreaUnit]],
+      typeOf[Constraint],
     ).map(_.typeSymbol.asClass.knownDirectSubclasses.toList).reduce(_ ++ _)
 
   val formats = (new DefaultFormats {

@@ -8,6 +8,7 @@ import firrtl.annotations.{ReferenceTarget, InstanceTarget, ModuleTarget, Target
 import barstools.floorplan._
 import barstools.floorplan.firrtl.{FloorplanAnnotation, MemFloorplanAnnotation, InstanceFloorplanAnnotation, NoReferenceFloorplanAnnotation}
 import scala.collection.mutable.{ArraySeq, ArrayBuffer, HashMap, Set, HashSet}
+import scala.math.{BigInt, BigDecimal}
 
 final case class ChiselFloorplanException(message: String) extends Exception(message: String)
 
@@ -26,10 +27,10 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, topElement
   def elements: Seq[ChiselElement] = elementBuf.toSeq
 
   def createRect[T <: RawModule](module: T,
-    width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-    height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-    area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-    aspectRatio: Constraint[Rational] = Unconstrained[Rational],
+    width: Constraint = Unconstrained(),
+    height: Constraint = Unconstrained(),
+    area: Constraint = Unconstrained(),
+    aspectRatio: Constraint = Unconstrained(),
     hardBoundary: Boolean = true
   ): ChiselLogicRect = {
     val inst: Target = module.toAbsoluteTarget
@@ -40,10 +41,10 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, topElement
 
   def createSpacer(
     name: Option[String] = None,
-    width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-    height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-    area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-    aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+    width: Constraint = Unconstrained(),
+    height: Constraint = Unconstrained(),
+    area: Constraint = Unconstrained(),
+    aspectRatio: Constraint = Unconstrained()
   ): ChiselSpacerRect = {
     val nameStr = FloorplanDatabase.getUnusedName(root, name)
     val elt = new ChiselSpacerRect(root, nameStr, width, height, area, aspectRatio)
@@ -75,10 +76,10 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, topElement
 object Floorplan {
 
   def apply[T <: RawModule](module: T,
-    width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-    height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-    area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-    aspectRatio: Constraint[Rational] = Unconstrained[Rational],
+    width: Constraint = Unconstrained(),
+    height: Constraint = Unconstrained(),
+    area: Constraint = Unconstrained(),
+    aspectRatio: Constraint = Unconstrained(),
     hardBoundary: Boolean = true
   ) = {
     val root: Target = module.toAbsoluteTarget
@@ -165,17 +166,17 @@ object FloorplanUnits {
 
   def get = unit
 
-  def area(x: Double): AreaUnit = {
+  def area(x: Double): BigDecimal = {
     unit.map { u =>
-      AreaUnit(scala.math.round(u*x*x))
+      BigDecimal(scala.math.round(u*x*x))
     }.getOrElse {
       throw new FloorplanUnitsException("Cannot create floorplan with concrete units- units have not been set! Call FloorplanUnits.set first.")
     }
   }
 
-  def length(x: Double): LengthUnit = {
+  def length(x: Double): BigDecimal = {
     unit.map { u =>
-      LengthUnit(scala.math.round(u*x))
+      BigDecimal(scala.math.round(u*x))
     }.getOrElse {
       throw new FloorplanUnitsException("Cannot create floorplan with concrete units- units have not been set! Call FloorplanUnits.set first.")
     }
@@ -241,10 +242,10 @@ final class ChiselLogicRect private[chisel] (
   root: Target,
   name: String,
   instance: Target,
-  val width: Constraint[LengthUnit],
-  val height: Constraint[LengthUnit],
-  val area: Constraint[AreaUnit],
-  val aspectRatio: Constraint[Rational],
+  val width: Constraint,
+  val height: Constraint,
+  val area: Constraint,
+  val aspectRatio: Constraint,
   val hardBoundary: Boolean
 ) extends ChiselInstanceElement(root, name, instance) {
   protected def generateElement(): Element = ConstrainedLogicRect(name, width, height, area, aspectRatio, hardBoundary)
@@ -253,10 +254,10 @@ final class ChiselLogicRect private[chisel] (
 final class ChiselSpacerRect private[chisel] (
   root: Target,
   name: String,
-  val width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  val height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  val area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-  val aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+  val width: Constraint = Unconstrained(),
+  val height: Constraint = Unconstrained(),
+  val area: Constraint = Unconstrained(),
+  val aspectRatio: Constraint = Unconstrained()
 ) extends ChiselSpacerElement(root, name) {
   protected def generateElement(): Element = ConstrainedSpacerRect(name, width, height, area, aspectRatio)
 }
@@ -294,13 +295,13 @@ final class ChiselWeightedGrid private[chisel] (
   assert(yDim > 0)
 
   protected val elements = ArraySeq.fill[Option[ChiselElement]](xDim*yDim) { Option.empty[ChiselElement] }
-  private val weights = ArraySeq.fill[Rational](xDim*yDim) { Rational(1) }
+  private val weights = ArraySeq.fill[BigDecimal](xDim*yDim) { BigDecimal(1) }
 
   private var _isCommitted = false
 
   def isCommitted = _isCommitted
 
-  def set(x: Int, y: Int, element: ChiselElement, weight: Rational): Unit = {
+  def set(x: Int, y: Int, element: ChiselElement, weight: BigDecimal): Unit = {
     if (isCommitted) throw new ChiselFloorplanException("Cannot modify a ChiselWeightedGrid after committing")
     if (x >= xDim) throw new IndexOutOfBoundsException(s"X-value ${x} >= ${xDim} in ChiselWeightedGrid")
     if (y >= yDim) throw new IndexOutOfBoundsException(s"Y-value ${y} >= ${yDim} in ChiselWeightedGrid")
@@ -309,15 +310,15 @@ final class ChiselWeightedGrid private[chisel] (
     weights(y*xDim + x) = weight
   }
 
-  def set(x: Int, y: Int, element: ChiselElement): Unit = set(x, y, element, Rational(1))
+  def set(x: Int, y: Int, element: ChiselElement): Unit = set(x, y, element, BigDecimal(1))
 
-  def set(x: Int, y: Int, eltModule: RawModule, weight: Rational): Unit = {
+  def set(x: Int, y: Int, eltModule: RawModule, weight: BigDecimal): Unit = {
     // TODO what should the hardness of this boundary be?
-    val element = new ChiselLogicRect(eltModule, Unconstrained[LengthUnit], Unconstrained[LengthUnit], Unconstrained[AreaUnit], Unconstrained[Rational], true)
+    val element = new ChiselLogicRect(eltModule, Unconstrained(), Unconstrained(), Unconstrained(), Unconstrained(), true)
     set(x, y, element, weight)
   }
 
-  def set(x: Int, y: Int, root: Target): Unit = set(x, y, module, Rational(1))
+  def set(x: Int, y: Int, root: Target): Unit = set(x, y, module, BigDecimal(1))
 
   protected def generateElement(): Element = {
     _isCommitted = true

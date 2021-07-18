@@ -1,6 +1,8 @@
 // See LICENSE for license details
 package barstools.floorplan
 
+import scala.math.{BigInt, BigDecimal}
+
 // TODO Make some of this stuff private
 // TODO make level an enum
 // TODO add versioning to the FPIR file
@@ -31,22 +33,22 @@ private[floorplan] final case class HierarchicalBarrier(
 ////////////////////////////////////////////// Rectangular things
 
 trait ConstrainedRectLike {
-  def width: Constraint[LengthUnit]
-  def height: Constraint[LengthUnit]
-  def area: Constraint[AreaUnit]
-  def aspectRatio: Constraint[Rational]
+  def width: Constraint
+  def height: Constraint
+  def area: Constraint
+  def aspectRatio: Constraint
 }
 
 trait SizedRectLike {
-  def width: LengthUnit
-  def height: LengthUnit
+  def width: BigDecimal
+  def height: BigDecimal
 }
 
 trait PlacedRectLike {
-  def x: LengthUnit
-  def y: LengthUnit
-  def width: LengthUnit
-  def height: LengthUnit
+  def x: BigDecimal
+  def y: BigDecimal
+  def width: BigDecimal
+  def height: BigDecimal
 }
 
 object IRLevel {
@@ -71,44 +73,44 @@ sealed abstract class PlacedRectPrimitive extends Primitive with PlacedRectLike 
 
 private[floorplan] final case class ConstrainedSpacerRect(
   name: String,
-  width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-  aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+  width: Constraint = Unconstrained(),
+  height: Constraint = Unconstrained(),
+  area: Constraint = Unconstrained(),
+  aspectRatio: Constraint = Unconstrained()
 ) extends ConstrainedRectPrimitive
 
 private[floorplan] final case class SizedSpacerRect(
   name: String,
-  x: LengthUnit,
-  y: LengthUnit,
-  width: LengthUnit,
-  height: LengthUnit
+  x: BigDecimal,
+  y: BigDecimal,
+  width: BigDecimal,
+  height: BigDecimal
 ) extends SizedRectPrimitive
 
 // No PlacedSpacerRect exists because they're only for spacing
 
 private[floorplan] final case class ConstrainedLogicRect(
   name: String,
-  width: Constraint[LengthUnit],
-  height: Constraint[LengthUnit],
-  area: Constraint[AreaUnit],
-  aspectRatio: Constraint[Rational],
+  width: Constraint,
+  height: Constraint,
+  area: Constraint,
+  aspectRatio: Constraint,
   hardBoundary: Boolean
 ) extends ConstrainedRectPrimitive
 
 private[floorplan] final case class SizedLogicRect(
   name: String,
-  width: LengthUnit,
-  height: LengthUnit,
+  width: BigDecimal,
+  height: BigDecimal,
   hardBoundary: Boolean
 ) extends SizedRectPrimitive
 
 private[floorplan] final case class PlacedLogicRect(
   name: String,
-  x: LengthUnit,
-  y: LengthUnit,
-  width: LengthUnit,
-  height: LengthUnit,
+  x: BigDecimal,
+  y: BigDecimal,
+  width: BigDecimal,
+  height: BigDecimal,
   hardBoundary: Boolean
 ) extends PlacedRectPrimitive
 
@@ -130,7 +132,7 @@ private[floorplan] final case class WeightedGrid(
   xDim: Int,
   yDim: Int,
   elements: Seq[Option[String]],
-  weights: Seq[Rational],
+  weights: Seq[BigDecimal],
   packed: Boolean
 ) extends Grid {
   def level = 2
@@ -148,10 +150,10 @@ private[floorplan] final case class MemElement(
 private[floorplan] final case class MemElementArray(
   name: String,
   elements: Seq[Option[String]],
-  width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-  aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+  width: Constraint = Unconstrained(),
+  height: Constraint = Unconstrained(),
+  area: Constraint = Unconstrained(),
+  aspectRatio: Constraint = Unconstrained()
 ) extends Group with ConstrainedRectLike {
   def level = 3
 }
@@ -163,10 +165,10 @@ private[floorplan] final case class MemElementArray(
 private[floorplan] final case class MemMacroArray(
   name: String,
   elements: Seq[Option[String]],
-  width: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  height: Constraint[LengthUnit] = Unconstrained[LengthUnit],
-  area: Constraint[AreaUnit] = Unconstrained[AreaUnit],
-  aspectRatio: Constraint[Rational] = Unconstrained[Rational]
+  width: Constraint = Unconstrained(),
+  height: Constraint = Unconstrained(),
+  area: Constraint = Unconstrained(),
+  aspectRatio: Constraint = Unconstrained()
 ) extends Group with ConstrainedRectLike {
   def level = 2
 }
@@ -182,17 +184,17 @@ private[floorplan] final case class AbstractMacro (
 private[floorplan] final case class SizedMacro (
   name: String,
   ofModule: String,
-  width: LengthUnit,
-  height: LengthUnit
+  width: BigDecimal,
+  height: BigDecimal
 ) extends SizedRectPrimitive
 
 // Reference to a macro blackbox that has known dimensions and has been placed
 private[floorplan] final case class PlacedMacro (
   name: String,
   ofModule: String,
-  x: LengthUnit,
-  y: LengthUnit,
-  width: LengthUnit,
-  height: LengthUnit
+  x: BigDecimal,
+  y: BigDecimal,
+  width: BigDecimal,
+  height: BigDecimal
 ) extends PlacedRectPrimitive
 
