@@ -51,6 +51,27 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, topElement
     addElement(elt)
   }
 
+  def createElasticGrid(xDim: Int, yDim: Int, name: Option[String] = None): ChiselElasticGrid = {
+    val nameStr = FloorplanDatabase.getUnusedName(root, name)
+    val elt = new ChiselElasticGrid(root, nameStr, this, xDim, yDim)
+    addElement(elt)
+  }
+
+  def createElasticArray(dim: Int, dir: Direction, name: Option[String]): ChiselElasticArray = {
+    val nameStr = FloorplanDatabase.getUnusedName(root, name)
+    val elt = new ChiselElasticArray(root, nameStr, this, dim, dir)
+    addElement(elt)
+  }
+
+  def createElasticArray(dim: Int, name: Option[String]): ChiselElasticArray = createElasticArray(dim, Direction.Horizontal, name)
+  def createElasticArray(dim: Int, dir: Direction): ChiselElasticArray = createElasticArray(dim, dir, None)
+  def createElasticArray(dim: Int): ChiselElasticArray = createElasticArray(dim, Direction.Horizontal, None)
+  def createElasticArray(elts: Seq[ChiselElement], dir: Direction = Direction.Horizontal, name: Option[String] = None): ChiselElasticArray = {
+    val ary = createElasticArray(elts.length, dir, name)
+    elts.zipWithIndex.foreach { case (e, i) => ary.placeElementAt(e, i) }
+    ary
+  }
+
   def createMemArray(name: Option[String] = None): ChiselMemArray = {
     val nameStr = FloorplanDatabase.getUnusedName(root, name)
     val elt = new ChiselMemArray(root, nameStr, this)
@@ -185,6 +206,19 @@ object FloorplanUnits {
 
 }
 
+trait Direction {
+  def ifH[T](h: T, v: T): T = this match {
+    case Direction.Horizontal => h
+    case Direction.Vertical => v
+  }
+  def ifV[T](h: T, v: T): T = ifH(v, h)
+}
+
+object Direction {
+  case object Vertical extends Direction
+  case object Horizontal extends Direction
+}
+
 sealed abstract class ChiselElement(val root: Target, val name: String) {
   protected def generateElement(): Element
   private[chisel] def getFloorplanAnnotations(): Seq[FloorplanAnnotation]
@@ -205,8 +239,8 @@ sealed abstract class ChiselMemElement(root: Target, name: String, val reference
 
 sealed abstract class ChiselGroupElement(root: Target, name: String, val context: ChiselFloorplanContext) extends ChiselElement(root, name) {
   protected def initialSize: Int
-  private val elements = Seq.fill(initialSize)(Option.empty[ChiselElement]).toBuffer
-  private var isCommitted = false
+  protected val elements = Seq.fill(initialSize)(Option.empty[ChiselElement]).toBuffer
+  protected var isCommitted = false
 
   protected def generateGroupElement(names: Seq[Option[String]]): Group
 
@@ -215,20 +249,34 @@ sealed abstract class ChiselGroupElement(root: Target, name: String, val context
     generateGroupElement(elements.map(_.map(_.name)))
   }
 
-  private[chisel] def placeElementAt(e: ChiselElement, idx: Int) {
+  private[chisel] def _placeElementAt(e: ChiselElement, idx: Int) {
     assert(!isCommitted, "Cannot add elements after committing")
     // This is only supported in scala 2.13
     //elements.padToInPlace(idx+1, None)
     for (i <- elements.length until (idx+1)) elements += None
+    assert(!elements(idx).isDefined, "Already added at this location")
     elements(idx) = Some(e)
   }
+
+  private[chisel] def getFloorplanAnnotations() = Seq(NoReferenceFloorplanAnnotation(root, generateElement()))
+}
+
+abstract class ChiselArrayElement(root: Target, name: String, context: ChiselFloorplanContext) extends ChiselGroupElement(root, name, context) {
 
   private[chisel] def addElement(e: ChiselElement) {
     assert(!isCommitted, "Cannot add elements after committing")
     elements += Some(e)
   }
 
-  private[chisel] def getFloorplanAnnotations() = Seq(NoReferenceFloorplanAnnotation(root, generateElement()))
+}
+
+abstract class ChiselGridElement(root: Target, name: String, context: ChiselFloorplanContext, val xDim: Int, val yDim: Int) extends ChiselGroupElement(root, name, context) {
+
+  protected def initialSize = xDim * yDim
+  protected def toIdx(x: Int, y: Int): Int = xDim*y + x
+
+  def placeElementAt(e: ChiselElement, x: Int, y: Int) { _placeElementAt(e, toIdx(x, y)) }
+
 }
 
 final class ChiselHierarchicalTop private[chisel] (
@@ -293,64 +341,29 @@ final class ChiselMemArray private[chisel] (
   root: Target,
   name: String,
   context: ChiselFloorplanContext
-) extends ChiselGroupElement(root, name, context) {
+) extends ChiselArrayElement(root, name, context) {
   protected def initialSize = 0
   protected def generateGroupElement(names: Seq[Option[String]]): Group = MemElementArray(name, names)
 
   def addMem[T <: Data](mem: MemBase[T]) = this.addElement(this.context.addMem(mem))
 }
 
-
-/*
-final class ChiselWeightedGrid private[chisel] (
+class ChiselElasticGrid private[chisel] (
   root: Target,
   name: String,
-  val xDim: Int,
-  val yDim: Int,
-  val packed: Boolean
-) extends ChiselGroupElement(module, name) {
-
-  assert(xDim > 0)
-  assert(yDim > 0)
-
-  protected val elements = ArraySeq.fill[Option[ChiselElement]](xDim*yDim) { Option.empty[ChiselElement] }
-  private val weights = ArraySeq.fill[BigDecimal](xDim*yDim) { BigDecimal(1) }
-
-  private var _isCommitted = false
-
-  def isCommitted = _isCommitted
-
-  def set(x: Int, y: Int, element: ChiselElement, weight: BigDecimal): Unit = {
-    if (isCommitted) throw new ChiselFloorplanException("Cannot modify a ChiselWeightedGrid after committing")
-    if (x >= xDim) throw new IndexOutOfBoundsException(s"X-value ${x} >= ${xDim} in ChiselWeightedGrid")
-    if (y >= yDim) throw new IndexOutOfBoundsException(s"Y-value ${y} >= ${yDim} in ChiselWeightedGrid")
-    if (elements(y*xDim + x).isDefined) throw new ChiselFloorplanException(s"Coordinates (${x},${y}) already in use")
-    elements(y*xDim + x) = Some(element)
-    weights(y*xDim + x) = weight
-  }
-
-  def set(x: Int, y: Int, element: ChiselElement): Unit = set(x, y, element, BigDecimal(1))
-
-  def set(x: Int, y: Int, eltModule: RawModule, weight: BigDecimal): Unit = {
-    // TODO what should the hardness of this boundary be?
-    val element = new ChiselLogicRect(eltModule, Unconstrained(), Unconstrained(), Unconstrained(), Unconstrained(), true)
-    set(x, y, element, weight)
-  }
-
-  def set(x: Int, y: Int, root: Target): Unit = set(x, y, module, BigDecimal(1))
-
-  protected def generateElement(): Element = {
-    _isCommitted = true
-    elements.transform(_.orElse(Some(Floorplan.dummy(module))))
-    WeightedGrid(
-      name,
-      xDim,
-      yDim,
-      elements.map(_.get.name),
-      weights,
-      packed)
-  }
-
+  context: ChiselFloorplanContext,
+  xDim: Int,
+  yDim: Int
+) extends ChiselGridElement(root, name, context, xDim, yDim) {
+  final protected def generateGroupElement(names: Seq[Option[String]]): Group = ElasticGrid(name, xDim, yDim, names)
 }
-*/
 
+class ChiselElasticArray private[chisel] (
+  root: Target,
+  name: String,
+  context: ChiselFloorplanContext,
+  dim: Int,
+  val dir: Direction
+) extends ChiselElasticGrid(root, name, context, dir.ifH(dim,1), dir.ifV(dim,1)) {
+  def placeElementAt(e: ChiselElement, i: Int) { placeElementAt(e, dir.ifH(i,0), dir.ifV(0,i)) }
+}
