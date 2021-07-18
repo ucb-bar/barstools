@@ -33,7 +33,7 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, topElement
     aspectRatio: Constraint = Unconstrained(),
     hardBoundary: Boolean = true
   ): ChiselLogicRect = {
-    val inst: Target = module.toAbsoluteTarget
+    val inst = module.toAbsoluteTarget.asInstanceOf[InstanceTarget]
     val name = FloorplanDatabase.getUnusedName(root, inst)
     val elt = new ChiselLogicRect(root, name, inst, width, height, area, aspectRatio, hardBoundary)
     addElement(elt)
@@ -308,14 +308,14 @@ final class ChiselHierarchicalBarrier private[chisel] (
 final class ChiselLogicRect private[chisel] (
   root: Target,
   name: String,
-  instance: Target,
+  instance: InstanceTarget,
   val width: Constraint,
   val height: Constraint,
   val area: Constraint,
   val aspectRatio: Constraint,
   val hardBoundary: Boolean
 ) extends ChiselInstanceElement(root, name, instance) {
-  protected def generateElement(): Element = ConstrainedLogicRect(name, width, height, area, aspectRatio, hardBoundary)
+  protected def generateElement(): Element = ConstrainedLogicRect(name, instance.ofModule, width, height, area, aspectRatio, hardBoundary)
 }
 
 final class ChiselSpacerRect private[chisel] (

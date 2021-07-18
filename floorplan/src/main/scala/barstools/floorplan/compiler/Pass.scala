@@ -7,10 +7,10 @@ object Pass {
 
   def all(opts: FloorplanOptions): Seq[Pass] = {
     val instMap = MemInstMap.fromFiles(opts.memInstMapFiles)
-    val sbAnnos = Seq() // TODO
+    val sbAnnos = SidebandAnnotationMap.fromFiles(opts.sbAnnoFiles)
     Seq(
-      new SidebandAnnotationPass(sbAnnos),
       new TransformMemsPass(instMap),
+      new SidebandAnnotationPass(sbAnnos),
       new TopDownPropagationPass,
       new BottomUpPropagationPass,
       new ResolveConstraintsPass
@@ -20,10 +20,6 @@ object Pass {
 
 abstract class Pass {
   def execute(state: FloorplanState): FloorplanState
-}
-
-class SidebandAnnotationPass(annos: Seq[SidebandAnnotation]) extends Pass {
-  def execute(state: FloorplanState): FloorplanState = state // TODO
 }
 
 class TopDownPropagationPass extends Pass {

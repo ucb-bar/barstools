@@ -33,19 +33,19 @@ private[floorplan] final case class HierarchicalBarrier(
 
 ////////////////////////////////////////////// Rectangular things
 
-trait ConstrainedRectLike {
+sealed trait ConstrainedRectLike {
   def width: Constraint
   def height: Constraint
   def area: Constraint
   def aspectRatio: Constraint
 }
 
-trait SizedRectLike {
+sealed trait SizedRectLike {
   def width: BigDecimal
   def height: BigDecimal
 }
 
-trait PlacedRectLike {
+sealed trait PlacedRectLike {
   def x: BigDecimal
   def y: BigDecimal
   def width: BigDecimal
@@ -100,6 +100,7 @@ object Margins {
 
 private[floorplan] final case class ConstrainedLogicRect(
   name: String,
+  ofModule: String,
   width: Constraint,
   height: Constraint,
   area: Constraint,
@@ -109,6 +110,7 @@ private[floorplan] final case class ConstrainedLogicRect(
 
 private[floorplan] final case class SizedLogicRect(
   name: String,
+  ofModule: String,
   width: BigDecimal,
   height: BigDecimal,
   hardBoundary: Boolean
@@ -116,6 +118,7 @@ private[floorplan] final case class SizedLogicRect(
 
 private[floorplan] final case class PlacedLogicRect(
   name: String,
+  ofModule: String,
   x: BigDecimal,
   y: BigDecimal,
   width: BigDecimal,
@@ -225,7 +228,7 @@ private[floorplan] final case class AbstractMacro (
 // Reference to a macro blackbox that has known dimensions
 private[floorplan] final case class SizedMacro (
   name: String,
-  ofModule: String,
+  ofModule: String, // TODO we should replace this with the OfModule in the Record
   width: BigDecimal,
   height: BigDecimal
 ) extends SizedRectPrimitive
