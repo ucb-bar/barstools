@@ -5,6 +5,7 @@ import barstools.floorplan._
 
 case class FloorplanOptions(
   outFile: String = "",
+  topMod: String = "",
   outFmt: OutputFormat = OutputFormat.HammerIR,
   inFiles: Seq[String] = Seq(),
   sbAnnoFiles: Seq[String] = Seq(),
@@ -20,6 +21,12 @@ object FloorplanCompiler extends App {
       valueName("<input file>").
       action((x, c) => c.copy(inFiles = c.inFiles :+ x)).
       text("input file name")
+
+    opt[String]('t', "top-module").
+      required().
+      valueName("<top module name>").
+      action((x, c) => c.copy(topMod = x)).
+      text("top module name")
 
     opt[String]('o', "output-file").
       required().

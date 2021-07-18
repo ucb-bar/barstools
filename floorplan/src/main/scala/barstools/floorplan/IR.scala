@@ -34,7 +34,7 @@ private[floorplan] final case class HierarchicalBarrier(
   name: String,
   parent: String
 ) extends Primitive {
-  final def level = 0
+  final def level = 3
 }
 
 ////////////////////////////////////////////// Rectangular things
@@ -59,11 +59,11 @@ sealed trait PlacedRectLike {
 }
 
 object IRLevel {
-  def max = 3
+  def max = 4
 }
 
 sealed abstract class AbstractRectPrimitive extends Primitive {
-  final def level = 3
+  final def level = 2
 }
 
 sealed abstract class ConstrainedRectPrimitive extends Primitive with ConstrainedRectLike {
@@ -145,7 +145,7 @@ private[floorplan] final case class ConstrainedHierarchicalTop(
   margins: Margins,
   hardBoundary: Boolean
 ) extends Top with ConstrainedRectLike {
-  final def level = 2
+  final def level = 3
 }
 
 private[floorplan] final case class PlacedHierarchicalTop(
@@ -174,6 +174,7 @@ sealed abstract class Grid extends Group {
   def get(x: Int, y: Int) = elements(xDim*y + x)
 }
 
+// TODO eventually rename this to AbstractWeightedGrid
 private[floorplan] final case class WeightedGrid(
   name: String,
   parent: String,
@@ -183,15 +184,58 @@ private[floorplan] final case class WeightedGrid(
   weights: Seq[BigDecimal],
   packed: Boolean
 ) extends Grid {
-  def level = 1
+  def level = 2
 }
 
+private[floorplan] final case class ConstrainedWeightedGrid(
+  name: String,
+  parent: String,
+  xDim: Int,
+  yDim: Int,
+  elements: Seq[Option[String]],
+  weights: Seq[BigDecimal],
+  packed: Boolean,
+  width: Constraint = Unconstrained(),
+  height: Constraint = Unconstrained(),
+  area: Constraint = Unconstrained(),
+  aspectRatio: Constraint = Unconstrained()
+) extends Grid {
+  def level = 2
+}
+
+// TODO eventually rename this to AbstractElasticGrid
 private[floorplan] final case class ElasticGrid(
   name: String,
   parent: String,
   xDim: Int,
   yDim: Int,
   elements: Seq[Option[String]]
+) extends Grid {
+  def level = 2
+}
+
+private[floorplan] final case class ConstrainedElasticGrid(
+  name: String,
+  parent: String,
+  xDim: Int,
+  yDim: Int,
+  elements: Seq[Option[String]],
+  width: Constraint = Unconstrained(),
+  height: Constraint = Unconstrained(),
+  area: Constraint = Unconstrained(),
+  aspectRatio: Constraint = Unconstrained()
+) extends Grid {
+  def level = 2
+}
+
+private[floorplan] final case class SizedGrid(
+  name: String,
+  parent: String,
+  xDim: Int,
+  yDim: Int,
+  elements: Seq[Option[String]],
+  widths: Seq[BigDecimal],
+  heights: Seq[BigDecimal]
 ) extends Grid {
   def level = 1
 }
@@ -215,7 +259,7 @@ private[floorplan] final case class MemElementArray(
   area: Constraint = Unconstrained(),
   aspectRatio: Constraint = Unconstrained()
 ) extends Group with ConstrainedRectLike {
-  def level = 3
+  def level = 4
 }
 
 // Container for MemElements that have been converted to Macros
