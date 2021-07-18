@@ -4,6 +4,7 @@ package barstools.floorplan.hammer
 import barstools.floorplan._
 
 import java.io.{Writer}
+import scala.math.{BigInt, BigDecimal}
 
 // This implements a small subset of HammerIR
 
@@ -56,7 +57,7 @@ object HammerIR {
 
   def deserialize(s: String): HammerIR = HammerSerialization.deserialize(s)
 
-  def toMicrons(l: LengthUnit): Double = {
+  def toMicrons(l: BigDecimal): Double = {
     0.0 // TODO
   }
 }
