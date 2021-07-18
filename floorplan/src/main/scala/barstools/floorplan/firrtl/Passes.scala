@@ -28,8 +28,8 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
   def execute(state: CircuitState): CircuitState = {
 
     def getInstancePath(t: Option[InstanceTarget]): String = t map { it =>
-      "/" + it.asPath.toList.map(_._1.value).mkString("/")
-    } getOrElse "/"
+      (Seq(it.module) ++ it.asPath.toList.map(_._1.value)).mkString("/")
+    } getOrElse state.circuit.main
 
     def getRelativePath(root: Option[InstanceTarget], inst: Option[IsComponent]): String = {
       val rootPath = root.map(_.asPath).getOrElse(Seq())
@@ -40,7 +40,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
         case x: InstanceTarget => pathStr
         case x: ReferenceTarget => pathStr + "." + x.ref
         case _ => ??? // Shouldn't exist
-      }).getOrElse("")
+      }) getOrElse ""
     }
 
     def newRecord(path: String, ref: Option[String], ofModule: Option[String], anno: FloorplanAnnotation) =

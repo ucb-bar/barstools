@@ -11,9 +11,11 @@ object Pass {
     Seq(
       new TransformMemsPass(instMap),
       new SidebandAnnotationPass(sbAnnos),
-      new TopDownPropagationPass,
-      new BottomUpPropagationPass,
-      new ResolveConstraintsPass
+      new ReplaceHierarchicalPass(opts.topMod),
+      new TopDownPropagationPass(opts.topMod),
+      new BottomUpPropagationPass(opts.topMod),
+      new ResolveConstraintsPass,
+      new CalculatePlacementsPass
     )
   }
 }
@@ -22,15 +24,10 @@ abstract class Pass {
   def execute(state: FloorplanState): FloorplanState
 }
 
-class TopDownPropagationPass extends Pass {
-  def execute(state: FloorplanState): FloorplanState = state // TODO
-}
-
-class BottomUpPropagationPass extends Pass {
-  def execute(state: FloorplanState): FloorplanState = state // TODO
-}
-
 class ResolveConstraintsPass extends Pass {
   def execute(state: FloorplanState): FloorplanState = state // TODO
 }
 
+class CalculatePlacementsPass extends Pass {
+  def execute(state: FloorplanState): FloorplanState = state // TODO
+}

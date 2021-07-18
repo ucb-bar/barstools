@@ -66,7 +66,7 @@ class TransformMemsPass(instMap: Map[OfModule, Seq[(Instance, OfModule)]]) exten
         case _ => record
       }
     })
-    state.copy(records = newRecords, level = 2)
+    state.copy(records = newRecords, level = 3) // TODO recalculate level?
   }
 }
 
