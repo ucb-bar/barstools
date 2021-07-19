@@ -7,9 +7,7 @@ sealed trait Constraint {
   def and(that: Constraint): Constraint
 }
 
-sealed abstract class PrimitiveConstraint extends Constraint
-
-final class Unconstrained extends PrimitiveConstraint {
+final class Unconstrained extends Constraint {
   def and(that: Constraint) = that
 }
 
@@ -18,106 +16,175 @@ object Unconstrained {
   def apply() = u
 }
 
-final case class EqualTo(value: BigDecimal) extends PrimitiveConstraint {
-  def and(that: Constraint) = that match {
-    case that: EqualTo              => if (this.value == that.value) this else ImpossibleConstraint(this, that)
-    case that: GreaterThanOrEqualTo => if (this.value >= that.value) this else ImpossibleConstraint(this, that)
-    case that: LessThanOrEqualTo    => if (this.value <= that.value) this else ImpossibleConstraint(this, that)
-    case that: MultipleOf           => if ((this.value % that.value) == BigDecimal(0)) this else ImpossibleConstraint(this, that)
-    case that: ImpossibleConstraint => that
-    case that: Unconstrained        => this
-    case that => AndConstraint(this, that)
-  }
-}
-
-final case class GreaterThanOrEqualTo(value: BigDecimal) extends PrimitiveConstraint {
-  def and(that: Constraint) = that match {
-    case that: EqualTo              => if (this.value <= that.value) that else ImpossibleConstraint(this, that)
-    case that: GreaterThanOrEqualTo => if (this.value >= that.value) this else that
-    case that: LessThanOrEqualTo    => if (this.value < that.value) AndConstraint(this, that) else
-      if (this.value == that.value) EqualTo(this.value) else ImpossibleConstraint(this, that)
-    case that: ImpossibleConstraint => that
-    case that: Unconstrained        => this
-    case that => AndConstraint(this, that)
-  }
-}
-
-final case class LessThanOrEqualTo(value: BigDecimal) extends PrimitiveConstraint {
-  def and(that: Constraint) = that match {
-    case that: EqualTo              => if (this.value >= that.value) that else ImpossibleConstraint(this, that)
-    case that: GreaterThanOrEqualTo => if (this.value > that.value) AndConstraint(this, that) else
-      if (this.value == that.value) EqualTo(this.value) else ImpossibleConstraint(this, that)
-    case that: LessThanOrEqualTo    => if (this.value <= that.value) this else that
-    case that: ImpossibleConstraint => that
-    case that: Unconstrained        => this
-    case that => AndConstraint(this, that)
-  }
-}
-
-// TODO allow offset
-final case class MultipleOf(value: BigDecimal) extends PrimitiveConstraint {
-  def and(that: Constraint) = that match {
-    case that: EqualTo              => if ((that.value % this.value) == BigDecimal(0)) that else ImpossibleConstraint(this, that)
-    case that: MultipleOf           => MultipleOf(lcm(this.value,that.value))
-    case that: LessThanOrEqualTo    => if (that.value < this.value) ImpossibleConstraint(this, that) else AndConstraint(this, that)
-    case that: ImpossibleConstraint => that
-    case that: Unconstrained        => this
-    case that => AndConstraint(this, that)
-  }
-}
-
-sealed abstract class AggregateConstraint extends Constraint
-
-final case class ImpossibleConstraint(a: Constraint, b: Constraint) extends AggregateConstraint {
+// TODO add a reason?
+final class Impossible extends Constraint {
   def and(that: Constraint) = this
 }
 
-final case class AndConstraint(constraints: Seq[Constraint]) extends AggregateConstraint {
-  def and(that: Constraint) = that match {
-    case that: ImpossibleConstraint => that
-    case that: Unconstrained        => this
-    case that => AndConstraint(this, that)
+object Impossible {
+  private val i = new Impossible
+  def apply() = i
+}
+
+final case class Constrained(
+  eq: Option[BigDecimal],
+  geq: Option[BigDecimal],
+  leq: Option[BigDecimal],
+  mof: Option[BigDecimal]
+) extends Constraint {
+
+  def and(that: Constraint): Constraint = {
+    that match {
+      case that: Unconstrained => this
+      case that: Impossible => that
+      case that: Constrained =>
+
+        // Combine raw constraints
+        val newMof = if (this.mof.isDefined && that.mof.isDefined) {
+          Some(lcm(this.mof.get, that.mof.get))
+        } else {
+          this.mof.orElse(that.mof)
+        }
+
+        val newLeq = if (this.leq.isDefined && that.leq.isDefined) {
+          Some(Seq(this.leq.get, that.leq.get).min)
+        } else {
+          this.leq.orElse(that.leq)
+        }
+
+        val newGeq = if (this.geq.isDefined && that.geq.isDefined) {
+          Some(Seq(this.geq.get, that.geq.get).max)
+        } else {
+          this.geq.orElse(that.geq)
+        }
+
+        if (this.eq.isDefined && that.eq.isDefined && (this.eq != that.eq)) {
+          return Impossible()
+        }
+        val newEq = this.eq.orElse(that.eq)
+
+        Constrained(eq=newEq, geq=newGeq, leq=newLeq, mof=newMof).minimize
+      case _ => ???
+    }
   }
 
-  def flatten: AndConstraint = {
-    AndConstraint(constraints.collect({
-      case x: AndConstraint => x.flatten.constraints
-      case x: PrimitiveConstraint => Seq(x)
-    }).reduce(_ ++ _))
+  def minimize: Constraint = {
+    // Check range on LEQ/GEQ
+    val newEq = if (leq.isDefined && geq.isDefined) {
+      if (leq.get < geq.get) {
+        return Impossible()
+      } else if (leq.get == geq.get) {
+        if (eq.isDefined && (eq.get != leq.get)) {
+          return Impossible()
+        }
+        leq
+      } else {
+        eq
+      }
+    } else {
+      eq
+    }
+
+    // Check multiples
+    if (eq.isDefined && mof.isDefined && (eq.get % mof.get != BigDecimal(0))) {
+      return Impossible()
+    }
+
+    if (eq.isDefined) {
+      if (leq.isDefined) {
+        if (eq.get > leq.get) {
+          return Impossible()
+        }
+      }
+      if (geq.isDefined) {
+        if (eq.get < geq.get) {
+          return Impossible()
+        }
+      }
+    }
+    // TODO check if there exists a multiple in range
+    this.copy(eq=newEq)
   }
 
-  def reduce: Constraint = {
-    val flat = this.flatten.constraints
+  def +(that: Constraint): Constraint = {
+    that match {
+      case that: Unconstrained => this
+      case that: Impossible => that
+      case that: Constrained =>
 
-    val exact = flat.collect({
-      case x:EqualTo => x
-    }).reduceOption[Constraint](_.and(_))
+        // Combine raw constraints
+        val newMof = if (this.mof == that.mof) {
+          this.mof
+        } else {
+          None
+        }
 
-    val gt = flat.collect({
-      case x:GreaterThanOrEqualTo => x
-    }).reduceOption[Constraint](_.and(_))
+        val newLeq = if (this.leq.isDefined && that.leq.isDefined) {
+          Some(this.leq.get + that.leq.get)
+        } else {
+          None
+        }
 
-    val lt = flat.collect({
-      case x:LessThanOrEqualTo => x
-    }).reduceOption[Constraint](_.and(_))
+        val newGeq = if (this.geq.isDefined && that.geq.isDefined) {
+          Some(this.geq.get + that.geq.get)
+        } else {
+          None
+        }
 
-    val mult = flat.collect({
-      case x:MultipleOf => x
-    }).reduceOption[Constraint](_.and(_))
+        val newEq = if (this.eq.isDefined && that.eq.isDefined) {
+          Some(this.eq.get + that.eq.get)
+        } else {
+          None
+        }
 
-    // if exact is defined, we'll either be exact or impossible
-    exact.map({ value =>
-      val postGt = gt.map(_.and(value)).getOrElse(value)
-      val postLt = lt.map(_.and(postGt)).getOrElse(postGt)
-      mult.map(_.and(postLt)).getOrElse(postLt)
-    }).getOrElse {
-      ???
+        Constrained(eq=newEq, geq=newGeq, leq=newLeq, mof=newMof).minimize
+      case _ => ???
     }
   }
 }
 
-object AndConstraint {
-  def apply(a: Constraint, b: Constraint): AndConstraint = AndConstraint(Seq(a, b))
+object EqualTo {
+  def apply(value: BigDecimal) = Constrained(Some(value), None, None, None)
+}
+
+object GreaterThanOrEqualTo {
+  def apply(value: BigDecimal) = Constrained(None, Some(value), None, None)
+}
+
+object LessThanOrEqualTo {
+  def apply(value: BigDecimal) = Constrained(None, None, Some(value), None)
+}
+
+object MultipleOf {
+  def apply(value: BigDecimal) = Constrained(None, None, None, Some(value))
+}
+
+case class Constraints(
+  width: Constraint = Unconstrained(),
+  height: Constraint = Unconstrained(),
+  area: Constraint = Unconstrained(),
+  aspectRatio: Constraint = Unconstrained()
+)
+
+object Constraints {
+
+  def sized(w: BigDecimal, h: BigDecimal): Constraints = {
+    Constraints(
+      EqualTo(w),
+      EqualTo(h),
+      Unconstrained(),
+      Unconstrained()
+    )
+  }
+
+  def applyConstraints[T <: Element](e: T, c: Constraints): T = {
+    ???
+  }
+
+  def applyConstraintsUp[T <: Element](e: T, c: Constraints, idx: Int): T = {
+    ???
+  }
+
 }
 
 sealed trait PlacementAnchor

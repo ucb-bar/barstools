@@ -1,7 +1,7 @@
 // See LICENSE for license details
 package barstools.floorplan.compiler
 
-import scala.collection.mutable.{HashMap}
+import scala.collection.mutable.{HashMap, HashSet}
 import barstools.floorplan._
 
 class ReplaceHierarchicalPass(val topMod: String) extends Pass {
@@ -17,44 +17,100 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
       case _ => None
     })).toMap
 
-    // TODO we need to also change the root path for all elements underneath these
+    val root = topMaps(topMod).root
+    val rootNameSet = HashSet(state.records.filter(_.root == root).map(_.element.name):_*)
+
+    val nonRootPaths = topMaps.filterKeys(_ != topMod).values.map(_.root)
+
+    def getUniqueName(suggestion: String): String = {
+      var i = 0
+      var tmp = suggestion + s"_${i}"
+      while (rootNameSet.contains(tmp)) {
+        i = i + 1
+        tmp = suggestion + s"_${i}"
+      }
+      rootNameSet += tmp
+      tmp
+    }
+
+    val renameMap = new HashMap[(String, String), String]()
+
+    def rename(oldRoot: String, oldName: String): String = {
+      if (oldRoot == rootNameSet) { return oldName }
+      val tup = (oldRoot, oldName)
+      if (renameMap.contains(tup)) { return renameMap(tup) }
+      val newName = getUniqueName(oldName)
+      renameMap += (tup -> newName)
+      newName
+    }
+
+    def getRelPath(fullPath: Option[String]): Option[String] = fullPath.map { p =>
+      assert(p.startsWith(root), "Full path must be in root scope")
+      p.substring(root.length)
+    }
+
     val newRecords = state.records.flatMap({r => r.element match {
       case e: HierarchicalBarrier =>
         assert(topMaps.contains(r.fullPath), s"All HierarchicalBarriers must have a corresponding HierarchicalTop: ${r.fullPath} is missing")
-        val newE = (topMaps(r.fullPath).element match {
+        val tr = topMaps(r.fullPath)
+        (tr.element match {
           case t: ConstrainedHierarchicalTop =>
-            ConstrainedElasticGrid(
-              name = t.name,
-              parent = e.parent,
+            // We replace with two elements (one to replace each name); they'll get optimized away later
+            // Parent is first (replaces e), child is after (replaces t)
+            Seq(ConstrainedElasticGrid(
+              name = rename(r.root, e.name),
+              parent = rename(r.root, e.parent),
               xDim = 1,
               yDim = 1,
-              elements = Seq(Some(t.topGroup)),
-              width = t.width,
-              height = t.height,
-              area = t.area,
-              aspectRatio = t.aspectRatio
-            )
+              elements = Seq(Some(rename(tr.root, t.name))),
+              width = Seq(t.width),
+              height = Seq(t.height),
+              area = Seq(t.area),
+              aspectRatio = Seq(t.aspectRatio)
+            ), ConstrainedElasticGrid(
+              name = rename(tr.root, t.name),
+              parent = rename(r.root, e.name),
+              xDim = 1,
+              yDim = 1,
+              elements = Seq(Some(rename(tr.root, t.topGroup))),
+              width = Seq(t.width),
+              height = Seq(t.height),
+              area = Seq(t.area),
+              aspectRatio = Seq(t.aspectRatio)
+            ))
           case t: PlacedHierarchicalTop =>
-            SizedGrid(
-              name = t.name,
-              parent = e.parent,
+            Seq(SizedGrid(
+              name = rename(r.root, e.name),
+              parent = rename(r.root, e.parent),
               xDim = 1,
               yDim = 1,
-              elements = Seq(Some(t.topGroup)),
+              elements = Seq(Some(rename(tr.root, t.name))),
               widths = Seq(t.width),
               heights = Seq(t.height)
-            )
+            ), SizedGrid(
+              name = rename(tr.root, t.name),
+              parent = rename(r.root, e.name),
+              xDim = 1,
+              yDim = 1,
+              elements = Seq(Some(rename(tr.root, t.topGroup))),
+              widths = Seq(t.width),
+              heights = Seq(t.height)
+            ))
           case _ => ???
-        })
-        Seq(FloorplanElementRecord(
-          root = r.root, // TODO clean up path
-          inst = r.inst,
-          ofModule = r.ofModule,
-          element = newE
-        ))
+        }).map(newE => FloorplanElementRecord(
+            root = root,
+            inst = getRelPath(r.inst.map(_ => r.fullPath)),
+            ofModule = r.ofModule,
+            element = newE
+          ))
       case e: ConstrainedHierarchicalTop if r.ofModule != Some(topMod) => Seq()
       case e: PlacedHierarchicalTop if r.ofModule != Some(topMod) => Seq()
-      case e => Seq(r)
+      case e => Seq(r.copy(
+        root = root,
+        inst = getRelPath(r.inst.map(_ => r.fullPath)),
+        ofModule = r.ofModule,
+        element = r.element.mapNames(x => rename(r.root, x))
+      ))
     }})
     state.copy(records = newRecords, level = 2) // TODO recalculate level
   }
