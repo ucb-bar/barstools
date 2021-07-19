@@ -76,6 +76,10 @@ class SidebandAnnotationPass(val sbMap: Map[String, SidebandAnnotation]) extends
       }
       record.copy(element = newElement)
     }
+    newRecords.map(_.element).collectFirst {
+      case e: AbstractMacro =>
+        throw new Exception("Unannoated macros still exist after SidebandAnnotationPass")
+    }
     state.copy(records = newRecords)
   }
 }

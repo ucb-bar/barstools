@@ -13,4 +13,6 @@ def gcd(a: BigDecimal, b: BigDecimal): BigDecimal = {
 
 def lcm(a: BigDecimal, b: BigDecimal): BigDecimal = (a*b)/gcd(a,b)
 
+type PrimitiveConstraint = Constraint
+
 }

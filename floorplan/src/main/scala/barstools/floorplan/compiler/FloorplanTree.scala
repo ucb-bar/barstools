@@ -1,31 +1,92 @@
 // See LICENSE for license details
 package barstools.floorplan.compiler
 
-import scala.collection.mutable.{HashMap}
-import barstools.floorplan.{Element, FloorplanState, FloorplanElementRecord}
+import scala.collection.mutable.{ArrayBuffer, HashMap}
+import barstools.floorplan._
 
-/*
+class FloorplanTree(val state: FloorplanState, val topMod: String) {
 
-class FloorplanTree(state: FloorplanState, val topMod: String) {
+  val allNodes = new HashMap[String, Node]()
 
-  assert(state.level < 3, "Cannot have Hierarchicals")
+  class Node(val parent: Option[Node], initialRecord: FloorplanElementRecord) {
+    val children = new ArrayBuffer[Node]()
 
-  class Node(val parent: Option[Node], val record: FloorplanElementRecord) {
-    val children = new HashMap[String, Node]()
-    val name = record.element.name
+    // TODO this might be dangerous
+    private var _record = initialRecord
 
-    protected[FloorplanTree] def addNode(node: Node) {
-      children =+ (node.name -> node)
+    def record = _record
+
+    def addChildRecord(cRecord: FloorplanElementRecord): Node = {
+      val n = new Node(Some(this), cRecord)
+      children += n
+      allNodes += (cRecord.element.name -> n)
+      n
     }
 
-    protected[FloorplanTree] def addRecord(record: FloorplanElementRecord) { addNode(new Node(Some(this), record)) }
+    def replace(r: FloorplanElementRecord) { _record = r }
   }
 
+  val allRecords: Map[String, FloorplanElementRecord] = state.records.map({ x => (x.element.name -> x) }).toMap
+
+  def getRecord(s: String): FloorplanElementRecord = allRecords(s)
+  def getNode(s: String): Node = allNodes(s)
+
+  val topRecords = state.records.flatMap({ r => r.element match {
+    case e: Top => Seq(r)
+    case _ => Seq()
+  }})
+  assert(topRecords.length == 1, "Must be exactly one Top record")
+  val topRecord = topRecords(0)
+
+
+  private def dfs(parent: Option[Node], r: FloorplanElementRecord): Node = {
+    r.element match {
+      case e: Top =>
+        assert(!parent.isDefined, "Cannot have multiple tops")
+        val n = new Node(None, r)
+        dfs(Some(n), getRecord(e.topGroup))
+        n
+      case e: Primitive =>
+        assert(parent.isDefined, "Must have parent")
+        parent.get.addChildRecord(r)
+      case e: Group =>
+        assert(parent.isDefined, "Must have parent")
+        val n = parent.get.addChildRecord(r)
+        e.elements.foreach(_.foreach(x => dfs(Some(n), getRecord(x))))
+        n
+      case _ => ???
+    }
+  }
+
+  val topNode = dfs(None, topRecord)
+
+  // Traverse using DFS, passing the node to a function which expects an
+  //    (Option[FloorplanElementRecord], Option[FloorplanElementRecord]) return
+  // (None, None) = do no modify
+  // (None, Some(record)) = modify node
+  // (Some(record), None) = modify parent
+  // (Some(r1), Some(r2)) = modify both
+  def traverseMapPre(f: (Node => (Option[FloorplanElementRecord], Option[FloorplanElementRecord]))) { traverseMapPreHelper(topNode, f) }
+  def traverseMapPost(f: (Node => (Option[FloorplanElementRecord], Option[FloorplanElementRecord]))) { traverseMapPostHelper(topNode, f) }
+
+  private def traverseMapPreHelper(n: Node, f: (Node => (Option[FloorplanElementRecord], Option[FloorplanElementRecord]))) {
+    val (parent, child) = f(n)
+    parent.foreach { r => n.parent.foreach(_.replace(r)) }
+    child.foreach { r => n.replace(r) }
+    n.children.foreach { c => traverseMapPreHelper(c, f) }
+  }
+
+  private def traverseMapPostHelper(n: Node, f: (Node => (Option[FloorplanElementRecord], Option[FloorplanElementRecord]))) {
+    n.children.foreach { c => traverseMapPostHelper(c, f) }
+    val (parent, child) = f(n)
+    parent.foreach { r => n.parent.foreach(_.replace(r)) }
+    child.foreach { r => n.replace(r) }
+  }
+
+  def toState: FloorplanState = {
+    val records = allRecords.values.toSeq
+    val level = records.map(_.element.level).max
+    FloorplanState(records, level)
+  }
 
 }
-
-object FloorplanTree {
-  def apply(state: FloorplanState, topMod: String) = new FloorplanTree(state, topMod)
-}
-
-*/
