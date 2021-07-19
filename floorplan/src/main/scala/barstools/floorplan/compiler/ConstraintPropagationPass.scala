@@ -30,7 +30,6 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
           aspectRatio = Unconstrained()
         ))
       ))
-      println("Just replaced a node")
     }
 
 
