@@ -7,8 +7,6 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
   def execute(state: FloorplanState): FloorplanState = {
     val tree = new FloorplanTree(state, topMod)
 
-    import Constraints._
-
     // TODO This probably should use a SAT solver or something fancier
 
     // Top-down pass
@@ -19,9 +17,17 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
         case e: PlacedHierarchicalTop =>
           Constraints.sized(e.width, e.height)
         case e: ConstrainedWeightedGrid =>
-          ??? // TODO
+          val width = e.width(e.flatIndexOf(node.record.element.name))
+          val height = e.height(e.flatIndexOf(node.record.element.name))
+          val area = e.area(e.flatIndexOf(node.record.element.name))
+          val aspectRatio = e.aspectRatio(e.flatIndexOf(node.record.element.name))
+          Constraints(width, height, area, aspectRatio)
         case e: ConstrainedElasticGrid =>
-          ??? // TODO
+          val width = e.width(e.flatIndexOf(node.record.element.name))
+          val height = e.height(e.flatIndexOf(node.record.element.name))
+          val area = e.area(e.flatIndexOf(node.record.element.name))
+          val aspectRatio = e.aspectRatio(e.flatIndexOf(node.record.element.name))
+          Constraints(width, height, area, aspectRatio)
         case e: SizedGrid =>
           val (x, y) = e.indexOf(node.record.element.name).get
           Constraints.sized(e.widths(x), e.heights(y))
@@ -30,7 +36,7 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
         case _ => ??? // Many types can never be parents and shouldn't get here
       }).getOrElse(Constraints())
       // Only modify child
-      (None, Some(node.record.copy(element = applyConstraints(node.record.element, constraints))))
+      (None, Some(node.record.copy(element = node.record.element.applyConstraints(constraints))))
     }
 
     // Bottom-up pass
@@ -54,9 +60,15 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
         case e: PlacedHierarchicalTop =>
           Constraints.sized(e.width, e.height)
         case e: ConstrainedWeightedGrid =>
-          ??? // TODO
+          val width = e.width.reduce(_+_)
+          val height = e.height.reduce(_+_)
+          val area = e.area.reduce(_+_)
+          Constraints(width, height, area, Unconstrained())
         case e: ConstrainedElasticGrid =>
-          ??? // TODO
+          val width = e.width.reduce(_+_)
+          val height = e.height.reduce(_+_)
+          val area = e.area.reduce(_+_)
+          Constraints(width, height, area, Unconstrained())
         case e: SizedGrid =>
           Constraints.sized(e.widths.sum, e.heights.sum)
         case e: MemMacroArray =>
@@ -68,13 +80,16 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
         case _ => ???
       }
 
+      val newElementOpt = node.parent.map(_.record.element match {
+        case e: Grid => e.applyConstraintsTo(constraints, e.flatIndexOf(node.record.element.name))
+        case e => e.applyConstraints(constraints)
+      })
       // Only modify parent
-      (Some(node.record.copy(element = applyConstraintsUp(node.record.element, constraints, idx))), None)
+      (newElementOpt.map(e => node.record.copy(element = e)), None)
     }
 
     // TODO propagate constraints to siblings
 
-    //tree.toState
-    state
+    tree.toState
   }
 }

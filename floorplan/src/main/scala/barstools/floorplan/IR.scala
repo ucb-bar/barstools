@@ -17,6 +17,8 @@ sealed abstract class Element {
 
   def flatIndexOf(s: String): Int
 
+  def applyConstraints(c: Constraints): Element
+
   def mapNames(m: (String) => String): Element
 }
 
@@ -31,7 +33,7 @@ sealed abstract class Primitive extends ElementWithParent {
 sealed abstract class Group extends ElementWithParent {
   def elements: Seq[Option[String]]
 
-  def flatIndexOf(s: String) = elements.indexOf(Some(s))
+  def flatIndexOf(s: String): Int = elements.indexOf(Some(s))
 }
 
 sealed abstract class Top extends Element {
@@ -47,6 +49,7 @@ private[floorplan] final case class HierarchicalBarrier(
 ) extends Primitive {
   final def level = 3
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this
 }
 
 ////////////////////////////////////////////// Rectangular things
@@ -99,6 +102,12 @@ private[floorplan] final case class ConstrainedSpacerRect(
   aspectRatio: Constraint = Unconstrained()
 ) extends ConstrainedRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this.copy(
+    width = width.and(c.width),
+    height = height.and(c.height),
+    area = area.and(c.area),
+    aspectRatio = aspectRatio.and(c.aspectRatio)
+  )
 }
 
 private[floorplan] final case class SizedSpacerRect(
@@ -110,6 +119,7 @@ private[floorplan] final case class SizedSpacerRect(
   height: BigDecimal
 ) extends SizedRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this
 }
 
 // No PlacedSpacerRect exists because they're only for spacing
@@ -132,6 +142,12 @@ private[floorplan] final case class ConstrainedLogicRect(
   hardBoundary: Boolean
 ) extends ConstrainedRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this.copy(
+    width = width.and(c.width),
+    height = height.and(c.height),
+    area = area.and(c.area),
+    aspectRatio = aspectRatio.and(c.aspectRatio)
+  )
 }
 
 private[floorplan] final case class SizedLogicRect(
@@ -142,6 +158,7 @@ private[floorplan] final case class SizedLogicRect(
   hardBoundary: Boolean
 ) extends SizedRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this
 }
 
 private[floorplan] final case class PlacedLogicRect(
@@ -154,6 +171,7 @@ private[floorplan] final case class PlacedLogicRect(
   hardBoundary: Boolean
 ) extends PlacedRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this
 }
 
 
@@ -169,6 +187,12 @@ private[floorplan] final case class ConstrainedHierarchicalTop(
 ) extends Top with ConstrainedRectLike {
   final def level = 3
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), topGroup = m(topGroup))
+  def applyConstraints(c: Constraints): Element = this.copy(
+    width = width.and(c.width),
+    height = height.and(c.height),
+    area = area.and(c.area),
+    aspectRatio = aspectRatio.and(c.aspectRatio)
+  )
 }
 
 private[floorplan] final case class PlacedHierarchicalTop(
@@ -183,6 +207,7 @@ private[floorplan] final case class PlacedHierarchicalTop(
   final def y = BigDecimal(0)
   final def level = 0
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), topGroup = m(topGroup))
+  def applyConstraints(c: Constraints): Element = this
 }
 
 ////////////////////////////////////////////// Aggregate (Group) things
@@ -195,14 +220,20 @@ sealed abstract class Grid extends Group {
   assert(xDim > 0, "X dimension of grid must be positive")
   assert(yDim > 0, "Y dimension of grid must be positive")
 
-  def get(x: Int, y: Int) = elements(xDim*y + x)
+  def toIdx(x: Int, y: Int): Int = xDim*y + x
+  def fromIdx(i: Int): (Int, Int) = (i % xDim, i / xDim)
+
+  def get(x: Int, y: Int) = elements(toIdx(x, y))
 
   def indexOf(s: String): Option[(Int, Int)] = {
     val idx = elements.indexOf(Some(s))
-    val x = idx % xDim
-    val y = idx / xDim
-    if (idx == -1) None else Some((x, y))
+    if (idx == -1) None else Some(fromIdx(idx))
   }
+
+  def applyConstraintsTo(c: Constraints, idx: Int): Element
+  def applyConstraintsTo(c: Constraints, xyo: Option[(Int, Int)]): Element = applyConstraintsTo(c, xyo.get)
+  def applyConstraintsTo(c: Constraints, xy: (Int, Int)): Element = applyConstraintsTo(c, xy._1, xy._2)
+  def applyConstraintsTo(c: Constraints, x: Int, y: Int): Element = applyConstraintsTo(c, toIdx(x, y))
 }
 
 // TODO eventually rename this to AbstractWeightedGrid
@@ -223,6 +254,20 @@ private[floorplan] final case class WeightedGrid(
       elements = elements.map(_.map(m))
     )
   }
+  def applyConstraints(c: Constraints): Element = this // TODO this is NOT correct
+  def applyConstraintsTo(c: Constraints, idx: Int): Element = ConstrainedWeightedGrid(
+    name = name,
+    parent = parent,
+    xDim = xDim,
+    yDim = yDim,
+    elements = elements,
+    weights = weights,
+    packed = packed,
+    width = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.width),
+    height = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.height),
+    area = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.area),
+    aspectRatio = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.aspectRatio)
+  )
 }
 
 private[floorplan] final case class ConstrainedWeightedGrid(
@@ -246,6 +291,13 @@ private[floorplan] final case class ConstrainedWeightedGrid(
       elements = elements.map(_.map(m))
     )
   }
+  def applyConstraints(c: Constraints): Element = this // TODO this is NOT correct
+  def applyConstraintsTo(c: Constraints, idx: Int): Element = this.copy(
+    width = width.updated(idx, width(idx).and(c.width)),
+    height = height.updated(idx, height(idx).and(c.height)),
+    area = area.updated(idx, area(idx).and(c.area)),
+    aspectRatio = aspectRatio.updated(idx, aspectRatio(idx).and(c.aspectRatio))
+  )
 }
 
 // TODO eventually rename this to AbstractElasticGrid
@@ -264,6 +316,18 @@ private[floorplan] final case class ElasticGrid(
       elements = elements.map(_.map(m))
     )
   }
+  def applyConstraints(c: Constraints): Element = this // TODO this is NOT correct
+  def applyConstraintsTo(c: Constraints, idx: Int): Element = ConstrainedElasticGrid(
+    name = name,
+    parent = parent,
+    xDim = xDim,
+    yDim = yDim,
+    elements = elements,
+    width = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.width),
+    height = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.height),
+    area = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.area),
+    aspectRatio = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.aspectRatio)
+  )
 }
 
 private[floorplan] final case class ConstrainedElasticGrid(
@@ -285,6 +349,13 @@ private[floorplan] final case class ConstrainedElasticGrid(
       elements = elements.map(_.map(m))
     )
   }
+  def applyConstraints(c: Constraints): Element = this // TODO this is NOT correct
+  def applyConstraintsTo(c: Constraints, idx: Int): Element = this.copy(
+    width = width.updated(idx, width(idx).and(c.width)),
+    height = height.updated(idx, height(idx).and(c.height)),
+    area = area.updated(idx, area(idx).and(c.area)),
+    aspectRatio = aspectRatio.updated(idx, aspectRatio(idx).and(c.aspectRatio))
+  )
 }
 
 private[floorplan] final case class SizedGrid(
@@ -304,6 +375,8 @@ private[floorplan] final case class SizedGrid(
       elements = elements.map(_.map(m))
     )
   }
+  def applyConstraints(c: Constraints): Element = this
+  def applyConstraintsTo(c: Constraints, idx: Int): Element = this
 }
 
 
@@ -315,6 +388,7 @@ private[floorplan] final case class MemElement(
   parent: String
 ) extends AbstractRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this
 }
 
 // Container for MemElements
@@ -335,6 +409,12 @@ private[floorplan] final case class MemElementArray(
       elements = elements.map(_.map(m))
     )
   }
+  def applyConstraints(c: Constraints): Element = this.copy(
+    width = width.and(c.width),
+    height = height.and(c.height),
+    area = area.and(c.area),
+    aspectRatio = aspectRatio.and(c.aspectRatio)
+  )
 }
 
 // Container for MemElements that have been converted to Macros
@@ -358,6 +438,12 @@ private[floorplan] final case class MemMacroArray(
       elements = elements.map(_.map(m))
     )
   }
+  def applyConstraints(c: Constraints): Element = this.copy(
+    width = width.and(c.width),
+    height = height.and(c.height),
+    area = area.and(c.area),
+    aspectRatio = aspectRatio.and(c.aspectRatio)
+  )
 }
 
 // Reference to a macro blackbox with unknown dimensions
@@ -367,6 +453,7 @@ private[floorplan] final case class AbstractMacro (
   parent: String
 ) extends AbstractRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this
 }
 
 // Reference to a macro blackbox that has known dimensions
@@ -377,6 +464,7 @@ private[floorplan] final case class SizedMacro (
   height: BigDecimal
 ) extends SizedRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this
 }
 
 // Reference to a macro blackbox that has known dimensions and has been placed
@@ -389,5 +477,6 @@ private[floorplan] final case class PlacedMacro (
   height: BigDecimal
 ) extends PlacedRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+  def applyConstraints(c: Constraints): Element = this
 }
 

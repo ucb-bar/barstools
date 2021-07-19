@@ -5,10 +5,12 @@ import scala.math.{BigInt, BigDecimal}
 
 sealed trait Constraint {
   def and(that: Constraint): Constraint
+  def +(that: Constraint): Constraint
 }
 
 final class Unconstrained extends Constraint {
   def and(that: Constraint) = that
+  def +(that: Constraint) = that
 }
 
 object Unconstrained {
@@ -19,6 +21,7 @@ object Unconstrained {
 // TODO add a reason?
 final class Impossible extends Constraint {
   def and(that: Constraint) = this
+  def +(that: Constraint) = this
 }
 
 object Impossible {
@@ -176,15 +179,6 @@ object Constraints {
       Unconstrained()
     )
   }
-
-  def applyConstraints[T <: Element](e: T, c: Constraints): T = {
-    ???
-  }
-
-  def applyConstraintsUp[T <: Element](e: T, c: Constraints, idx: Int): T = {
-    ???
-  }
-
 }
 
 sealed trait PlacementAnchor
