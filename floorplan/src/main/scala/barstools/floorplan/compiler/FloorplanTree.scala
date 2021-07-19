@@ -26,10 +26,12 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
     def replace(r: FloorplanElementRecord) { _record = r }
   }
 
-  val allRecords: Map[String, FloorplanElementRecord] = state.records.map({ x => (x.element.name -> x) }).toMap
-
-  def getRecord(s: String): FloorplanElementRecord = allRecords(s)
+  def getRecord(s: String): FloorplanElementRecord = getNode(s).record
   def getNode(s: String): Node = allNodes(s)
+
+  // These are only used by the constructor
+  private val allRecords: Map[String, FloorplanElementRecord] = state.records.map({ x => (x.element.name -> x) }).toMap
+  private def _getRecord(s: String): FloorplanElementRecord = allRecords(s)
 
   val topRecords = state.records.flatMap({ r => r.element match {
     case e: Top => Seq(r)
@@ -38,13 +40,12 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
   assert(topRecords.length == 1, "Must be exactly one Top record")
   val topRecord = topRecords(0)
 
-
   private def dfs(parent: Option[Node], r: FloorplanElementRecord): Node = {
     r.element match {
       case e: Top =>
         assert(!parent.isDefined, "Cannot have multiple tops")
         val n = new Node(None, r)
-        dfs(Some(n), getRecord(e.topGroup))
+        dfs(Some(n), _getRecord(e.topGroup))
         n
       case e: Primitive =>
         assert(parent.isDefined, "Must have parent")
@@ -52,7 +53,7 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
       case e: Group =>
         assert(parent.isDefined, "Must have parent")
         val n = parent.get.addChildRecord(r)
-        e.elements.foreach(_.foreach(x => dfs(Some(n), getRecord(x))))
+        e.elements.foreach(_.foreach(x => dfs(Some(n), _getRecord(x))))
         n
       case _ => ???
     }
@@ -84,7 +85,7 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
   }
 
   def toState: FloorplanState = {
-    val records = allRecords.values.toSeq
+    val records = allNodes.values.map(_.record).toSeq
     val level = records.map(_.element.level).max
     FloorplanState(records, level)
   }

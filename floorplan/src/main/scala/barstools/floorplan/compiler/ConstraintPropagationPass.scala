@@ -9,6 +9,31 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
 
     // TODO This probably should use a SAT solver or something fancier
 
+    // Propagate macro sizes to MemMacroArrays
+    val nodes = tree.allNodes.filter({ case (k,v) =>
+      v.record.element.isInstanceOf[MemMacroArray]
+    }).values
+    nodes.foreach { node =>
+      val element = node.record.element.asInstanceOf[MemMacroArray]
+      node.replace(node.record.copy(
+        element = element.applyConstraints(Constraints(
+          width = Unconstrained(),
+          height = Unconstrained(),
+          area = GreaterThanOrEqualTo(element.elements.map(e =>
+            tree.getRecord(e.get).element match {
+              case e2: AbstractMacro => throw new Exception("Macros need to be sized")
+              case e2: SizedMacro => e2.width*e2.height
+              case e2: PlacedMacro => e2.width*e2.height
+              case _ => ???
+            }
+          ).reduce(_+_)),
+          aspectRatio = Unconstrained()
+        ))
+      ))
+      println("Just replaced a node")
+    }
+
+
     // Top-down pass
     tree.traverseMapPre { node  =>
       val constraints: Constraints = node.parent.map(_.record.element match {
@@ -32,7 +57,7 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
           val (x, y) = e.indexOf(node.record.element.name).get
           Constraints.sized(e.widths(x), e.heights(y))
         case e: MemMacroArray =>
-          Constraints() // These *should* be hard macros at this point, so no need to constrain them
+          Constraints() // These *should* be hard macros at this point, so no need to constrain them. Maybe aspect ratio?
         case _ => ??? // Many types can never be parents and shouldn't get here
       }).getOrElse(Constraints())
       // Only modify child
@@ -82,7 +107,9 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
 
       val newElementOpt = node.parent.map(_.record.element match {
         case e: Grid => e.applyConstraintsTo(constraints, e.flatIndexOf(node.record.element.name))
-        case e => e.applyConstraints(constraints)
+        case e: ConstrainedHierarchicalTop => e.applyConstraints(constraints)
+        case e: PlacedHierarchicalTop => e.applyConstraints(constraints)
+        case e => e
       })
       // Only modify parent
       (newElementOpt.map(e => node.record.copy(element = e)), None)
