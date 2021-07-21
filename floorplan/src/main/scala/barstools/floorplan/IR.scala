@@ -243,7 +243,8 @@ private[floorplan] final case class WeightedGrid(
   xDim: Int,
   yDim: Int,
   elements: Seq[Option[String]],
-  weights: Seq[BigDecimal],
+  xWeights: Seq[BigDecimal],
+  yWeights: Seq[BigDecimal],
   packed: Boolean
 ) extends Grid {
   def level = 3
@@ -261,7 +262,8 @@ private[floorplan] final case class WeightedGrid(
     xDim = xDim,
     yDim = yDim,
     elements = elements,
-    weights = weights,
+    xWeights = xWeights,
+    yWeights = yWeights,
     packed = packed,
     width = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.width),
     height = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.height),
@@ -276,7 +278,8 @@ private[floorplan] final case class ConstrainedWeightedGrid(
   xDim: Int,
   yDim: Int,
   elements: Seq[Option[String]],
-  weights: Seq[BigDecimal],
+  xWeights: Seq[BigDecimal],
+  yWeights: Seq[BigDecimal],
   packed: Boolean,
   width: Seq[Constraint],
   height: Seq[Constraint],
