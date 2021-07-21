@@ -68,7 +68,7 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, val topEle
   def createElasticArray(dim: Int): ChiselElasticArray = createElasticArray(dim, Direction.Horizontal, None)
   def createElasticArray(elts: Seq[ChiselElement], dir: Direction = Direction.Horizontal, name: Option[String] = None): ChiselElasticArray = {
     val ary = createElasticArray(elts.length, dir, name)
-    elts.zipWithIndex.foreach { case (e, i) => ary.placeAt(e, i) }
+    elts.zipWithIndex.foreach { case (e, i) => ary.placeAt(i, e) }
     ary
   }
 
@@ -101,14 +101,25 @@ final class ChiselFloorplanContext private[chisel] (val root: Target, val topEle
 
 object Floorplan {
 
+
+  def apply[T <: RawModule](module: T): ChiselFloorplanContext = apply(
+    module = module,
+    width = Unconstrained(),
+    height = Unconstrained(),
+    area = Unconstrained(),
+    aspectRatio = Unconstrained(),
+    hardBoundary = true,
+    margins = Margins.empty
+  )
+
   def apply[T <: RawModule](module: T,
-    width: Constraint = Unconstrained(),
-    height: Constraint = Unconstrained(),
-    area: Constraint = Unconstrained(),
-    aspectRatio: Constraint = Unconstrained(),
-    hardBoundary: Boolean = true,
-    margins: Margins = Margins.empty
-  ) = {
+    width: Constraint,
+    height: Constraint,
+    area: Constraint,
+    aspectRatio: Constraint,
+    hardBoundary: Boolean,
+    margins: Margins
+  ): ChiselFloorplanContext = {
     val root: Target = module.toAbsoluteTarget
     val modName = root match {
       case r: InstanceTarget => r.ofModule
@@ -120,6 +131,32 @@ object Floorplan {
     FloorplanDatabase.register(root, elt)
     new ChiselFloorplanContext(root, elt)
   }
+
+  def apply[T <: RawModule](module: T,
+    width: Double,
+    height: Double
+  ): ChiselFloorplanContext = apply(
+    module = module,
+    width = EqualTo(BigDecimal(width)),
+    height = EqualTo(BigDecimal(height)),
+    area = Unconstrained(),
+    aspectRatio = Unconstrained(),
+    hardBoundary = true,
+    margins = Margins.empty
+  )
+
+  def apply[T <: RawModule](module: T,
+    width: String,
+    height: String
+  ): ChiselFloorplanContext = apply(
+    module = module,
+    width = EqualTo(BigDecimal(width)),
+    height = EqualTo(BigDecimal(height)),
+    area = Unconstrained(),
+    aspectRatio = Unconstrained(),
+    hardBoundary = true,
+    margins = Margins.empty
+  )
 
 }
 
@@ -270,7 +307,7 @@ sealed abstract class ChiselGroupElement(root: Target, name: String, val context
     generateGroupElement(elements.map(_.map(_.name)))
   }
 
-  private[chisel] def _placeAt[T <: ChiselElement](e: T, idx: Int): T = {
+  private[chisel] def _placeAt[T <: ChiselElement](idx: Int, e: T): T = {
     assert(!isCommitted, "Cannot add elements after committing")
     // This is only supported in scala 2.13
     //elements.padToInPlace(idx+1, None)
@@ -299,7 +336,7 @@ abstract class ChiselGridElement(root: Target, name: String, context: ChiselFloo
   protected def initialSize = xDim * yDim
   protected def toIdx(x: Int, y: Int): Int = xDim*y + x
 
-  def placeAt[T <: ChiselElement](e: T, x: Int, y: Int): T = _placeAt(e, toIdx(x, y))
+  def placeAt[T <: ChiselElement](x: Int, y: Int, e: T): T = _placeAt(toIdx(x, y), e)
 
 }
 
@@ -397,5 +434,5 @@ class ChiselElasticArray private[chisel] (
   dim: Int,
   val dir: Direction
 ) extends ChiselElasticGrid(root, name, context, dir.ifH(dim,1), dir.ifV(dim,1)) {
-  def placeAt[T <: ChiselElement](e: T, i: Int): T = placeAt(e, dir.ifH(i,0), dir.ifV(0,i))
+  def placeAt[T <: ChiselElement](i: Int, e: T): T = placeAt(dir.ifH(i,0), dir.ifV(0,i), e)
 }

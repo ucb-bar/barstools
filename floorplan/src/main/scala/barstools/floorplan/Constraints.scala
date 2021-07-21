@@ -10,7 +10,7 @@ sealed trait Constraint {
 
 final class Unconstrained extends Constraint {
   def and(that: Constraint) = that
-  def +(that: Constraint) = that
+  def +(that: Constraint) = that // ???
 }
 
 object Unconstrained {
