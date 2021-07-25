@@ -17,27 +17,27 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
       case _ => None
     })).toMap
 
-    val root = topMaps(topMod).root
-    val rootNameSet = HashSet(state.records.filter(_.root == root).map(_.element.name):_*)
+    val scope = topMaps(topMod).scope
+    val scopeNameSet = HashSet(state.records.filter(_.scope == scope).map(_.element.name):_*)
 
-    val nonRootPaths = topMaps.filterKeys(_ != topMod).values.map(_.root)
+    val nonScopePaths = topMaps.filterKeys(_ != topMod).values.map(_.scope)
 
     def getUniqueName(suggestion: String): String = {
       var i = 0
       var tmp = suggestion + s"_${i}"
-      while (rootNameSet.contains(tmp)) {
+      while (scopeNameSet.contains(tmp)) {
         i = i + 1
         tmp = suggestion + s"_${i}"
       }
-      rootNameSet += tmp
+      scopeNameSet += tmp
       tmp
     }
 
     val renameMap = new HashMap[(String, String), String]()
 
-    def rename(oldRoot: String, oldName: String): String = {
-      if (oldRoot == rootNameSet) { return oldName }
-      val tup = (oldRoot, oldName)
+    def rename(oldScope: String, oldName: String): String = {
+      if (oldScope == scopeNameSet) { return oldName }
+      val tup = (oldScope, oldName)
       if (renameMap.contains(tup)) { return renameMap(tup) }
       val newName = getUniqueName(oldName)
       renameMap += (tup -> newName)
@@ -45,8 +45,8 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
     }
 
     def getRelPath(fullPath: Option[String]): Option[String] = fullPath.map { p =>
-      assert(p.startsWith(root), "Full path must be in root scope")
-      p.substring(root.length)
+      assert(p.startsWith(scope), "Full path must be in scope scope")
+      p.substring(scope.length)
     }
 
     val newRecords = state.records.flatMap({r => r.element match {
@@ -58,21 +58,21 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
             // We replace with two elements (one to replace each name); they'll get optimized away later
             // Parent is first (replaces e), child is after (replaces t)
             Seq(ConstrainedElasticGrid(
-              name = rename(r.root, e.name),
-              parent = rename(r.root, e.parent),
+              name = rename(r.scope, e.name),
+              parent = rename(r.scope, e.parent),
               xDim = 1,
               yDim = 1,
-              elements = Seq(Some(rename(tr.root, t.name))),
+              elements = Seq(Some(rename(tr.scope, t.name))),
               width = Seq(t.width),
               height = Seq(t.height),
               area = Seq(t.area),
               aspectRatio = Seq(t.aspectRatio)
             ), ConstrainedElasticGrid(
-              name = rename(tr.root, t.name),
-              parent = rename(r.root, e.name),
+              name = rename(tr.scope, t.name),
+              parent = rename(r.scope, e.name),
               xDim = 1,
               yDim = 1,
-              elements = Seq(Some(rename(tr.root, t.topGroup))),
+              elements = Seq(Some(rename(tr.scope, t.topGroup))),
               width = Seq(t.width),
               height = Seq(t.height),
               area = Seq(t.area),
@@ -80,25 +80,25 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
             ))
           case t: PlacedHierarchicalTop =>
             Seq(SizedGrid(
-              name = rename(r.root, e.name),
-              parent = rename(r.root, e.parent),
+              name = rename(r.scope, e.name),
+              parent = rename(r.scope, e.parent),
               xDim = 1,
               yDim = 1,
-              elements = Seq(Some(rename(tr.root, t.name))),
+              elements = Seq(Some(rename(tr.scope, t.name))),
               widths = Seq(t.width),
               heights = Seq(t.height)
             ), SizedGrid(
-              name = rename(tr.root, t.name),
-              parent = rename(r.root, e.name),
+              name = rename(tr.scope, t.name),
+              parent = rename(r.scope, e.name),
               xDim = 1,
               yDim = 1,
-              elements = Seq(Some(rename(tr.root, t.topGroup))),
+              elements = Seq(Some(rename(tr.scope, t.topGroup))),
               widths = Seq(t.width),
               heights = Seq(t.height)
             ))
           case _ => ???
         }).map(newE => FloorplanElementRecord(
-            root = root,
+            scope = scope,
             inst = getRelPath(r.inst.map(_ => r.fullPath)),
             ofModule = r.ofModule,
             element = newE
@@ -106,10 +106,10 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
       case e: ConstrainedHierarchicalTop if r.ofModule != Some(topMod) => Seq()
       case e: PlacedHierarchicalTop if r.ofModule != Some(topMod) => Seq()
       case e => Seq(r.copy(
-        root = root,
+        scope = scope,
         inst = getRelPath(r.inst.map(_ => r.fullPath)),
         ofModule = r.ofModule,
-        element = r.element.mapNames(x => rename(r.root, x))
+        element = r.element.mapNames(x => rename(r.scope, x))
       ))
     }})
     state.copy(records = newRecords, level = 2) // TODO recalculate level
