@@ -97,7 +97,7 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
               heights = Seq(t.height)
             ))
           case _ => ???
-        }).map(newE => FloorplanElementRecord(
+        }).map(newE => FloorplanRecord(
             scope = scope,
             inst = getRelPath(r.inst.map(_ => r.fullPath)),
             ofModule = r.ofModule,

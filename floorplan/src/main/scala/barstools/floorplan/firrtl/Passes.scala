@@ -1,7 +1,7 @@
 // See LICENSE for license details
 package barstools.floorplan.firrtl
 
-import barstools.floorplan.{FloorplanSerialization, FloorplanElementRecord, FloorplanState}
+import barstools.floorplan.{FloorplanSerialization, FloorplanRecord, FloorplanState}
 import firrtl.{CircuitState, Transform, DependencyAPIMigration, VerilogEmitter, AnnotationSeq}
 import firrtl.options.{Dependency, RegisteredTransform, ShellOption}
 import firrtl.analyses.{IRLookup}
@@ -44,7 +44,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
     }
 
     def newRecord(path: String, ref: Option[String], ofModule: Option[String], anno: FloorplanAnnotation) =
-      FloorplanElementRecord(path, ref, ofModule, FloorplanSerialization.deserialize(anno.fpir))
+      FloorplanRecord(path, ref, ofModule, FloorplanSerialization.deserialize(anno.fpir))
 
     val list = state.annotations.collect({
       case x: NoReferenceFloorplanAnnotation =>

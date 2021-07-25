@@ -36,7 +36,7 @@ class TransformMemsPass(instMap: Map[OfModule, Seq[(Instance, OfModule)]]) exten
             nameSet.remove(e.name)
             val element = AbstractMacro(getUniqueName(e.name + "_" + ofMod.value), e.parent)
             renameMap.update(e.name, renameMap.getOrElse(e.name, Set()) ++ Set(element.name))
-            FloorplanElementRecord(
+            FloorplanRecord(
               scope = record.scope,
               inst = record.inst.map(_ + "/" + inst.value),
               ofModule = Some(ofMod.value),
@@ -57,7 +57,7 @@ class TransformMemsPass(instMap: Map[OfModule, Seq[(Instance, OfModule)]]) exten
             area = e.area,
             aspectRatio = e.aspectRatio
           )
-          FloorplanElementRecord(
+          FloorplanRecord(
             scope = record.scope,
             inst = record.inst, // should always be None
             ofModule = None,
