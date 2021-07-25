@@ -4,7 +4,7 @@ package barstools.floorplan.compiler
 import barstools.floorplan._
 import scala.collection.Map
 
-class SidebandAnnotationPass(val sbMap: Map[String, SidebandAnnotation]) extends Pass {
+class OutOfBandAnnotationPass(val sbMap: Map[String, OutOfBandAnnotation]) extends Pass {
   def execute(state: FloorplanState): FloorplanState = {
     val newRecords = state.records.map { record =>
       val ofModule = record.ofModule.getOrElse("")
@@ -48,7 +48,7 @@ class SidebandAnnotationPass(val sbMap: Map[String, SidebandAnnotation]) extends
           }).getOrElse(e)
         case e: AbstractMacro =>
           sbMap.get(ofModule).map({sb =>
-            assert(sb.width.isDefined && sb.height.isDefined, "Macro sideband annotations must include width and height")
+            assert(sb.width.isDefined && sb.height.isDefined, "Macro out-of-band annotations must include width and height")
             SizedMacro(
               name = e.name,
               parent = e.parent,
@@ -58,7 +58,7 @@ class SidebandAnnotationPass(val sbMap: Map[String, SidebandAnnotation]) extends
           }).getOrElse(e)
         case e: SizedMacro =>
           sbMap.get(ofModule).map({sb =>
-            assert(sb.width.isDefined && sb.height.isDefined, "Macro sideband annotations must include width and height")
+            assert(sb.width.isDefined && sb.height.isDefined, "Macro out-of-band annotations must include width and height")
             e.copy(
               width = sb.width.get,
               height = sb.height.get
@@ -66,7 +66,7 @@ class SidebandAnnotationPass(val sbMap: Map[String, SidebandAnnotation]) extends
           }).getOrElse(e)
         case e: PlacedMacro =>
           sbMap.get(ofModule).map({sb =>
-            assert(sb.width.isDefined && sb.height.isDefined, "Macro sideband annotations must include width and height")
+            assert(sb.width.isDefined && sb.height.isDefined, "Macro out-of-band annotations must include width and height")
             e.copy(
               width = sb.width.get,
               height = sb.height.get
@@ -78,7 +78,7 @@ class SidebandAnnotationPass(val sbMap: Map[String, SidebandAnnotation]) extends
     }
     newRecords.map(_.element).collectFirst {
       case e: AbstractMacro =>
-        throw new Exception("Unannoated macros still exist after SidebandAnnotationPass")
+        throw new Exception("Unannotated macros still exist after OutOfBandAnnotationPass")
     }
     state.copy(records = newRecords)
   }
