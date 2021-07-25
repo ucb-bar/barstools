@@ -31,11 +31,11 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
       (Seq(it.module) ++ it.asPath.toList.map(_._1.value)).mkString("/")
     } getOrElse state.circuit.main
 
-    def getRelativePath(root: Option[InstanceTarget], inst: Option[IsComponent]): String = {
-      val rootPath = root.map(_.asPath).getOrElse(Seq())
+    def getRelativePath(scope: Option[InstanceTarget], inst: Option[IsComponent]): String = {
+      val scopePath = scope.map(_.asPath).getOrElse(Seq())
       val instPath = inst.map(_.asPath).getOrElse(Seq())
-      assert(instPath.take(rootPath.length) == rootPath, s"InstanceTarget ${instPath} must be inside ${rootPath}")
-      val pathStr = instPath.drop(rootPath.length).toList.map(_._1.value).mkString("/")
+      assert(instPath.take(scopePath.length) == scopePath, s"InstanceTarget ${instPath} must be inside ${scopePath}")
+      val pathStr = instPath.drop(scopePath.length).toList.map(_._1.value).mkString("/")
       inst.map(_ match {
         case x: InstanceTarget => pathStr
         case x: ReferenceTarget => pathStr + "." + x.ref
@@ -48,16 +48,16 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
 
     val list = state.annotations.collect({
       case x: NoReferenceFloorplanAnnotation =>
-        val (rootTarget, ofModule) = x.target match {
+        val (scopeTarget, ofModule) = x.target match {
           case y: InstanceTarget => (Some(y), Some(y.ofModule))
           case y: ModuleTarget =>
             assert(y.module == state.circuit.main, "ModuleTarget is only supported for the top module")
             (Option.empty[InstanceTarget], Some(y.module))
           case _ => ???
         }
-        newRecord(getInstancePath(rootTarget), None, ofModule, x)
+        newRecord(getInstancePath(scopeTarget), None, ofModule, x)
       case x: InstanceFloorplanAnnotation if x.targets.flatten.length == 2 =>
-        val rootTarget = x.targets(0)(0) match {
+        val scopeTarget = x.targets(0)(0) match {
           case y: InstanceTarget => Some(y)
           case y: ModuleTarget =>
             assert(y.module == state.circuit.main, "ModuleTarget is only supported for the top module")
@@ -71,9 +71,9 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
             (Option.empty[InstanceTarget], Some(y.module))
           case _ => ???
         }
-        newRecord(getInstancePath(rootTarget), Some(getRelativePath(rootTarget, instTarget)), ofModule, x)
+        newRecord(getInstancePath(scopeTarget), Some(getRelativePath(scopeTarget, instTarget)), ofModule, x)
       case x: MemFloorplanAnnotation if x.targets.flatten.length == 2 =>
-        val rootTarget = x.targets(0)(0) match {
+        val scopeTarget = x.targets(0)(0) match {
           case y: InstanceTarget => Some(y)
           case y: ModuleTarget =>
             assert(y.module == state.circuit.main, "ModuleTarget is only supported for the top module")
@@ -95,7 +95,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
           instance=ext,
           ofModule=ext,
           path=refTarget.path :+ (Instance(refTarget.ref), OfModule(mem)))
-        newRecord(getInstancePath(rootTarget), Some(getRelativePath(rootTarget, Some(newTarget))), Some(ext), x)
+        newRecord(getInstancePath(scopeTarget), Some(getRelativePath(scopeTarget, Some(newTarget))), Some(ext), x)
     })
 
     val filename = state.annotations.collectFirst({
