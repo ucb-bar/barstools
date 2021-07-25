@@ -40,9 +40,9 @@ object FloorplanCompiler extends App {
       action((x, c) => c.copy(memInstMapFiles = c.memInstMapFiles :+ x)).
       text("file containing the memory instance map")
 
-    opt[String]('b', "sideband-anno-file").
+    opt[String]('b', "oob-anno-file").
       required().
-      valueName("<sideband anno file>").
+      valueName("<out-of-band anno file>").
       action((x, c) => c.copy(sbAnnoFiles = c.sbAnnoFiles :+ x)).
       text("output file name")
 

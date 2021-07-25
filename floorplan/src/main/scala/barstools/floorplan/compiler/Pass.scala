@@ -7,10 +7,10 @@ object Pass {
 
   def all(opts: FloorplanOptions): Seq[Pass] = {
     val instMap = MemInstMap.fromFiles(opts.memInstMapFiles)
-    val sbAnnos = SidebandAnnotationMap.fromFiles(opts.sbAnnoFiles)
+    val sbAnnos = OutOfBandAnnotationMap.fromFiles(opts.sbAnnoFiles)
     Seq(
       new TransformMemsPass(instMap),
-      new SidebandAnnotationPass(sbAnnos),
+      new OutOfBandAnnotationPass(sbAnnos),
       new ReplaceAbstractGroupsPass,
       new ReplaceHierarchicalPass(opts.topMod),
       new ConstraintPropagationPass(opts.topMod),
