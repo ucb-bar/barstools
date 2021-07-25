@@ -236,42 +236,6 @@ sealed abstract class Grid extends Group {
   def applyConstraintsTo(c: Constraints, x: Int, y: Int): Element = applyConstraintsTo(c, toIdx(x, y))
 }
 
-// TODO eventually rename this to AbstractWeightedGrid
-private[floorplan] final case class WeightedGrid(
-  name: String,
-  parent: String,
-  xDim: Int,
-  yDim: Int,
-  elements: Seq[Option[String]],
-  xWeights: Seq[BigDecimal],
-  yWeights: Seq[BigDecimal],
-  packed: Boolean
-) extends Grid {
-  def level = 3
-  def mapNames(m: (String) => String): Element = {
-    this.copy(
-      name = m(name),
-      parent = m(parent),
-      elements = elements.map(_.map(m))
-    )
-  }
-  def applyConstraints(c: Constraints): Element = this // TODO this is NOT correct
-  def applyConstraintsTo(c: Constraints, idx: Int): Element = ConstrainedWeightedGrid(
-    name = name,
-    parent = parent,
-    xDim = xDim,
-    yDim = yDim,
-    elements = elements,
-    xWeights = xWeights,
-    yWeights = yWeights,
-    packed = packed,
-    width = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.width),
-    height = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.height),
-    area = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.area),
-    aspectRatio = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.aspectRatio)
-  )
-}
-
 private[floorplan] final case class ConstrainedWeightedGrid(
   name: String,
   parent: String,
@@ -300,36 +264,6 @@ private[floorplan] final case class ConstrainedWeightedGrid(
     height = height.updated(idx, height(idx).and(c.height)),
     area = area.updated(idx, area(idx).and(c.area)),
     aspectRatio = aspectRatio.updated(idx, aspectRatio(idx).and(c.aspectRatio))
-  )
-}
-
-// TODO eventually rename this to AbstractElasticGrid
-private[floorplan] final case class ElasticGrid(
-  name: String,
-  parent: String,
-  xDim: Int,
-  yDim: Int,
-  elements: Seq[Option[String]]
-) extends Grid {
-  def level = 3
-  def mapNames(m: (String) => String): Element = {
-    this.copy(
-      name = m(name),
-      parent = m(parent),
-      elements = elements.map(_.map(m))
-    )
-  }
-  def applyConstraints(c: Constraints): Element = this // TODO this is NOT correct
-  def applyConstraintsTo(c: Constraints, idx: Int): Element = ConstrainedElasticGrid(
-    name = name,
-    parent = parent,
-    xDim = xDim,
-    yDim = yDim,
-    elements = elements,
-    width = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.width),
-    height = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.height),
-    area = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.area),
-    aspectRatio = (Seq.fill(xDim*yDim) { Unconstrained() }).updated(idx, c.aspectRatio)
   )
 }
 
