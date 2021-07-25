@@ -8,7 +8,7 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
 
   val allNodes = new HashMap[String, Node]()
 
-  class Node(val parent: Option[Node], initialRecord: FloorplanElementRecord) {
+  class Node(val parent: Option[Node], initialRecord: FloorplanRecord) {
     val children = new ArrayBuffer[Node]()
 
     // TODO this might be dangerous
@@ -16,22 +16,22 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
 
     def record = _record
 
-    def addChildRecord(cRecord: FloorplanElementRecord): Node = {
+    def addChildRecord(cRecord: FloorplanRecord): Node = {
       val n = new Node(Some(this), cRecord)
       children += n
       allNodes += (cRecord.element.name -> n)
       n
     }
 
-    def replace(r: FloorplanElementRecord) { _record = r }
+    def replace(r: FloorplanRecord) { _record = r }
   }
 
-  def getRecord(s: String): FloorplanElementRecord = getNode(s).record
+  def getRecord(s: String): FloorplanRecord = getNode(s).record
   def getNode(s: String): Node = allNodes(s)
 
   // These are only used by the constructor
-  private val allRecords: Map[String, FloorplanElementRecord] = state.records.map({ x => (x.element.name -> x) }).toMap
-  private def _getRecord(s: String): FloorplanElementRecord = allRecords(s)
+  private val allRecords: Map[String, FloorplanRecord] = state.records.map({ x => (x.element.name -> x) }).toMap
+  private def _getRecord(s: String): FloorplanRecord = allRecords(s)
 
   val topRecords = state.records.flatMap({ r => r.element match {
     case e: Top => Seq(r)
@@ -40,7 +40,7 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
   assert(topRecords.length == 1, "Must be exactly one Top record")
   val topRecord = topRecords(0)
 
-  private def dfs(parent: Option[Node], r: FloorplanElementRecord): Node = {
+  private def dfs(parent: Option[Node], r: FloorplanRecord): Node = {
     r.element match {
       case e: Top =>
         assert(!parent.isDefined, "Cannot have multiple tops")
@@ -62,22 +62,22 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
   val topNode = dfs(None, topRecord)
 
   // Traverse using DFS, passing the node to a function which expects an
-  //    (Option[FloorplanElementRecord], Option[FloorplanElementRecord]) return
+  //    (Option[FloorplanRecord], Option[FloorplanRecord]) return
   // (None, None) = do no modify
   // (None, Some(record)) = modify node
   // (Some(record), None) = modify parent
   // (Some(r1), Some(r2)) = modify both
-  def traverseMapPre(f: (Node => (Option[FloorplanElementRecord], Option[FloorplanElementRecord]))) { traverseMapPreHelper(topNode, f) }
-  def traverseMapPost(f: (Node => (Option[FloorplanElementRecord], Option[FloorplanElementRecord]))) { traverseMapPostHelper(topNode, f) }
+  def traverseMapPre(f: (Node => (Option[FloorplanRecord], Option[FloorplanRecord]))) { traverseMapPreHelper(topNode, f) }
+  def traverseMapPost(f: (Node => (Option[FloorplanRecord], Option[FloorplanRecord]))) { traverseMapPostHelper(topNode, f) }
 
-  private def traverseMapPreHelper(n: Node, f: (Node => (Option[FloorplanElementRecord], Option[FloorplanElementRecord]))) {
+  private def traverseMapPreHelper(n: Node, f: (Node => (Option[FloorplanRecord], Option[FloorplanRecord]))) {
     val (parent, child) = f(n)
     parent.foreach { r => n.parent.foreach(_.replace(r)) }
     child.foreach { r => n.replace(r) }
     n.children.foreach { c => traverseMapPreHelper(c, f) }
   }
 
-  private def traverseMapPostHelper(n: Node, f: (Node => (Option[FloorplanElementRecord], Option[FloorplanElementRecord]))) {
+  private def traverseMapPostHelper(n: Node, f: (Node => (Option[FloorplanRecord], Option[FloorplanRecord]))) {
     n.children.foreach { c => traverseMapPostHelper(c, f) }
     val (parent, child) = f(n)
     parent.foreach { r => n.parent.foreach(_.replace(r)) }

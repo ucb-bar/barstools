@@ -4,18 +4,18 @@ package barstools.floorplan
 import barstools.floorplan.hammer.HammerIR
 import java.io.{File, FileWriter}
 
-final case class FloorplanElementRecord(scope: String, inst: Option[String], ofModule: Option[String], element: Element) {
+final case class FloorplanRecord(scope: String, inst: Option[String], ofModule: Option[String], element: Element) {
   def fullPath = scope + inst.map(x => "/" + x).getOrElse("")
 }
 
-final case class FloorplanState(records: Seq[FloorplanElementRecord], level: Int)
+final case class FloorplanState(records: Seq[FloorplanRecord], level: Int)
 
 object FloorplanState {
 
-  def fromSeq(seq: Seq[FloorplanElementRecord]): FloorplanState = FloorplanState(seq, (Seq(IRLevel.max) ++ seq.map(_.element.level)).max)
+  def fromSeq(seq: Seq[FloorplanRecord]): FloorplanState = FloorplanState(seq, (Seq(IRLevel.max) ++ seq.map(_.element.level)).max)
 
   def serialize(state: FloorplanState): String = FloorplanSerialization.serializeState(state)
-  def serialize(seq: Seq[FloorplanElementRecord]): String = serialize(fromSeq(seq))
+  def serialize(seq: Seq[FloorplanRecord]): String = serialize(fromSeq(seq))
 
   def deserialize(str: String): FloorplanState = FloorplanSerialization.deserializeState(str)
 
