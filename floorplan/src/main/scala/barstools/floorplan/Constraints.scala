@@ -18,6 +18,10 @@ object Unconstrained {
   def apply() = u
 }
 
+object UnconstrainedSeq {
+  def apply(x: Int) = Seq.fill(x) { Unconstrained() }
+}
+
 // TODO add a reason?
 final class Impossible extends Constraint {
   def and(that: Constraint) = this

@@ -424,7 +424,16 @@ class ChiselElasticGrid private[chisel] (
   xDim: Int,
   yDim: Int
 ) extends ChiselGridElement(scope, name, context, xDim, yDim) {
-  final protected def generateGroupElement(names: Seq[Option[String]]): Group = ElasticGrid(name, parentName, xDim, yDim, names)
+  final protected def generateGroupElement(names: Seq[Option[String]]): Group = ConstrainedElasticGrid(
+    name,
+    parentName,
+    xDim,
+    yDim,
+    names,
+    UnconstrainedSeq(xDim*yDim),
+    UnconstrainedSeq(xDim*yDim),
+    UnconstrainedSeq(xDim*yDim),
+    UnconstrainedSeq(xDim*yDim))
 }
 
 class ChiselElasticArray private[chisel] (

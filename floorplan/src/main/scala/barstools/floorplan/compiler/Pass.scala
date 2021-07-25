@@ -11,7 +11,6 @@ object Pass {
     Seq(
       new TransformMemsPass(instMap),
       new OutOfBandAnnotationPass(sbAnnos),
-      new ReplaceAbstractGroupsPass,
       new ReplaceHierarchicalPass(opts.topMod),
       new ConstraintPropagationPass(opts.topMod),
       new ReplaceMemMacroArrayPass,
