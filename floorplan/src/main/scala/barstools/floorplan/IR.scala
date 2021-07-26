@@ -185,7 +185,7 @@ private[floorplan] final case class ConstrainedHierarchicalTop(
   margins: Margins,
   hardBoundary: Boolean
 ) extends Top with ConstrainedRectLike {
-  final def level = 3
+  final def level = 2
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), topGroup = m(topGroup))
   def applyConstraints(c: Constraints): Element = this.copy(
     width = width.and(c.width),
