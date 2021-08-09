@@ -78,24 +78,7 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
               area = Seq(t.area),
               aspectRatio = Seq(t.aspectRatio)
             ))
-          case t: PlacedHierarchicalTop =>
-            Seq(SizedGrid(
-              name = rename(r.scope, e.name),
-              parent = rename(r.scope, e.parent),
-              xDim = 1,
-              yDim = 1,
-              elements = Seq(Some(rename(tr.scope, t.name))),
-              widths = Seq(t.width),
-              heights = Seq(t.height)
-            ), SizedGrid(
-              name = rename(tr.scope, t.name),
-              parent = rename(r.scope, e.name),
-              xDim = 1,
-              yDim = 1,
-              elements = Seq(Some(rename(tr.scope, t.topGroup))),
-              widths = Seq(t.width),
-              heights = Seq(t.height)
-            ))
+          case t: PlacedHierarchicalTop => ??? // TODO not supported yet
           case _ => ???
         }).map(newE => FloorplanRecord(
             scope = scope,

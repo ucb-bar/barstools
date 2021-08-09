@@ -36,10 +36,7 @@ sealed abstract class Group extends ElementWithParent {
   def flatIndexOf(s: String): Int = elements.indexOf(Some(s))
 }
 
-sealed abstract class Top extends Element {
-  def topGroup: String
-  def flatIndexOf(s: String): Int = if (topGroup == s) 0 else -1
-}
+sealed abstract class Top extends Element
 
 ////////////////////////////////////////////// Hierarchical barrier
 
@@ -187,6 +184,7 @@ private[floorplan] final case class ConstrainedHierarchicalTop(
 ) extends Top with ConstrainedRectLike {
   final def level = 2
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), topGroup = m(topGroup))
+  def flatIndexOf(s: String): Int = if (topGroup == s) 0 else -1
   def applyConstraints(c: Constraints): Element = this.copy(
     width = width.and(c.width),
     height = height.and(c.height),
@@ -197,7 +195,7 @@ private[floorplan] final case class ConstrainedHierarchicalTop(
 
 private[floorplan] final case class PlacedHierarchicalTop(
   name: String,
-  topGroup: String,
+  elements: Seq[String],
   width: BigDecimal,
   height: BigDecimal,
   margins: Margins,
@@ -206,7 +204,8 @@ private[floorplan] final case class PlacedHierarchicalTop(
   final def x = BigDecimal(0)
   final def y = BigDecimal(0)
   final def level = 0
-  def mapNames(m: (String) => String): Element = this.copy(name = m(name), topGroup = m(topGroup))
+  def mapNames(m: (String) => String): Element = this.copy(name = m(name), elements.map(m))
+  def flatIndexOf(s: String): Int = elements.indexOf(s)
   def applyConstraints(c: Constraints): Element = this
 }
 
