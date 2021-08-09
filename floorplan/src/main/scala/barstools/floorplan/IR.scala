@@ -243,7 +243,6 @@ private[floorplan] final case class ConstrainedWeightedGrid(
   elements: Seq[Option[String]],
   xWeights: Seq[BigDecimal],
   yWeights: Seq[BigDecimal],
-  packed: Boolean,
   width: Seq[Constraint],
   height: Seq[Constraint],
   area: Seq[Constraint],

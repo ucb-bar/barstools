@@ -445,3 +445,26 @@ class ChiselElasticArray private[chisel] (
 ) extends ChiselElasticGrid(scope, name, context, dir.ifH(dim,1), dir.ifV(dim,1)) {
   def placeAt[T <: ChiselElement](i: Int, e: T): T = placeAt(dir.ifH(i,0), dir.ifV(0,i), e)
 }
+
+class ChiselWeightedGrid private[chisel] (
+  scope: Target,
+  name: String,
+  context: ChiselFloorplanContext,
+  xDim: Int,
+  yDim: Int,
+  xWeights: Seq[BigDecimal],
+  yWeights: Seq[BigDecimal]
+) extends ChiselGridElement(scope, name, context, xDim, yDim) {
+  final protected def generateGroupElement(names: Seq[Option[String]]): Group = ConstrainedWeightedGrid(
+    name,
+    parentName,
+    xDim,
+    yDim,
+    names,
+    xWeights,
+    yWeights,
+    UnconstrainedSeq(xDim*yDim),
+    UnconstrainedSeq(xDim*yDim),
+    UnconstrainedSeq(xDim*yDim),
+    UnconstrainedSeq(xDim*yDim))
+}
