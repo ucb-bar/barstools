@@ -45,7 +45,13 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
       case e: Top =>
         assert(!parent.isDefined, "Cannot have multiple tops")
         val n = new Node(None, r)
-        dfs(Some(n), _getRecord(e.topGroup))
+        // There's probably a better way to handle these
+        e match {
+          case e: ConstrainedHierarchicalTop =>
+            dfs(Some(n), _getRecord(e.topGroup))
+          case e: PlacedHierarchicalTop =>
+            e.elements.foreach(x => dfs(Some(n), _getRecord(x)))
+        }
         n
       case e: Primitive =>
         assert(parent.isDefined, "Must have parent")

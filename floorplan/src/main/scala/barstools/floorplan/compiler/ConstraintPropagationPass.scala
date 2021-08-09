@@ -7,8 +7,6 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
   def execute(state: FloorplanState): FloorplanState = {
     val tree = new FloorplanTree(state, topMod)
 
-    // TODO This probably should use a SAT solver or something fancier
-
     // Propagate macro sizes to MemMacroArrays
     val nodes = tree.allNodes.filter({ case (k,v) =>
       v.record.element.isInstanceOf[MemMacroArray]
