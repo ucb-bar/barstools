@@ -772,23 +772,6 @@ class MacroCompilerTransform extends Transform with DependencyAPIMigration {
   }
 }
 
-class MacroCompilerOptimizations extends SeqTransform with DependencyAPIMigration {
-  override def prerequisites = Forms.LowForm
-  override def optionalPrerequisites = Forms.LowFormOptimized
-  override def optionalPrerequisiteOf = Forms.LowEmitters
-  override def invalidates(a: Transform) = false
-
-  def transforms: Seq[Transform] = Seq(
-    passes.RemoveValidIf,
-    new firrtl.transforms.ConstantPropagation,
-    passes.memlib.VerilogMemDelays,
-    new firrtl.transforms.ConstantPropagation,
-    passes.Legalize,
-    passes.SplitExpressions,
-    passes.CommonSubexpressionElimination
-  )
-}
-
 object MacroCompiler extends App {
   sealed trait MacroParam
   case object Macros extends MacroParam
