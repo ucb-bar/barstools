@@ -51,7 +51,7 @@ class TransformMemsPass(instMap: Map[OfModule, Seq[(Instance, OfModule)]]) exten
           val element = MemMacroArray(
             name = e.name,
             parent = e.parent,
-            elements = e.elements.filter(_.isDefined).flatMap(x => renameMap(x.get)).map(x => Some(x)),
+            elements = e.elements.flatMap(x => renameMap(x)),
             width = e.width,
             height = e.height,
             area = e.area,

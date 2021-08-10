@@ -76,7 +76,7 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
         case e: ConstrainedWeightedGrid =>
           // TODO make this less repetitive with the below
           // Preserve ordering of children and convert to 2d Seq
-          val children: Seq[Seq[Constraints]] = e.elements.map(_.map(x => tree.getRecord(x).element.toConstraints).getOrElse(Constraints())).grouped(e.xDim).toSeq
+          val children: Seq[Seq[Constraints]] = e.elements.map(x => tree.getRecord(x).element.toConstraints).grouped(e.xDim).toSeq
           val widthConstraint = children.map(_.map(_.width).reduce(_ + _)).reduce(_ and _)
           val heightConstraint = children.transpose.map(_.map(_.height).reduce(_ + _)).reduce(_ and _)
           val areaConstraint = children.flatten.map(_.area).reduce(_ + _)
@@ -90,7 +90,7 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
           Some(node.record.copy(element = newElement))
         case e: ConstrainedElasticGrid =>
           // Preserve ordering of children and convert to 2d Seq
-          val children: Seq[Seq[Constraints]] = e.elements.map(_.map(x => tree.getRecord(x).element.toConstraints).getOrElse(Constraints())).grouped(e.xDim).toSeq
+          val children: Seq[Seq[Constraints]] = e.elements.map(x => tree.getRecord(x).element.toConstraints).grouped(e.xDim).toSeq
           val widthConstraint = children.map(_.map(_.width).reduce(_ + _)).reduce(_ and _)
           val heightConstraint = children.transpose.map(_.map(_.height).reduce(_ + _)).reduce(_ and _)
           val areaConstraint = children.flatten.map(_.area).reduce(_ + _)
@@ -130,28 +130,21 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
           // Do nothing
         case e: Grid =>
           // This look-up preserves ordering of children
-          val children = e.elements.map(_.map(x => tree.getNode(tree.getRecord(x).element.name)))
+          val children = e.elements.map(x => tree.getNode(tree.getRecord(x).element.name))
           val wConstraints = Seq.tabulate(e.xDim)(iX => Seq.tabulate(e.yDim) { iY =>
-            children(e.toIdx(iX, iY)).map(_.record.element.toConstraints.width).getOrElse(Unconstrained())
+            children(e.toIdx(iX, iY)).record.element.toConstraints.width
           } reduce (_ and _))
           val hConstraints = Seq.tabulate(e.yDim)(iY => Seq.tabulate(e.xDim) { iX =>
-            children(e.toIdx(iX, iY)).map(_.record.element.toConstraints.height).getOrElse(Unconstrained())
+            children(e.toIdx(iX, iY)).record.element.toConstraints.height
           } reduce (_ and _))
           val newElements = children.zipWithIndex.map { case (child, idx) =>
             val (iX, iY) = e.fromIdx(idx)
-            if (child.isDefined) {
-              // We can always assume this is Constrainable- but really we should fix this in the type system
-              child.get.replace(child.get.record.copy(
-                element = child.get.record.element.asInstanceOf[Constrainable].
-                  applyConstraints(Constraints(width = wConstraints(iX), height = hConstraints(iY), Unconstrained(), Unconstrained()))
-              ))
-              Some(child.get.record.element.name)
-            } else {
-              val newElement = ConstrainedSpacerRect(tree.getUniqueName("spacer"), e.name).
+            // We can always assume this is Constrainable- but really we should fix this in the type system
+            child.replace(child.record.copy(
+              element = child.record.element.asInstanceOf[Constrainable].
                 applyConstraints(Constraints(width = wConstraints(iX), height = hConstraints(iY), Unconstrained(), Unconstrained()))
-              node.addChildRecord(FloorplanRecord(node.record.scope, None, None, newElement))
-              Some(newElement.name)
-            }
+            ))
+            child.record.element.name
           }
           // Needed to be able to use copy
           e match {
