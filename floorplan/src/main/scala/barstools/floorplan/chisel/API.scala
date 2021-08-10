@@ -430,10 +430,10 @@ class ChiselElasticGrid private[chisel] (
     xDim,
     yDim,
     names,
-    UnconstrainedSeq(xDim*yDim),
-    UnconstrainedSeq(xDim*yDim),
-    UnconstrainedSeq(xDim*yDim),
-    UnconstrainedSeq(xDim*yDim))
+    Unconstrained(),
+    Unconstrained(),
+    Unconstrained(),
+    Unconstrained())
 }
 
 class ChiselElasticArray private[chisel] (
@@ -463,8 +463,8 @@ class ChiselWeightedGrid private[chisel] (
     names,
     xWeights,
     yWeights,
-    UnconstrainedSeq(xDim*yDim),
-    UnconstrainedSeq(xDim*yDim),
-    UnconstrainedSeq(xDim*yDim),
-    UnconstrainedSeq(xDim*yDim))
+    Unconstrained(),
+    Unconstrained(),
+    Unconstrained(),
+    Unconstrained())
 }

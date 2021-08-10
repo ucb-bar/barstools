@@ -73,21 +73,17 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
   // (None, Some(record)) = modify node
   // (Some(record), None) = modify parent
   // (Some(r1), Some(r2)) = modify both
-  def traverseMapPre(f: (Node => (Option[FloorplanRecord], Option[FloorplanRecord]))) { traverseMapPreHelper(topNode, f) }
-  def traverseMapPost(f: (Node => (Option[FloorplanRecord], Option[FloorplanRecord]))) { traverseMapPostHelper(topNode, f) }
+  def traverseMapPre(f: (Node => Option[FloorplanRecord])) { traverseMapPreHelper(topNode, f) }
+  def traverseMapPost(f: (Node => Option[FloorplanRecord])) { traverseMapPostHelper(topNode, f) }
 
-  private def traverseMapPreHelper(n: Node, f: (Node => (Option[FloorplanRecord], Option[FloorplanRecord]))) {
-    val (parent, child) = f(n)
-    parent.foreach { r => n.parent.foreach(_.replace(r)) }
-    child.foreach { r => n.replace(r) }
+  private def traverseMapPreHelper(n: Node, f: (Node => Option[FloorplanRecord])) {
+    f(n).foreach { r => n.replace(r) }
     n.children.foreach { c => traverseMapPreHelper(c, f) }
   }
 
-  private def traverseMapPostHelper(n: Node, f: (Node => (Option[FloorplanRecord], Option[FloorplanRecord]))) {
+  private def traverseMapPostHelper(n: Node, f: (Node => Option[FloorplanRecord])) {
     n.children.foreach { c => traverseMapPostHelper(c, f) }
-    val (parent, child) = f(n)
-    parent.foreach { r => n.parent.foreach(_.replace(r)) }
-    child.foreach { r => n.replace(r) }
+    f(n).foreach { r => n.replace(r) }
   }
 
   def toState: FloorplanState = {

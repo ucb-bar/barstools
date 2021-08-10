@@ -6,11 +6,15 @@ import scala.math.{BigInt, BigDecimal}
 sealed trait Constraint {
   def and(that: Constraint): Constraint
   def +(that: Constraint): Constraint
+  def *(that: BigDecimal): Constraint
+  def test(value: BigDecimal): Boolean
 }
 
 final class Unconstrained extends Constraint {
   def and(that: Constraint) = that
   def +(that: Constraint) = that // ???
+  def *(that: BigDecimal) = this
+  def test(value: BigDecimal) = true
 }
 
 object Unconstrained {
@@ -26,6 +30,8 @@ object UnconstrainedSeq {
 final class Impossible extends Constraint {
   def and(that: Constraint) = this
   def +(that: Constraint) = this
+  def *(that: BigDecimal) = this
+  def test(value: BigDecimal) = false
 }
 
 object Impossible {
@@ -126,13 +132,21 @@ final case class Constrained(
           None
         }
 
-        val newLeq = if (this.leq.isDefined && that.leq.isDefined) {
+        val newLeq = if (this.leq.isDefined && that.eq.isDefined) {
+          Some(this.leq.get + that.eq.get)
+        } else if (this.eq.isDefined && that.leq.isDefined) {
+          Some(this.eq.get + that.leq.get)
+        } else if (this.leq.isDefined && that.leq.isDefined) {
           Some(this.leq.get + that.leq.get)
         } else {
           None
         }
 
-        val newGeq = if (this.geq.isDefined && that.geq.isDefined) {
+        val newGeq = if (this.geq.isDefined && that.eq.isDefined) {
+          Some(this.geq.get + that.eq.get)
+        } else if (this.eq.isDefined && that.geq.isDefined) {
+          Some(this.eq.get + that.geq.get)
+        } else if (this.geq.isDefined && that.geq.isDefined) {
           Some(this.geq.get + that.geq.get)
         } else {
           None
@@ -147,6 +161,21 @@ final case class Constrained(
         Constrained(eq=newEq, geq=newGeq, leq=newLeq, mof=newMof).minimize
       case _ => ???
     }
+  }
+
+  def *(that: BigDecimal): Constraint = Constrained(
+    eq = this.eq.map(_ * that),
+    geq = this.geq.map(_ * that),
+    leq = this.leq.map(_ * that),
+    mof = this.mof.map(_ * that)
+  )
+
+  def test(value: BigDecimal): Boolean = {
+    val eqTest = this.eq.map(_ == value).getOrElse(true)
+    val geqTest = this.geq.map(_ <= value).getOrElse(true)
+    val leqTest = this.leq.map(_ >= value).getOrElse(true)
+    val mofTest = this.mof.map(x => (value % x) == 0).getOrElse(true)
+    return eqTest && geqTest && leqTest && mofTest
   }
 }
 
@@ -171,7 +200,22 @@ case class Constraints(
   height: Constraint = Unconstrained(),
   area: Constraint = Unconstrained(),
   aspectRatio: Constraint = Unconstrained()
-)
+) {
+  def test(widthValue: BigDecimal, heightValue: BigDecimal): Boolean = {
+    val widthTest = width.test(widthValue)
+    val heightTest = height.test(heightValue)
+    val areaTest = area.test(widthValue*heightValue)
+    val arTest = aspectRatio.test(heightValue/widthValue)
+    widthTest && heightTest && areaTest && arTest
+  }
+
+  def weightXY(xWeight: BigDecimal, yWeight: BigDecimal): Constraints = Constraints(
+    width = this.width * xWeight,
+    height = this.height * yWeight,
+    area = this.area * (xWeight * yWeight),
+    aspectRatio = this.aspectRatio * (yWeight / xWeight)
+  )
+}
 
 object Constraints {
 
@@ -183,6 +227,7 @@ object Constraints {
       Unconstrained()
     )
   }
+
 }
 
 sealed trait PlacementAnchor
