@@ -18,7 +18,7 @@ object HammerIR {
           Some(PlacementConstraint(
             path = record.fullPath,
             typ = PlacementType.hardmacro,
-            orientation = Orientation.r0, // TODO represent this in FPIR
+            orientation = Some(Orientation.r0), // TODO represent this in FPIR
             x = toMicrons(c.x),
             y = toMicrons(c.y),
             create_physical = Some(false),
@@ -34,10 +34,10 @@ object HammerIR {
           Some(PlacementConstraint(
             path = record.fullPath,
             typ = PlacementType.placement,
-            orientation = Orientation.r0, // TODO represent this in FPIR
+            orientation = Some(Orientation.r0), // TODO represent this in FPIR
             x = toMicrons(c.x),
             y = toMicrons(c.y),
-            create_physical = Some(false),
+            create_physical = None,
             width = toMicrons(c.width),
             height = toMicrons(c.height),
             master = None,
@@ -49,11 +49,11 @@ object HammerIR {
         case c: PlacedHierarchicalTop =>
           Some(PlacementConstraint(
             path = record.fullPath,
-            typ = PlacementType.placement,
-            orientation = Orientation.r0,
+            typ = PlacementType.toplevel,
+            orientation = None,
             x = toMicrons(c.x),
             y = toMicrons(c.y),
-            create_physical = Some(false),
+            create_physical = None,
             width = toMicrons(c.width),
             height = toMicrons(c.height),
             master = None,
@@ -80,7 +80,7 @@ final case class HammerIR private[hammer] (
 final case class PlacementConstraint private[hammer] (
   path: String,
   typ: PlacementType.Value, // type is a keyword, so we use typ and rename it in the serializer
-  orientation: Orientation.Value,
+  orientation: Option[Orientation.Value],
   // TODO these should ideally all be decimal types, not doubles
   x: Double,
   y: Double,
