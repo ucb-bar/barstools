@@ -5,7 +5,7 @@ import barstools.floorplan.hammer.HammerIR
 import java.io.{File, FileWriter}
 
 final case class FloorplanRecord(scope: String, inst: Option[String], ofModule: Option[String], element: Element) {
-  def fullPath = scope + inst.map(x => "/" + x).getOrElse("")
+  def fullPath = scope + inst.map(x => if (x.startsWith("/")) x else "/" + x).getOrElse("")
 }
 
 final case class FloorplanState(records: Seq[FloorplanRecord], level: Int)
