@@ -2,6 +2,7 @@
 package barstools.floorplan.compiler
 
 import barstools.floorplan._
+import java.io.{File, FileWriter}
 
 case class FloorplanOptions(
   outFile: String = "",
@@ -9,7 +10,8 @@ case class FloorplanOptions(
   outFmt: OutputFormat = OutputFormat.HammerIR,
   inFiles: Seq[String] = Seq(),
   sbAnnoFiles: Seq[String] = Seq(),
-  memInstMapFiles: Seq[String] = Seq()
+  memInstMapFiles: Seq[String] = Seq(),
+  debugFile: Option[String] = None
 )
 
 object FloorplanCompiler extends App {
@@ -50,13 +52,25 @@ object FloorplanCompiler extends App {
       action((x, c) => c.copy(outFmt = OutputFormat.FloorplanIR)).
       text("emit floorplanIR")
 
+    opt[String]('d', "debug-file").
+      action((x, c) => c.copy(debugFile = Some(x))).
+      text("debug file path")
+
   }).parse(args, FloorplanOptions()).getOrElse {
     throw new Exception("Error parsing options!")
   }
 
   // TODO make Passes customizable
   val fpStateIn = FloorplanState.fromFiles(opts.inFiles)
-  val fpStateOut = Pass.all(opts).foldLeft(fpStateIn) { (state, pass) => pass.execute(state) }
+  val debugWriter = opts.debugFile.map(x => new FileWriter(new File(x)))
+  debugWriter.foreach(_.write("Input state:\n\n"))
+  val fpStateOut = Pass.all(opts).foldLeft(fpStateIn) { (state, pass) =>
+    debugWriter.foreach(_.write(FloorplanState.serialize(state)))
+    debugWriter.foreach(_.write("\n\nNext state:\n\n"))
+    pass.execute(state)
+  }
+  debugWriter.foreach(_.write(FloorplanState.serialize(fpStateOut)))
+  debugWriter.foreach(_.close())
   FloorplanState.toFile(opts.outFile, opts.outFmt, fpStateOut)
 
 }
