@@ -24,7 +24,13 @@ final class ChiselFloorplanContext private[chisel] (val scope: Target, val topEl
     e
   }
 
-  def elements: Seq[ChiselElement] = elementBuf.toSeq
+  def commit(): Seq[ChiselElement] = {
+    elementBuf.toSeq.collect {
+      case g: ChiselGroupElement => g.commit()
+    }
+    // Note that this is mutable and is different than above!
+    elementBuf.toSeq
+  }
 
   def createRect[T <: RawModule](module: T,
     width: Constraint = Unconstrained(),
@@ -253,7 +259,7 @@ trait Direction {
     case Direction.Horizontal => h
     case Direction.Vertical => v
   }
-  def ifV[T](h: T, v: T): T = ifH(v, h)
+  def ifV[T](v: T, h: T): T = ifH(h, v)
 }
 
 object Direction {
@@ -297,14 +303,25 @@ sealed abstract class ChiselGroupElement(scope: Target, name: String, val contex
   extends ChiselElement(scope, name) with CanBeParent {
 
   protected def initialSize: Int
-  protected val elements = Seq.fill(initialSize)(Option.empty[ChiselElement]).toBuffer
+  protected val elements = ArrayBuffer.fill(initialSize)(Option.empty[ChiselElement])
   protected var isCommitted = false
 
-  protected def generateGroupElement(names: Seq[Option[String]]): Group
+  protected def generateGroupElement(names: Seq[String]): Group
+
+  private[chisel] def commit() {
+    // in scala 2.13 this is much cleaner:
+    //elements.mapInPlace(x => Some(x.getOrElse(context.createSpacer())))
+    elements.zipWithIndex.foreach { case (elt, idx) =>
+      if (elt.isEmpty) {
+        this._placeAt(idx, context.createSpacer())
+      }
+    }
+    isCommitted = true
+  }
 
   protected def generateElement(): Group = {
-    isCommitted = true
-    generateGroupElement(elements.map(_.map(_.name)))
+    assert(isCommitted)
+    generateGroupElement(elements.map(_.get.name))
   }
 
   private[chisel] def _placeAt[T <: ChiselElement](idx: Int, e: T): T = {
@@ -336,7 +353,13 @@ abstract class ChiselGridElement(scope: Target, name: String, context: ChiselFlo
   protected def initialSize = xDim * yDim
   protected def toIdx(x: Int, y: Int): Int = xDim*y + x
 
-  def placeAt[T <: ChiselElement](x: Int, y: Int, e: T): T = _placeAt(toIdx(x, y), e)
+  def placeAt[T <: ChiselElement](x: Int, y: Int, e: T): T = {
+    assert(x >= 0)
+    assert(y >= 0)
+    assert(x < xDim)
+    assert(y < yDim)
+    _placeAt(toIdx(x, y), e)
+  }
 
 }
 
@@ -413,7 +436,7 @@ final class ChiselMemArray private[chisel] (
   context: ChiselFloorplanContext
 ) extends ChiselArrayElement(scope, name, context) {
   protected def initialSize = 0
-  protected def generateGroupElement(names: Seq[Option[String]]): Group = MemElementArray(name, parentName, names, Unconstrained(), Unconstrained(), Unconstrained(), Constrained(eq = aspectRatio))
+  protected def generateGroupElement(names: Seq[String]): Group = MemElementArray(name, parentName, names, Unconstrained(), Unconstrained(), Unconstrained(), Constrained(eq = aspectRatio))
 
   def addMem[T <: Data](mem: MemBase[T]) = this.addElement(this.context.addMem(mem))
 }
@@ -425,7 +448,7 @@ class ChiselElasticGrid private[chisel] (
   xDim: Int,
   yDim: Int
 ) extends ChiselGridElement(scope, name, context, xDim, yDim) {
-  final protected def generateGroupElement(names: Seq[Option[String]]): Group = ConstrainedElasticGrid(
+  final protected def generateGroupElement(names: Seq[String]): Group = ConstrainedElasticGrid(
     name,
     parentName,
     xDim,
@@ -444,7 +467,7 @@ class ChiselElasticArray private[chisel] (
   dim: Int,
   val dir: Direction
 ) extends ChiselElasticGrid(scope, name, context, dir.ifH(dim,1), dir.ifV(dim,1)) {
-  def placeAt[T <: ChiselElement](i: Int, e: T): T = placeAt(dir.ifH(i,0), dir.ifV(0,i), e)
+  def placeAt[T <: ChiselElement](i: Int, e: T): T = super.placeAt(dir.ifH(i,0), dir.ifV(i,0), e)
 }
 
 class ChiselWeightedGrid private[chisel] (
@@ -456,7 +479,7 @@ class ChiselWeightedGrid private[chisel] (
   xWeights: Seq[BigDecimal],
   yWeights: Seq[BigDecimal]
 ) extends ChiselGridElement(scope, name, context, xDim, yDim) {
-  final protected def generateGroupElement(names: Seq[Option[String]]): Group = ConstrainedWeightedGrid(
+  final protected def generateGroupElement(names: Seq[String]): Group = ConstrainedWeightedGrid(
     name,
     parentName,
     xDim,

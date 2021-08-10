@@ -19,9 +19,8 @@ class ReplaceMemMacroArrayPass(topMod: String) extends Pass {
       // TODO this assumes that the MemMacroArray contains all the same type of SRAM. This is usually true, but we do nothing to enforce this.
 
       // Try to size based on the SRAM
-      val mem0 = tree.getRecord(e.elements(0).get).element.asInstanceOf[SizedMacro]
-      val filteredElements = e.elements.filter(_.isDefined)
-      val numMems = filteredElements.length
+      val mem0 = tree.getRecord(e.elements(0)).element.asInstanceOf[SizedMacro]
+      val numMems = e.elements.length
 
       val defaultWidth = (mem0.width * numMems) / utilization
       val defaultHeight = mem0.height
@@ -44,7 +43,7 @@ class ReplaceMemMacroArrayPass(topMod: String) extends Pass {
       val xDim = columns + paddingColumns
       val yDim = stackHeight + 1
 
-      def addSpacer(w: BigDecimal, h: BigDecimal): Option[String] = {
+      def addSpacer(w: BigDecimal, h: BigDecimal): String = {
         val newElement = SizedSpacerRect(
           name = tree.getUniqueName("spacer"),
           parent = e.name,
@@ -52,7 +51,7 @@ class ReplaceMemMacroArrayPass(topMod: String) extends Pass {
           height = h
         )
         n.addChildRecord(FloorplanRecord(n.record.scope, None, None, newElement))
-        Some(newElement.name)
+        newElement.name
       }
 
       val elements = Seq.tabulate(xDim*yDim) { i =>
@@ -64,7 +63,7 @@ class ReplaceMemMacroArrayPass(topMod: String) extends Pass {
           if (group >= numMems) {
             addSpacer(xPadding, spacerHeight)
           } else {
-            filteredElements(group)
+            e.elements(group)
           }
         } else if (col % 3 == 1) {
           addSpacer(xPadding, spacerHeight)
@@ -72,7 +71,7 @@ class ReplaceMemMacroArrayPass(topMod: String) extends Pass {
           if ((group + 1) >= numMems) {
             addSpacer(xPadding, spacerHeight)
           } else {
-            filteredElements(group + 1)
+            e.elements(group + 1)
           }
         }
       }

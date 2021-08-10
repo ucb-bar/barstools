@@ -70,7 +70,7 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
       case e: Group =>
         assert(parent.isDefined, "Must have parent")
         val n = parent.get.addChildRecord(r)
-        e.elements.foreach(_.foreach(x => dfs(Some(n), _getRecord(x))))
+        e.elements.foreach(x => dfs(Some(n), _getRecord(x)))
         n
       case _ => ???
     }

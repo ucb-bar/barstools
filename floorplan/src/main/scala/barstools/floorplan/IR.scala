@@ -58,7 +58,7 @@ sealed abstract class Primitive extends ElementWithParent {
 }
 
 sealed abstract class Group extends ElementWithParent {
-  def elements: Seq[Option[String]]
+  def elements: Seq[String]
 
   def flatIndexOf(s: String): Int = elements.indexOf(Some(s))
 }
@@ -234,10 +234,11 @@ private[floorplan] final case class PlacedHierarchicalTop(
 sealed abstract class Grid extends Group {
   def xDim: Int
   def yDim: Int
-  def elements: Seq[Option[String]]
+  def elements: Seq[String]
 
   assert(xDim > 0, "X dimension of grid must be positive")
   assert(yDim > 0, "Y dimension of grid must be positive")
+  assert(elements.length == (xDim*yDim), s"Grid {name} has incorrect number of elements ({elements.length})")
 
   def toIdx(x: Int, y: Int): Int = xDim*y + x
   def fromIdx(i: Int): (Int, Int) = (i % xDim, i / xDim)
@@ -255,7 +256,7 @@ private[floorplan] final case class ConstrainedWeightedGrid(
   parent: String,
   xDim: Int,
   yDim: Int,
-  elements: Seq[Option[String]],
+  elements: Seq[String],
   xWeights: Seq[BigDecimal],
   yWeights: Seq[BigDecimal],
   width: Constraint,
@@ -268,7 +269,7 @@ private[floorplan] final case class ConstrainedWeightedGrid(
     this.copy(
       name = m(name),
       parent = m(parent),
-      elements = elements.map(_.map(m))
+      elements = elements.map(m)
     )
   }
   def applyConstraints(c: Constraints): Element = this.copy(
@@ -287,7 +288,7 @@ private[floorplan] final case class ConstrainedElasticGrid(
   parent: String,
   xDim: Int,
   yDim: Int,
-  elements: Seq[Option[String]],
+  elements: Seq[String],
   width: Constraint,
   height: Constraint,
   area: Constraint,
@@ -298,7 +299,7 @@ private[floorplan] final case class ConstrainedElasticGrid(
     this.copy(
       name = m(name),
       parent = m(parent),
-      elements = elements.map(_.map(m))
+      elements = elements.map(m)
     )
   }
   def applyConstraints(c: Constraints): Element = this.copy(
@@ -314,7 +315,7 @@ private[floorplan] final case class SizedGrid(
   parent: String,
   xDim: Int,
   yDim: Int,
-  elements: Seq[Option[String]],
+  elements: Seq[String],
   widths: Seq[BigDecimal],
   heights: Seq[BigDecimal]
 ) extends Grid with SizedRectLike {
@@ -323,7 +324,7 @@ private[floorplan] final case class SizedGrid(
     this.copy(
       name = m(name),
       parent = m(parent),
-      elements = elements.map(_.map(m))
+      elements = elements.map(m)
     )
   }
   def width: BigDecimal = widths.sum
@@ -345,7 +346,7 @@ private[floorplan] final case class MemElement(
 private[floorplan] final case class MemElementArray(
   name: String,
   parent: String,
-  elements: Seq[Option[String]],
+  elements: Seq[String],
   width: Constraint = Unconstrained(),
   height: Constraint = Unconstrained(),
   area: Constraint = Unconstrained(),
@@ -356,7 +357,7 @@ private[floorplan] final case class MemElementArray(
     this.copy(
       name = m(name),
       parent = m(parent),
-      elements = elements.map(_.map(m))
+      elements = elements.map(m)
     )
   }
   def applyConstraints(c: Constraints): Element = this.copy(
@@ -374,7 +375,7 @@ private[floorplan] final case class MemElementArray(
 private[floorplan] final case class MemMacroArray(
   name: String,
   parent: String,
-  elements: Seq[Option[String]],
+  elements: Seq[String],
   width: Constraint = Unconstrained(),
   height: Constraint = Unconstrained(),
   area: Constraint = Unconstrained(),
@@ -385,7 +386,7 @@ private[floorplan] final case class MemMacroArray(
     this.copy(
       name = m(name),
       parent = m(parent),
-      elements = elements.map(_.map(m))
+      elements = elements.map(m)
     )
   }
   def applyConstraints(c: Constraints): Element = this.copy(
