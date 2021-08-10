@@ -13,6 +13,7 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
     // Find HierarchicalTop records, then stitch them together
     val topMaps = (state.records.flatMap(r => r.element match {
       case e: ConstrainedHierarchicalTop => Some((r.fullPath -> r))
+      case e: SizedHierarchicalTop => Some((r.fullPath -> r))
       case e: PlacedHierarchicalTop => Some((r.fullPath -> r))
       case _ => None
     })).toMap
@@ -78,6 +79,7 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
               area = t.area,
               aspectRatio = t.aspectRatio
             ))
+          case t: SizedHierarchicalTop => ??? // TODO not supported yet
           case t: PlacedHierarchicalTop => ??? // TODO not supported yet
           case _ => ???
         }).map(newE => FloorplanRecord(

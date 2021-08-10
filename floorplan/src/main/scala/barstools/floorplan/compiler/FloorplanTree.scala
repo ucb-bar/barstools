@@ -4,27 +4,59 @@ package barstools.floorplan.compiler
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import barstools.floorplan._
 
+// TODO this is required to give access to Node types outside FloorplanTree. Ideally we should move all that functionality into this class
+// with some type-generic methods, but for now this works
+sealed trait FloorplanTreeNode {
+
+  def parent: Option[FloorplanTreeNode]
+  def children: Seq[FloorplanTreeNode]
+  def record: FloorplanRecord
+  def addChildRecord(cRecord: FloorplanRecord): FloorplanTreeNode
+  def removeChild(n: FloorplanTreeNode): Unit
+  def delete(): Unit
+  def replace(r: FloorplanRecord): Unit
+  def reparent(p: FloorplanTreeNode): Unit
+
+}
+
 class FloorplanTree(val state: FloorplanState, val topMod: String) {
 
-  val allNodes = new HashMap[String, Node]()
+  val allNodes = new HashMap[String, FloorplanTreeNode]()
 
-  class Node(val parent: Option[Node], initialRecord: FloorplanRecord) {
-    val children = new ArrayBuffer[Node]()
+  class Node(val parent: Option[FloorplanTreeNode], initialRecord: FloorplanRecord) extends FloorplanTreeNode {
+    val _children = new ArrayBuffer[FloorplanTreeNode]()
 
     // TODO this might be dangerous
     private var _record = initialRecord
 
+    def children = _children.toSeq
     def record = _record
 
-    def addChildRecord(cRecord: FloorplanRecord): Node = {
+    def addChildRecord(cRecord: FloorplanRecord): FloorplanTreeNode = {
       val n = new Node(Some(this), cRecord)
-      children += n
+      _children += n
       allNodes += (cRecord.element.name -> n)
       n
     }
 
+    def removeChild(n: FloorplanTreeNode) {
+      _children.remove(_children.indexOf(n))
+    }
+
+    def delete() {
+      assert(_children.isEmpty) // sanity check that we aren't orphaning nodes
+      parent.foreach(_.removeChild(this))
+      allNodes.remove(record.element.name)
+    }
+
     def replace(r: FloorplanRecord) { _record = r }
+
+    def reparent(p: FloorplanTreeNode) {
+      this.delete()
+      p.addChildRecord(record)
+    }
   }
+
 
   def getUniqueName(suggestion: String): String = {
     var i = 0
@@ -37,7 +69,7 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
   }
 
   def getRecord(s: String): FloorplanRecord = getNode(s).record
-  def getNode(s: String): Node = allNodes(s)
+  def getNode(s: String): FloorplanTreeNode = allNodes(s)
 
   // These are only used by the constructor
   private val allRecords: Map[String, FloorplanRecord] = state.records.map({ x => (x.element.name -> x) }).toMap
@@ -50,7 +82,7 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
   assert(topRecords.length == 1, "Must be exactly one Top record")
   val topRecord = topRecords(0)
 
-  private def dfs(parent: Option[Node], r: FloorplanRecord): Node = {
+  private def dfs(parent: Option[FloorplanTreeNode], r: FloorplanRecord): FloorplanTreeNode = {
     r.element match {
       case e: Top =>
         assert(!parent.isDefined, "Cannot have multiple tops")
@@ -58,6 +90,8 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
         // There's probably a better way to handle these
         e match {
           case e: ConstrainedHierarchicalTop =>
+            dfs(Some(n), _getRecord(e.topGroup))
+          case e: SizedHierarchicalTop =>
             dfs(Some(n), _getRecord(e.topGroup))
           case e: PlacedHierarchicalTop =>
             e.elements.foreach(x => dfs(Some(n), _getRecord(x)))
@@ -82,15 +116,15 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
   //    Option[FloorplanRecord] return
   // None = do no modify
   // Some(record) = modify node
-  def traverseMapPre(f: (Node => Option[FloorplanRecord])) { traverseMapPreHelper(topNode, f) }
-  def traverseMapPost(f: (Node => Option[FloorplanRecord])) { traverseMapPostHelper(topNode, f) }
+  def traverseMapPre(f: (FloorplanTreeNode => Option[FloorplanRecord])) { traverseMapPreHelper(topNode, f) }
+  def traverseMapPost(f: (FloorplanTreeNode => Option[FloorplanRecord])) { traverseMapPostHelper(topNode, f) }
 
-  private def traverseMapPreHelper(n: Node, f: (Node => Option[FloorplanRecord])) {
+  private def traverseMapPreHelper(n: FloorplanTreeNode, f: (FloorplanTreeNode => Option[FloorplanRecord])) {
     f(n).foreach { r => n.replace(r) }
     n.children.foreach { c => traverseMapPreHelper(c, f) }
   }
 
-  private def traverseMapPostHelper(n: Node, f: (Node => Option[FloorplanRecord])) {
+  private def traverseMapPostHelper(n: FloorplanTreeNode, f: (FloorplanTreeNode => Option[FloorplanRecord])) {
     n.children.foreach { c => traverseMapPostHelper(c, f) }
     f(n).foreach { r => n.replace(r) }
   }

@@ -214,16 +214,29 @@ private[floorplan] final case class ConstrainedHierarchicalTop(
   )
 }
 
+private[floorplan] final case class SizedHierarchicalTop(
+  name: String,
+  topGroup: String,
+  width: BigDecimal,
+  height: BigDecimal,
+  margins: Margins,
+  hardBoundary: Boolean
+) extends Top with SizedRectLike {
+  final def level = 1
+  def mapNames(m: (String) => String): Element = this.copy(name = m(name), topGroup = m(topGroup))
+  def flatIndexOf(s: String): Int = if (topGroup == s) 0 else -1
+}
+
 private[floorplan] final case class PlacedHierarchicalTop(
   name: String,
   elements: Seq[String],
+  x: BigDecimal,
+  y: BigDecimal,
   width: BigDecimal,
   height: BigDecimal,
   margins: Margins,
   hardBoundary: Boolean
 ) extends Top with PlacedRectLike {
-  final def x = BigDecimal(0)
-  final def y = BigDecimal(0)
   final def level = 0
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), elements.map(m))
   def flatIndexOf(s: String): Int = elements.indexOf(s)

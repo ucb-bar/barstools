@@ -15,6 +15,8 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
         val constraints: Constraints = node.parent.map(_.record.element match {
           case e: ConstrainedHierarchicalTop =>
             e.toConstraints
+          case e: SizedHierarchicalTop =>
+            Constraints() // These should be sized already
           case e: PlacedHierarchicalTop =>
             Constraints() // These should be sized already
           case e: ConstrainedWeightedGrid =>
@@ -74,6 +76,8 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
           case e: ConstrainedHierarchicalTop =>
             val newElement = e.applyConstraints(node.children(0).record.element.toConstraints)
             Some(node.record.copy(element = newElement))
+          case e: SizedHierarchicalTop =>
+            throw new Exception("Cannot propagate constraints to a SizedHierarchicalTop")
           case e: PlacedHierarchicalTop =>
             throw new Exception("Cannot propagate constraints to a PlacedHierarchicalTop")
           case e: ConstrainedWeightedGrid =>
