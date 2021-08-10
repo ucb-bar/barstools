@@ -72,9 +72,9 @@ final class ChiselFloorplanContext private[chisel] (val scope: Target, val topEl
     ary
   }
 
-  def createMemArray(name: Option[String] = None): ChiselMemArray = {
+  def createMemArray(name: Option[String] = None, aspectRatio: Option[BigDecimal] = Some(BigDecimal(1))): ChiselMemArray = {
     val nameStr = FloorplanDatabase.getUnusedName(scope, name)
-    val elt = new ChiselMemArray(scope, nameStr, this)
+    val elt = new ChiselMemArray(scope, nameStr, aspectRatio, this)
     addElement(elt)
   }
 
@@ -409,10 +409,11 @@ final class ChiselMem private[chisel] (
 final class ChiselMemArray private[chisel] (
   scope: Target,
   name: String,
+  aspectRatio: Option[BigDecimal],
   context: ChiselFloorplanContext
 ) extends ChiselArrayElement(scope, name, context) {
   protected def initialSize = 0
-  protected def generateGroupElement(names: Seq[Option[String]]): Group = MemElementArray(name, parentName, names)
+  protected def generateGroupElement(names: Seq[Option[String]]): Group = MemElementArray(name, parentName, names, Unconstrained(), Unconstrained(), Unconstrained(), Constrained(eq = aspectRatio))
 
   def addMem[T <: Data](mem: MemBase[T]) = this.addElement(this.context.addMem(mem))
 }

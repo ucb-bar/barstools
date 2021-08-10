@@ -13,9 +13,9 @@ object Pass {
       new OutOfBandAnnotationPass(sbAnnos),
       new ReplaceHierarchicalPass(opts.topMod),
       new ConstraintPropagationPass(opts.topMod),
-      new ReplaceMemMacroArrayPass,
-      new ResolveConstraintsPass,
-      new CalculatePlacementsPass
+      new ReplaceMemMacroArrayPass(opts.topMod),
+      new ResolveConstraintsPass(opts.topMod),
+      new CalculatePlacementsPass(opts.topMod)
     )
   }
 }
@@ -24,11 +24,11 @@ abstract class Pass {
   def execute(state: FloorplanState): FloorplanState
 }
 
-class ResolveConstraintsPass extends Pass {
+class ResolveConstraintsPass(topMod: String) extends Pass {
   def execute(state: FloorplanState): FloorplanState = state // TODO
 }
 
-class CalculatePlacementsPass extends Pass {
+class CalculatePlacementsPass(topMod: String) extends Pass {
   def execute(state: FloorplanState): FloorplanState = state // TODO
 }
 

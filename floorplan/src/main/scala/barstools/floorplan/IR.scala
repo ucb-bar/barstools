@@ -136,8 +136,6 @@ private[floorplan] final case class ConstrainedSpacerRect(
 private[floorplan] final case class SizedSpacerRect(
   name: String,
   parent: String,
-  x: BigDecimal,
-  y: BigDecimal,
   width: BigDecimal,
   height: BigDecimal
 ) extends SizedRectPrimitive {
