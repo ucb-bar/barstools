@@ -41,8 +41,8 @@ class CalculatePlacementsPass(topMod: String) extends Pass {
           // traverse down
           val nodes: Seq[FloorplanTreeNode] = e.elements.map(name => tree.getNode(name))
           val children: Seq[SizedRectLike] = nodes.map(_.record.element.asInstanceOf[SizedRectLike])
-          val widths: Seq[BigDecimal] = children.take(e.xDim).map(_.width).scanLeft(BigDecimal(0))(_+_).takeRight(e.xDim)
-          val heights: Seq[BigDecimal] = children.grouped(e.xDim).map(_(0).height).toSeq.scanLeft(BigDecimal(0))(_+_).takeRight(e.yDim)
+          val widths: Seq[BigDecimal] = children.take(e.xDim).map(_.width).scanLeft(BigDecimal(0))(_+_).take(e.xDim)
+          val heights: Seq[BigDecimal] = children.grouped(e.xDim).map(_(0).height).toSeq.scanLeft(BigDecimal(0))(_+_).take(e.yDim)
 
           nodes.zipWithIndex.foreach { case (node, idx) =>
             val (iX, iY) = e.fromIdx(idx)
