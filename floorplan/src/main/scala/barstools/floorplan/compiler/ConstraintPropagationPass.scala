@@ -123,7 +123,49 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
       }
     }
 
-    // TODO propagate constraints to siblings
+    // Sibling propagation to Grids
+    tree.allNodes.values.foreach { node =>
+      node.record.element match {
+        case e: SizedGrid =>
+          // Do nothing
+        case e: Grid =>
+          // This look-up preserves ordering of children
+          val children = e.elements.map(_.map(x => tree.getNode(tree.getRecord(x).element.name)))
+          val wConstraints = Seq.tabulate(e.xDim)(iX => Seq.tabulate(e.yDim) { iY =>
+            children(e.toIdx(iX, iY)).map(_.record.element.toConstraints.width).getOrElse(Unconstrained())
+          } reduce (_ and _))
+          val hConstraints = Seq.tabulate(e.yDim)(iY => Seq.tabulate(e.xDim) { iX =>
+            children(e.toIdx(iX, iY)).map(_.record.element.toConstraints.height).getOrElse(Unconstrained())
+          } reduce (_ and _))
+          val newElements = children.zipWithIndex.map { case (child, idx) =>
+            val (iX, iY) = e.fromIdx(idx)
+            if (child.isDefined) {
+              // We can always assume this is Constrainable- but really we should fix this in the type system
+              child.get.replace(child.get.record.copy(
+                element = child.get.record.element.asInstanceOf[Constrainable].
+                  applyConstraints(Constraints(width = wConstraints(iX), height = hConstraints(iY), Unconstrained(), Unconstrained()))
+              ))
+              Some(child.get.record.element.name)
+            } else {
+              val newElement = ConstrainedSpacerRect(tree.getUniqueName("spacer"), e.name).
+                applyConstraints(Constraints(width = wConstraints(iX), height = hConstraints(iY), Unconstrained(), Unconstrained()))
+              node.addChildRecord(FloorplanRecord(node.record.scope, None, None, newElement))
+              Some(newElement.name)
+            }
+          }
+          // Needed to be able to use copy
+          e match {
+            case e: ConstrainedWeightedGrid =>
+              node.replace(node.record.copy(element = e.copy(elements = newElements)))
+            case e: ConstrainedElasticGrid =>
+              node.replace(node.record.copy(element = e.copy(elements = newElements)))
+            case e =>
+              ???
+          }
+        case e =>
+          // Do nothing
+      }
+    }
 
     tree.toState
   }
