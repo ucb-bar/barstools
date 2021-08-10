@@ -79,11 +79,9 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
   val topNode = dfs(None, topRecord)
 
   // Traverse using DFS, passing the node to a function which expects an
-  //    (Option[FloorplanRecord], Option[FloorplanRecord]) return
-  // (None, None) = do no modify
-  // (None, Some(record)) = modify node
-  // (Some(record), None) = modify parent
-  // (Some(r1), Some(r2)) = modify both
+  //    Option[FloorplanRecord] return
+  // None = do no modify
+  // Some(record) = modify node
   def traverseMapPre(f: (Node => Option[FloorplanRecord])) { traverseMapPreHelper(topNode, f) }
   def traverseMapPost(f: (Node => Option[FloorplanRecord])) { traverseMapPostHelper(topNode, f) }
 
