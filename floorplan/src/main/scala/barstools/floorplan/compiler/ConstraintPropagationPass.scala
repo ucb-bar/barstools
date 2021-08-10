@@ -7,49 +7,36 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
   def execute(state: FloorplanState): FloorplanState = {
     val tree = new FloorplanTree(state, topMod)
 
-    // Propagate macro sizes to MemMacroArrays
-    val nodes = tree.allNodes.filter({ case (k,v) =>
-      v.record.element.isInstanceOf[MemMacroArray]
-    }).values
-    nodes.foreach { node =>
-      val element = node.record.element.asInstanceOf[MemMacroArray]
-      node.replace(node.record.copy(
-        element = element.applyConstraints(Constraints(
-          width = Unconstrained(),
-          height = Unconstrained(),
-          area = GreaterThanOrEqualTo(element.elements.map(e =>
-            tree.getRecord(e.get).element match {
-              case e2: AbstractMacro => throw new Exception("Macros need to be sized")
-              case e2: SizedMacro => e2.width*e2.height
-              case e2: PlacedMacro => e2.width*e2.height
-              case _ => ???
-            }
-          ).reduce(_+_)),
-          aspectRatio = Unconstrained()
-        ))
-      ))
-    }
-
-
     // Top-down pass
     tree.traverseMapPre { node  =>
       val constraints: Constraints = node.parent.map(_.record.element match {
         case e: ConstrainedHierarchicalTop =>
-          Constraints(e.width, e.height, e.area, e.aspectRatio)
+          e.toConstraints
         case e: PlacedHierarchicalTop =>
-          Constraints.sized(e.width, e.height)
+          Constraints() // These should be sized already
         case e: ConstrainedWeightedGrid =>
-          val width = e.width(e.flatIndexOf(node.record.element.name))
-          val height = e.height(e.flatIndexOf(node.record.element.name))
-          val area = e.area(e.flatIndexOf(node.record.element.name))
-          val aspectRatio = e.aspectRatio(e.flatIndexOf(node.record.element.name))
-          Constraints(width, height, area, aspectRatio)
+          val (x, y) = e.indexOf(node.record.element.name).get
+          val xWeight = e.getXWeight(x)
+          val yWeight = e.getYWeight(y)
+          e.toConstraints.weightXY(xWeight, yWeight)
         case e: ConstrainedElasticGrid =>
-          val width = e.width(e.flatIndexOf(node.record.element.name))
-          val height = e.height(e.flatIndexOf(node.record.element.name))
-          val area = e.area(e.flatIndexOf(node.record.element.name))
-          val aspectRatio = e.aspectRatio(e.flatIndexOf(node.record.element.name))
-          Constraints(width, height, area, aspectRatio)
+          val c = e.toConstraints
+          val widthConstraint = c.width match {
+            case x: Unconstrained => x
+            case x: Impossible => x
+            case x: Constrained => x.copy(eq = None, leq = x.eq.orElse(x.leq), geq = None, mof = None)
+          }
+          val heightConstraint = c.height match {
+            case x: Unconstrained => x
+            case x: Impossible => x
+            case x: Constrained => x.copy(eq = None, leq = x.eq.orElse(x.leq), geq = None, mof = None)
+          }
+          val areaConstraint = c.area match {
+            case x: Unconstrained => x
+            case x: Impossible => x
+            case x: Constrained => x.copy(eq = None, leq = x.eq.orElse(x.leq), geq = None, mof = None)
+          }
+          Constraints(width = widthConstraint, height = heightConstraint, area = areaConstraint, aspectRatio = Unconstrained())
         case e: SizedGrid =>
           val (x, y) = e.indexOf(node.record.element.name).get
           Constraints.sized(e.widths(x), e.heights(y))
@@ -57,59 +44,83 @@ class ConstraintPropagationPass(val topMod: String) extends Pass {
           Constraints() // These *should* be hard macros at this point, so no need to constrain them. Maybe aspect ratio?
         case _ => ??? // Many types can never be parents and shouldn't get here
       }).getOrElse(Constraints())
+
       // Only modify child
-      (None, Some(node.record.copy(element = node.record.element.applyConstraints(constraints))))
+      val newElement = node.record.element match {
+        case e: Constrainable =>
+          e.applyConstraints(constraints)
+        case e => ???
+      }
+      Some(node.record.copy(element = newElement))
     }
+
 
     // Bottom-up pass
     tree.traverseMapPost { node =>
-      // Get idx in parent
-      val idx = node.parent.map(_.record.element.flatIndexOf(node.record.element.name)).getOrElse(-1)
-
-      val constraints: Constraints = node.record.element match {
+      node.record.element match {
         case e: ConstrainedSpacerRect =>
-          Constraints(e.width, e.height, e.area, e.aspectRatio)
+          None
         case e: SizedSpacerRect =>
-          Constraints.sized(e.width, e.height)
+          None
         case e: ConstrainedLogicRect =>
-          Constraints(e.width, e.height, e.area, e.aspectRatio)
+          None
         case e: SizedLogicRect =>
-          Constraints.sized(e.width, e.height)
+          None
         case e: PlacedLogicRect =>
-          Constraints.sized(e.width, e.height)
+          None
         case e: ConstrainedHierarchicalTop =>
-          Constraints(e.width, e.height, e.area, e.aspectRatio)
+          val newElement = e.applyConstraints(node.children(0).record.element.toConstraints)
+          Some(node.record.copy(element = newElement))
         case e: PlacedHierarchicalTop =>
-          Constraints.sized(e.width, e.height)
+          throw new Exception("Cannot propagate constraints to a PlacedHierarchicalTop")
         case e: ConstrainedWeightedGrid =>
-          val width = e.width.reduce(_+_)
-          val height = e.height.reduce(_+_)
-          val area = e.area.reduce(_+_)
-          Constraints(width, height, area, Unconstrained())
+          // TODO make this less repetitive with the below
+          // Preserve ordering of children and convert to 2d Seq
+          val children: Seq[Seq[Constraints]] = e.elements.map(_.map(x => tree.getRecord(x).element.toConstraints).getOrElse(Constraints())).grouped(e.xDim).toSeq
+          val widthConstraint = children.map(_.map(_.width).reduce(_ + _)).reduce(_ and _)
+          val heightConstraint = children.transpose.map(_.map(_.height).reduce(_ + _)).reduce(_ and _)
+          val areaConstraint = children.flatten.map(_.area).reduce(_ + _)
+          val newElement = e.applyConstraints(Constraints(
+            widthConstraint,
+            heightConstraint,
+            areaConstraint,
+            Unconstrained()
+          ))
+          // TODO handle the weights
+          Some(node.record.copy(element = newElement))
         case e: ConstrainedElasticGrid =>
-          val width = e.width.reduce(_+_)
-          val height = e.height.reduce(_+_)
-          val area = e.area.reduce(_+_)
-          Constraints(width, height, area, Unconstrained())
+          // Preserve ordering of children and convert to 2d Seq
+          val children: Seq[Seq[Constraints]] = e.elements.map(_.map(x => tree.getRecord(x).element.toConstraints).getOrElse(Constraints())).grouped(e.xDim).toSeq
+          val widthConstraint = children.map(_.map(_.width).reduce(_ + _)).reduce(_ and _)
+          val heightConstraint = children.transpose.map(_.map(_.height).reduce(_ + _)).reduce(_ and _)
+          val areaConstraint = children.flatten.map(_.area).reduce(_ + _)
+          val newElement = e.applyConstraints(Constraints(
+            widthConstraint,
+            heightConstraint,
+            areaConstraint,
+            Unconstrained()
+          ))
+          Some(node.record.copy(element = newElement))
         case e: SizedGrid =>
-          Constraints.sized(e.widths.sum, e.heights.sum)
+          ??? // TODO probably should sanity check here
         case e: MemMacroArray =>
-          Constraints(e.width, e.height, e.area, e.aspectRatio)
+          val area = node.children.map(_.record.element match {
+            case e2: HasFixedDimensions => e2.area
+            case e2 => throw new Exception("All macro dimensions must be resolved at this point")
+          }).sum
+          val newElement = e.applyConstraints(Constraints(
+            Unconstrained(),
+            Unconstrained(),
+            GreaterThanOrEqualTo(area),
+            Unconstrained()
+          ))
+          Some(node.record.copy(element = newElement))
         case e: SizedMacro =>
-          Constraints.sized(e.width, e.height)
+          None
         case e: PlacedMacro =>
-          Constraints.sized(e.width, e.height)
+          None
         case _ => ???
       }
-
-      val newElementOpt = node.parent.map(_.record.element match {
-        case e: Grid => e.applyConstraintsTo(constraints, e.flatIndexOf(node.record.element.name))
-        case e: ConstrainedHierarchicalTop => e.applyConstraints(constraints)
-        case e: PlacedHierarchicalTop => e.applyConstraints(constraints)
-        case e => e
-      })
-      // Only modify parent
-      (newElementOpt.map(e => node.record.copy(element = e)), None)
     }
 
     // TODO propagate constraints to siblings

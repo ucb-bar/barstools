@@ -63,20 +63,20 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
               xDim = 1,
               yDim = 1,
               elements = Seq(Some(rename(tr.scope, t.name))),
-              width = Seq(t.width),
-              height = Seq(t.height),
-              area = Seq(t.area),
-              aspectRatio = Seq(t.aspectRatio)
+              width = t.width,
+              height = t.height,
+              area = t.area,
+              aspectRatio = t.aspectRatio
             ), ConstrainedElasticGrid(
               name = rename(tr.scope, t.name),
               parent = rename(r.scope, e.name),
               xDim = 1,
               yDim = 1,
               elements = Seq(Some(rename(tr.scope, t.topGroup))),
-              width = Seq(t.width),
-              height = Seq(t.height),
-              area = Seq(t.area),
-              aspectRatio = Seq(t.aspectRatio)
+              width = t.width,
+              height = t.height,
+              area = t.area,
+              aspectRatio = t.aspectRatio
             ))
           case t: PlacedHierarchicalTop => ??? // TODO not supported yet
           case _ => ???
