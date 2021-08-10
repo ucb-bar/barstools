@@ -24,11 +24,3 @@ abstract class Pass {
   def execute(state: FloorplanState): FloorplanState
 }
 
-class ResolveConstraintsPass(topMod: String) extends Pass {
-  def execute(state: FloorplanState): FloorplanState = state // TODO
-}
-
-class CalculatePlacementsPass(topMod: String) extends Pass {
-  def execute(state: FloorplanState): FloorplanState = state // TODO
-}
-
