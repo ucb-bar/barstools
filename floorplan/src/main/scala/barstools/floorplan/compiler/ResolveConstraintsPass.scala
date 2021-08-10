@@ -38,9 +38,9 @@ class ResolveConstraintsPass(topMod: String) extends Pass {
           )))
         case e: ConstrainedHierarchicalTop =>
           val (width, height) = resolveConstraints(e)
-          Some(node.record.copy(element = PlacedHierarchicalTop(
+          Some(node.record.copy(element = SizedHierarchicalTop(
             e.name,
-            Seq(e.topGroup),
+            e.topGroup,
             width,
             height,
             e.margins,

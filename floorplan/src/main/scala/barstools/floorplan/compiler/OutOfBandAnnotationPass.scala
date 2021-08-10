@@ -39,6 +39,13 @@ class OutOfBandAnnotationPass(val sbMap: Map[String, OutOfBandAnnotation]) exten
               area = e.area.and(sb.areaConstraint)
             )
           ).getOrElse(e)
+        case e: SizedHierarchicalTop =>
+          sbMap.get(ofModule).map({sb =>
+            e.copy(
+              width = sb.width.getOrElse(e.width),
+              height = sb.height.getOrElse(e.height)
+            )
+          }).getOrElse(e)
         case e: PlacedHierarchicalTop =>
           sbMap.get(ofModule).map({sb =>
             e.copy(
