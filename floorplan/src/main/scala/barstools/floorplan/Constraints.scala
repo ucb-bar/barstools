@@ -1,20 +1,42 @@
 // See LICENSE for license details
 package barstools.floorplan
 
-import scala.math.{BigInt, BigDecimal}
+import scala.math.{BigInt, BigDecimal, sqrt}
 
 sealed trait Constraint {
   def and(that: Constraint): Constraint
   def +(that: Constraint): Constraint
   def *(that: BigDecimal): Constraint
+  def /(that: BigDecimal): Constraint
   def test(value: BigDecimal): Boolean
+  def minimize: Constraint
+
+  def resolveMin: BigDecimal = this.minimize match {
+    case c: Impossible => throw new Exception("Cannot reduce impossible constraint. TODO provide more detailed debug info.")
+    case c: Unconstrained => BigDecimal(0)
+    case c: Constrained =>
+      c.eq.foreach { x => return x }
+      c.geq.foreach { x =>
+        c.mof.foreach { m =>
+          val n = (x/m).setScale(0, BigDecimal.RoundingMode.UP)
+          m*n
+        }
+        return x
+      }
+      BigDecimal(0)
+  }
+
+  def isConstrained: Boolean
 }
 
 final class Unconstrained extends Constraint {
   def and(that: Constraint) = that
   def +(that: Constraint) = that // ???
   def *(that: BigDecimal) = this
+  def /(that: BigDecimal) = this
   def test(value: BigDecimal) = true
+  def minimize = this
+  def isConstrained = false
 }
 
 object Unconstrained {
@@ -31,7 +53,10 @@ final class Impossible extends Constraint {
   def and(that: Constraint) = this
   def +(that: Constraint) = this
   def *(that: BigDecimal) = this
+  def /(that: BigDecimal) = this
   def test(value: BigDecimal) = false
+  def minimize = this
+  def isConstrained = true
 }
 
 object Impossible {
@@ -40,11 +65,13 @@ object Impossible {
 }
 
 final case class Constrained(
-  eq: Option[BigDecimal],
-  geq: Option[BigDecimal],
-  leq: Option[BigDecimal],
-  mof: Option[BigDecimal]
+  eq: Option[BigDecimal] = None,
+  geq: Option[BigDecimal] = None,
+  leq: Option[BigDecimal] = None,
+  mof: Option[BigDecimal] = None
 ) extends Constraint {
+
+  def isConstrained: Boolean = eq.isDefined || geq.isDefined || leq.isDefined || mof.isDefined
 
   def and(that: Constraint): Constraint = {
     that match {
@@ -170,6 +197,13 @@ final case class Constrained(
     mof = this.mof.map(_ * that)
   )
 
+  def /(that: BigDecimal): Constraint = Constrained(
+    eq = this.eq.map(_ / that),
+    geq = this.geq.map(_ / that),
+    leq = this.leq.map(_ / that),
+    mof = this.mof.map(_ / that)
+  )
+
   def test(value: BigDecimal): Boolean = {
     val eqTest = this.eq.map(_ == value).getOrElse(true)
     val geqTest = this.geq.map(_ <= value).getOrElse(true)
@@ -215,6 +249,61 @@ case class Constraints(
     area = this.area * (xWeight * yWeight),
     aspectRatio = this.aspectRatio * (yWeight / xWeight)
   )
+
+  def resolveMinDimensions(defaultWidth: BigDecimal, defaultHeight: BigDecimal): (BigDecimal, BigDecimal) = {
+    if (this.aspectRatio.isConstrained) {
+      if (this.area.isConstrained) {
+        // AspectRatio with Area
+        if (this.width == Unconstrained() && this.height == Unconstrained()) {
+          val heightConstraint = BigDecimal(sqrt((this.area.resolveMin * this.aspectRatio.resolveMin).doubleValue)) // TODO clean up rounding
+          (this.area.resolveMin / heightConstraint, heightConstraint)
+        } else {
+          // TODO resolve 3- or 4-way constraint (this is wrong)
+          ???
+        }
+      } else {
+        // AspectRatio with no Area
+        // Use defaultWidth (TODO make this an option?)
+        if (this.width == Unconstrained() && this.height == Unconstrained()) {
+          (defaultWidth, this.aspectRatio.resolveMin * defaultWidth)
+        } else if (this.height == Unconstrained()) {
+          (this.height.resolveMin / this.aspectRatio.resolveMin, this.height.resolveMin)
+        } else if (this.width == Unconstrained()) {
+          (this.width.resolveMin, this.aspectRatio.resolveMin * this.width.resolveMin)
+        } else {
+          // TODO resolve 3-way constraint
+          ???
+        }
+      }
+    } else {
+      if (this.area.isConstrained) {
+        // Area with no AspectRatio
+        // Use defaultWidth (TODO make this an option?)
+        if (this.width == Unconstrained() && this.height == Unconstrained()) {
+          (defaultWidth, this.area.resolveMin / defaultWidth)
+        } else if (this.height == Unconstrained()) {
+          (this.width.resolveMin, this.area.resolveMin / this.width.resolveMin)
+        } else if (this.width == Unconstrained()) {
+          (this.area.resolveMin / this.height.resolveMin, this.height.resolveMin)
+        } else {
+          // TODO resolve 3-way constraint (this is wrong)
+          ???
+        }
+      } else {
+        // No Area or AspectRatio
+        val widthConstraint = this.width match {
+          case x: Unconstrained => defaultWidth
+          case x => x.resolveMin
+        }
+        val heightConstraint = this.height match {
+          case x: Unconstrained => defaultHeight
+          case x => x.resolveMin
+        }
+        (widthConstraint, heightConstraint)
+      }
+    }
+  }
+
 }
 
 object Constraints {

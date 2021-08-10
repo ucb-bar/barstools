@@ -26,6 +26,16 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
     def replace(r: FloorplanRecord) { _record = r }
   }
 
+  def getUniqueName(suggestion: String): String = {
+    var i = 0
+    var tmp = suggestion + s"_${i}"
+    while (allNodes.keys.toSet.contains(tmp)) {
+      i = i + 1
+      tmp = suggestion + s"_${i}"
+    }
+    tmp
+  }
+
   def getRecord(s: String): FloorplanRecord = getNode(s).record
   def getNode(s: String): Node = allNodes(s)
 
@@ -52,6 +62,7 @@ class FloorplanTree(val state: FloorplanState, val topMod: String) {
           case e: PlacedHierarchicalTop =>
             e.elements.foreach(x => dfs(Some(n), _getRecord(x)))
         }
+        allNodes += (e.name -> n)
         n
       case e: Primitive =>
         assert(parent.isDefined, "Must have parent")
