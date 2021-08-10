@@ -16,6 +16,9 @@ class CalculatePlacementsPass(topMod: String) extends Pass {
 
     // Custom traversal TODO should this go in the FloorplanTree code somehow?
     def traverse(n: FloorplanTreeNode, x: BigDecimal, y: BigDecimal, placeTopOpt: Option[FloorplanTreeNode]) {
+      // TODO this needs to be cleaned up elsewhere
+      val legalX = x.setScale(3, BigDecimal.RoundingMode.HALF_UP)
+      val legalY = y.setScale(3, BigDecimal.RoundingMode.HALF_UP)
       n.record.element match {
         case e: SizedHierarchicalTop =>
           assert(placeTopOpt.isEmpty)
@@ -26,8 +29,8 @@ class CalculatePlacementsPass(topMod: String) extends Pass {
           n.replace(n.record.copy(element = PlacedHierarchicalTop(
             e.name,
             elementBuf.toSeq.map(_.name),
-            x,
-            y,
+            legalX,
+            legalY,
             e.width,
             e.height,
             e.margins,
@@ -43,7 +46,7 @@ class CalculatePlacementsPass(topMod: String) extends Pass {
 
           nodes.zipWithIndex.foreach { case (node, idx) =>
             val (iX, iY) = e.fromIdx(idx)
-            traverse(node, x + widths(iX), y + heights(iY), placeTopOpt)
+            traverse(node, legalX + widths(iX), legalY + heights(iY), placeTopOpt)
           }
 
           // delete it
@@ -53,8 +56,8 @@ class CalculatePlacementsPass(topMod: String) extends Pass {
           n.replace(n.record.copy(element = PlacedLogicRect(
             e.name,
             e.parent,
-            x,
-            y,
+            legalX,
+            legalY,
             e.width,
             e.height,
             e.hardBoundary
@@ -70,8 +73,8 @@ class CalculatePlacementsPass(topMod: String) extends Pass {
           n.replace(n.record.copy(element = PlacedMacro(
             e.name,
             e.parent,
-            x,
-            y,
+            legalX,
+            legalY,
             e.width,
             e.height
           )))
