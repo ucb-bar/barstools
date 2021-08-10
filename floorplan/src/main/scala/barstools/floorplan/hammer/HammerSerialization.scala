@@ -5,6 +5,7 @@ import org.json4s._
 import org.json4s.FieldSerializer.renameTo
 import org.json4s.native.Serialization.{read, write, writePretty}
 import org.json4s.JsonAST.JString
+import org.json4s.ext.EnumNameSerializer
 
 object HammerSerialization {
 
@@ -23,6 +24,9 @@ object HammerSerialization {
 
   val formats =
     DefaultFormats.skippingEmptyValues +
+    new EnumNameSerializer(PlacementType) +
+    new EnumNameSerializer(Orientation) +
+    new EnumNameSerializer(ObstructionType) +
     FieldSerializer[PlacementConstraint](renameTo("typ", "type")) +
     FieldSerializer[HammerIR](renameTo("placementConstraints", "vlsi.inputs.placement_constraints"))
 
