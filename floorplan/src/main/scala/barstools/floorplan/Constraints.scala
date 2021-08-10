@@ -250,6 +250,8 @@ case class Constraints(
     aspectRatio = this.aspectRatio * (yWeight / xWeight)
   )
 
+  def resolveMinDimensions(): (BigDecimal, BigDecimal) = resolveMinDimensions(BigDecimal(0), BigDecimal(0))
+
   def resolveMinDimensions(defaultWidth: BigDecimal, defaultHeight: BigDecimal): (BigDecimal, BigDecimal) = {
     if (this.aspectRatio.isConstrained) {
       if (this.area.isConstrained) {
@@ -287,7 +289,9 @@ case class Constraints(
           (this.area.resolveMin / this.height.resolveMin, this.height.resolveMin)
         } else {
           // TODO resolve 3-way constraint (this is wrong)
-          ???
+          val widthReq = Seq(this.width.resolveMin, this.area.resolveMin / this.height.resolveMin).max
+          val heightReq = Seq(this.width.resolveMin, this.area.resolveMin / this.width.resolveMin).max
+          (widthReq, heightReq)
         }
       } else {
         // No Area or AspectRatio
