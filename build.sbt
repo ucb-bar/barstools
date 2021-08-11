@@ -15,6 +15,9 @@ lazy val commonSettings = Seq(
   },
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "3.2.2" % "test",
+    "org.json4s" %% "json4s-jackson" % "3.6.1",
+    "org.json4s" %% "json4s-ext" % "3.6.1",
+    "org.json4s" %% "json4s-native" % "3.6.1",
   ),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("snapshots"),
@@ -34,8 +37,12 @@ lazy val macros = (project in file("macros"))
   )
   .enablePlugins(sbtassembly.AssemblyPlugin)
 
+lazy val floorplan = (project in file("floorplan"))
+  .settings(commonSettings)
+
 lazy val tapeout = (project in file("tapeout"))
+  .dependsOn(floorplan)
   .settings(commonSettings)
   .settings(scalacOptions in Test ++= Seq("-language:reflectiveCalls"))
 
-lazy val root = (project in file(".")).aggregate(macros, tapeout)
+lazy val root = (project in file(".")).aggregate(macros, tapeout, floorplan)
