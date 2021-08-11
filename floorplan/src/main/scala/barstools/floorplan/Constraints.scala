@@ -325,6 +325,7 @@ object Constraints {
 
 sealed trait PlacementAnchor
 
+// TODO use this and convert to Enum
 class LowerLeft extends PlacementAnchor
 class LowerMiddle extends PlacementAnchor
 class LowerRight extends PlacementAnchor

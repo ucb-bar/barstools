@@ -423,6 +423,7 @@ private[floorplan] final case class AbstractMacro (
 private[floorplan] final case class SizedMacro (
   name: String,
   parent: String,
+  orientation: Orientation.Value,
   width: BigDecimal,
   height: BigDecimal
 ) extends SizedRectPrimitive {
@@ -433,11 +434,16 @@ private[floorplan] final case class SizedMacro (
 private[floorplan] final case class PlacedMacro (
   name: String,
   parent: String,
+  orientation: Orientation.Value,
   x: BigDecimal,
   y: BigDecimal,
   width: BigDecimal,
   height: BigDecimal
 ) extends PlacedRectPrimitive {
   def mapNames(m: (String) => String): Element = this.copy(name = m(name), parent = m(parent))
+}
+
+object Orientation extends Enumeration {
+  val r0, r90, r180, r270, mx, mx90, my, my90 = Value
 }
 

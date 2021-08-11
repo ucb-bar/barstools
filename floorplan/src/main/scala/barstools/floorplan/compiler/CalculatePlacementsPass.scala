@@ -73,6 +73,7 @@ class CalculatePlacementsPass(topMod: String) extends Pass {
           n.replace(n.record.copy(element = PlacedMacro(
             e.name,
             e.parent,
+            e.orientation,
             legalX,
             legalY,
             e.width,

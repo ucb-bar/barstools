@@ -18,7 +18,7 @@ object HammerIR {
           Some(PlacementConstraint(
             path = record.fullPath,
             typ = PlacementType.hardmacro,
-            orientation = Some(Orientation.r0), // TODO represent this in FPIR
+            orientation = Some(c.orientation),
             x = toMicrons(c.x),
             y = toMicrons(c.y),
             create_physical = Some(false),
@@ -97,10 +97,6 @@ final case class PlacementConstraint private[hammer] (
 
 object PlacementType extends Enumeration {
   val dummy, placement, toplevel, hardmacro, hierarchical, obstruction = Value
-}
-
-object Orientation extends Enumeration {
-  val r0, r90, r180, r270, mx, mx90, my, my90 = Value
 }
 
 object ObstructionType extends Enumeration {

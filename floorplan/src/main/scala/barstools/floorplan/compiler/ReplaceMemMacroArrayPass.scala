@@ -71,7 +71,13 @@ class ReplaceMemMacroArrayPass(topMod: String) extends Pass {
           if ((group + 1) >= numMems) {
             addSpacer(xPadding, spacerHeight)
           } else {
-            e.elements(group + 1)
+            val eOut = e.elements(group + 1)
+            // Mirror it for proof-of-concept
+            val myNode = tree.getNode(eOut)
+            myNode.replace(myNode.record.copy(element = myNode.record.element.asInstanceOf[SizedMacro].copy(
+              orientation = Orientation.my
+            )))
+            eOut
           }
         }
       }
