@@ -59,6 +59,7 @@ class OutOfBandAnnotationPass(val sbMap: Map[String, OutOfBandAnnotation]) exten
             SizedMacro(
               name = e.name,
               parent = e.parent,
+              orientation = Orientation.r0,
               width = sb.width.get,
               height = sb.height.get
             )

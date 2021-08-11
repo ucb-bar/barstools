@@ -1,6 +1,8 @@
 // See LICENSE for license details
 package barstools.floorplan.hammer
 
+import barstools.floorplan.Orientation
+
 import org.json4s._
 import org.json4s.FieldSerializer.renameTo
 import org.json4s.native.Serialization.{read, write, writePretty}

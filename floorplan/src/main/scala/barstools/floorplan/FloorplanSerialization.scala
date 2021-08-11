@@ -3,6 +3,7 @@ package barstools.floorplan
 
 import org.json4s._
 import org.json4s.native.Serialization.{read, write, writePretty}
+import org.json4s.ext.EnumNameSerializer
 import scala.reflect.runtime.universe.typeOf
 
 object FloorplanSerialization {
@@ -18,7 +19,7 @@ object FloorplanSerialization {
   val formats = (new DefaultFormats {
     override val typeHintFieldName = "class"
     override val typeHints = FullTypeHints(typeHintClasses map { x => Class.forName(x.fullName) })
-  })
+  } + new EnumNameSerializer(Orientation))
 
   def serialize[T <: Element](elt: T): String = write(elt)(formats)
 
