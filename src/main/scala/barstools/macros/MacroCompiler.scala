@@ -51,6 +51,9 @@ object MacroCompilerAnnotation {
   /** Synflops mode - compile all memories with synflops (do not map to lib at all). */
   case object Synflops extends CompilerMode
 
+  /** Do not compile memories that are below threshold size (width * depth) */
+  case class SynflopThreshold(threshold: Int) extends CompilerMode
+
   /** CompileAndSynflops mode - compile all memories and create mock versions of the target libs with synflops. */
   case object CompileAndSynflops extends CompilerMode
 
@@ -102,25 +105,27 @@ object MacroCompilerAnnotation {
 
   /** Parameters associated to this MacroCompilerAnnotation.
     *
-    * @param mem           Path to memory lib
-    * @param memFormat     Type of memory lib (Some("conf"), Some("mdf"), or None (defaults to mdf))
-    * @param lib           Path to library lib or None if no libraries
-    * @param hammerIR      Path to HammerIR output or None (not generated in this case)
-    * @param costMetric    Cost metric to use
-    * @param mode          Compiler mode (see CompilerMode)
-    * @param forceCompile  Set of memories to force compiling to lib regardless of the mode
-    * @param forceSynflops Set of memories to force compiling as flops regardless of the mode
+    * @param mem               Path to memory lib
+    * @param memFormat         Type of memory lib (Some("conf"), Some("mdf"), or None (defaults to mdf))
+    * @param lib               Path to library lib or None if no libraries
+    * @param hammerIR          Path to HammerIR output or None (not generated in this case)
+    * @param costMetric        Cost metric to use
+    * @param mode              Compiler mode (see CompilerMode)
+    * @param forceCompile      Set of memories to force compiling to lib regardless of the mode
+    * @param forceSynflops     Set of memories to force compiling as flops regardless of the mode
+    * @param synflopThreshold Memories below this side are forced to synflops
     */
   case class Params(
-    mem:           String,
-    memFormat:     Option[String],
-    lib:           Option[String],
-    hammerIR:      Option[String],
-    costMetric:    CostMetric,
-    mode:          CompilerMode,
-    useCompiler:   Boolean,
-    forceCompile:  Set[String],
-    forceSynflops: Set[String])
+    mem:              String,
+    memFormat:        Option[String],
+    lib:              Option[String],
+    hammerIR:         Option[String],
+    costMetric:       CostMetric,
+    mode:             CompilerMode,
+    useCompiler:      Boolean,
+    forceCompile:     Set[String],
+    forceSynflops:    Set[String],
+    synflopThreshold: Long)
       extends Serializable
 
   /** Create a MacroCompilerAnnotation.
@@ -693,79 +698,88 @@ class MacroCompilerTransform extends Transform with DependencyAPIMigration {
   override def optionalPrerequisiteOf: Seq[Dependency[Emitter]] = Forms.LowEmitters
   override def invalidates(a: Transform) = false
 
-  def execute(state: CircuitState): CircuitState = state.annotations.collect { case a: MacroCompilerAnnotation =>
-    a
-  } match {
-    case Seq(anno: MacroCompilerAnnotation) =>
-      val MacroCompilerAnnotation.Params(
-        memFile,
-        memFileFormat,
-        libFile,
-        hammerIR,
-        costMetric,
-        mode,
-        useCompiler,
-        forceCompile,
-        forceSynflops
-      ) = anno.params
-      if (mode == MacroCompilerAnnotation.FallbackSynflops) {
-        throw new UnsupportedOperationException("Not implemented yet")
-      }
+  def execute(state: CircuitState): CircuitState = {
+    val macroCompilerAnnotations = state.annotations.collect { case a: MacroCompilerAnnotation => a }
+    macroCompilerAnnotations match {
+      case Seq(anno: MacroCompilerAnnotation) =>
+        val MacroCompilerAnnotation.Params(
+          memFile,
+          memFileFormat,
+          libFile,
+          hammerIR,
+          costMetric,
+          mode,
+          useCompiler,
+          forceCompile,
+          forceSynflops,
+          synflopThreshold
+        ) = anno.params
 
-      // Check that we don't have any modules both forced to compile and synflops.
-      assert(forceCompile.intersect(forceSynflops).isEmpty, "Cannot have modules both forced to compile and synflops")
+        if (mode == MacroCompilerAnnotation.FallbackSynflops) {
+          throw new UnsupportedOperationException("Not implemented yet")
+        }
 
-      // Read, eliminate None, get only SRAM, make firrtl macro
-      val mems: Option[Seq[Macro]] = (memFileFormat match {
-        case Some("conf") => readConfFromPath(Some(memFile))
-        case _            => mdf.macrolib.Utils.readMDFFromPath(Some(memFile))
-      }) match {
-        case Some(x: Seq[mdf.macrolib.Macro]) =>
-          Some(filterForSRAM(Some(x)).getOrElse(List()).map { new Macro(_) })
-        case _ => None
-      }
-      val libs: Option[Seq[Macro]] = mdf.macrolib.Utils.readMDFFromPath(libFile) match {
-        case Some(x: Seq[mdf.macrolib.Macro]) =>
-          Some(filterForSRAM(Some(x)).getOrElse(List()).map { new Macro(_) })
-        case _ => None
-      }
-      val compilers: Option[mdf.macrolib.SRAMCompiler] = mdf.macrolib.Utils.readMDFFromPath(libFile) match {
-        case Some(x: Seq[mdf.macrolib.Macro]) =>
-          if (useCompiler) {
-            findSRAMCompiler(Some(x))
-          } else None
-        case _ => None
-      }
+        // Check that we don't have any modules both forced to compile and synflops.
+        assert(forceCompile.intersect(forceSynflops).isEmpty, "Cannot have modules both forced to compile and synflops")
 
-      // Helper function to turn a set of mem names into a Seq[Macro].
-      def setToSeqMacro(names: Set[String]): Seq[Macro] = {
-        names.toSeq.map(memName => mems.get.collectFirst { case m if m.src.name == memName => m }.get)
-      }
+        // Read, eliminate None, get only SRAM, make firrtl macro
+        val mems: Option[Seq[Macro]] = (memFileFormat match {
+          case Some("conf") => readConfFromPath(Some(memFile))
+          case _            => mdf.macrolib.Utils.readMDFFromPath(Some(memFile))
+        }) match {
+          case Some(x: Seq[mdf.macrolib.Macro]) =>
+            Some(filterForSRAM(Some(x)).getOrElse(List()).map { new Macro(_) })
+          case _ => None
+        }
+        val (smallMems, bigMems) = mems.get.partition { mem =>
+          mem.src.width * mem.src.depth < synflopThreshold
+        }
+        val libs: Option[Seq[Macro]] = mdf.macrolib.Utils.readMDFFromPath(libFile) match {
+          case Some(x: Seq[mdf.macrolib.Macro]) =>
+            Some(filterForSRAM(Some(x)).getOrElse(List()).map { new Macro(_) })
+          case _ => None
+        }
+        val compilers: Option[mdf.macrolib.SRAMCompiler] = mdf.macrolib.Utils.readMDFFromPath(libFile) match {
+          case Some(x: Seq[mdf.macrolib.Macro]) =>
+            if (useCompiler) {
+              findSRAMCompiler(Some(x))
+            } else None
+          case _ => None
+        }
 
-      // Build lists of memories for compilation and synflops.
-      val memCompile = mems.map { actualMems =>
-        val memsAdjustedForMode = if (mode == MacroCompilerAnnotation.Synflops) Seq.empty else actualMems
-        memsAdjustedForMode.filterNot(m => forceSynflops.contains(m.src.name)) ++ setToSeqMacro(forceCompile)
-      }
-      val memSynflops: Seq[Macro] = mems.map { actualMems =>
-        //
-        val memsAdjustedForMode = if (mode == MacroCompilerAnnotation.Synflops) actualMems else Seq.empty
-        memsAdjustedForMode.filterNot(m => forceCompile.contains(m.src.name)) ++ setToSeqMacro(forceSynflops)
-      }.getOrElse(Seq.empty)
+        // Helper function to turn a set of mem names into a Seq[Macro].
+        def setToSeqMacro(names: Set[String]): Seq[Macro] = {
+          names.toSeq.map(memName => bigMems.collectFirst { case m if m.src.name == memName => m }.get)
+        }
 
-      val transforms = Seq(
-        new MacroCompilerPass(memCompile, libs, compilers, hammerIR, costMetric, mode),
-        new SynFlopsPass(
-          true,
-          memSynflops ++ (if (mode == MacroCompilerAnnotation.CompileAndSynflops) {
-                            libs.get
-                          } else {
-                            Seq.empty
-                          })
+        // Build lists of memories for compilation and synflops.
+        val memCompile = Some(bigMems).map { actualMems =>
+          val memsAdjustedForMode = if (mode == MacroCompilerAnnotation.Synflops) Seq.empty else actualMems
+          memsAdjustedForMode.filterNot(m => forceSynflops.contains(m.src.name)) ++ setToSeqMacro(forceCompile)
+        }
+        val memSynflops: Seq[Macro] = {
+          val memsAdjustedForMode: Seq[Macro] = if (mode == MacroCompilerAnnotation.Synflops) {
+            mems.getOrElse(Seq.empty)
+          } else {
+            smallMems
+          }
+          memsAdjustedForMode.filterNot(m => forceCompile.contains(m.src.name)) ++ setToSeqMacro(forceSynflops)
+        }
+
+        val transforms = Seq(
+          new MacroCompilerPass(memCompile, libs, compilers, hammerIR, costMetric, mode),
+          new SynFlopsPass(
+            true,
+            memSynflops ++ (if (mode == MacroCompilerAnnotation.CompileAndSynflops) {
+                              libs.get
+                            } else {
+                              Seq.empty
+                            })
+          )
         )
-      )
-      transforms.foldLeft(state)((s, xform) => xform.runTransform(s))
-    case _ => state
+        transforms.foldLeft(state)((s, xform) => xform.runTransform(s))
+      case _ => state
+    }
   }
 }
 
@@ -796,6 +810,7 @@ object MacroCompiler extends App {
   case object CostFunc extends MacroParam
   case object Mode extends MacroParam
   case object UseCompiler extends MacroParam
+  case object SynflopThreshold extends MacroParam
 
   type MacroParamMap = Map[MacroParam, String]
   type CostParamMap = Map[String, String]
@@ -849,9 +864,15 @@ object MacroCompiler extends App {
       case "--force-compile" :: value :: tail =>
         parseArgs(map, costMap, forcedMemories.copy(_1 = forcedMemories._1 + value), tail)
       case "--force-synflops" :: value :: tail =>
-        parseArgs(map, costMap, forcedMemories.copy(_2 = forcedMemories._2 + value), tail)
+        parseArgs(map + (Macros -> value) + (MacrosFormat -> "conf"), costMap, forcedMemories, tail)
+      case "--synflop-threshold" :: value :: tail =>
+        parseArgs(map + (SynflopThreshold -> value), costMap, forcedMemories, tail)
       case "--mode" :: value :: tail =>
         parseArgs(map + (Mode -> value), costMap, forcedMemories, tail)
+      case "--help" :: tail =>
+        println(s"MacroCompiler help\n")
+        println(usage)
+        sys.exit(0)
       case arg :: _ =>
         println(s"Unknown field $arg\n")
         println(usage)
@@ -887,7 +908,8 @@ object MacroCompiler extends App {
                 MacroCompilerAnnotation.stringToCompilerMode(params.getOrElse(Mode, "default")),
                 params.contains(UseCompiler),
                 forceCompile = forcedMemories._1,
-                forceSynflops = forcedMemories._2
+                forceSynflops = forcedMemories._2,
+                synflopThreshold = params.getOrElse(SynflopThreshold, "0").toLong
               )
             )
           )
