@@ -1,6 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
-
-//TODO: Which license header to use
+// SPDX-License-Identifier: BSD-3-Clause
 
 package barstools.macros
 

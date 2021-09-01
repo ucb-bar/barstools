@@ -1,4 +1,4 @@
-// See LICENSE for license details.
+// SPDX-License-Identifier: BSD-3-Clause
 
 /** Terminology note:
   * mem - target memory to compile, in design (e.g. Mem() in rocket)
