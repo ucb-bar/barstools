@@ -7,7 +7,7 @@ val defaultVersions = Map(
 
 lazy val commonSettings = Seq(
   organization := "edu.berkeley.cs",
-  version := "0.4-SNAPSHOT",
+  version := "0.5-SNAPSHOT",
   scalaVersion := "2.12.13",
   crossScalaVersions := Seq("2.12.13", "2.13.6"),
   scalacOptions := Seq("-deprecation", "-feature", "-language:reflectiveCalls"),
@@ -27,17 +27,20 @@ lazy val commonSettings = Seq(
   )
 )
 
-//disablePlugins(sbtassembly.AssemblyPlugin)
-//
-//enablePlugins(sbtassembly.AssemblyPlugin)
+// This block fixes a failure in assembly about duplicated files
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case x => MergeStrategy.first
+}
 
 lazy val tapeout = (project in file("."))
   .settings(commonSettings)
   .settings(scalacOptions in Test ++= Seq("-language:reflectiveCalls"))
   .settings(fork := true)
   .settings(
-    mainClass := Some("barstools.macros.MacroCompiler")
+    assembly / mainClass := Some("barstools.macros.MacroCompiler"),
+    assembly / assemblyJarName in assembly := "MacroCompiler.jar",
+    assembly / test := {},
+    assembly / assemblyOutputPath := file("./utils/bin/MacroCompiler.jar")
   )
   .enablePlugins(sbtassembly.AssemblyPlugin)
-
-//lazy val root = (project in file(".")).aggregate(tapeout)
