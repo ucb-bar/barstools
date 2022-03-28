@@ -1,7 +1,8 @@
 package barstools.macros
 
 import firrtl.ir.Circuit
-import firrtl_interpreter.InterpretiveTester
+import firrtl.stage.FirrtlSourceAnnotation
+import treadle.TreadleTester
 
 // Functional tests on memory compiler outputs.
 
@@ -11,12 +12,10 @@ class SynchronousReadAndWrite extends MacroCompilerSpec with HasSRAMGenerator wi
   override lazy val memDepth = BigInt(2048)
   override lazy val libDepth = BigInt(1024)
 
-  compile(mem, lib, v, synflops = true)
+  compile(mem, lib, v, synflops = true, synflopThreshold = 0L)
   val result: Circuit = execute(mem, lib, synflops = true)
 
-  it should "run with InterpretedTester" in {
-    pending // Enable this when https://github.com/freechipsproject/firrtl-interpreter/pull/88 is snapshot-published
-
+  it should "run with Treadle" in {
     val addr1 = 0
     val addr1val = 0xff
     val addr2 = 42
@@ -24,8 +23,7 @@ class SynchronousReadAndWrite extends MacroCompilerSpec with HasSRAMGenerator wi
     val addr3 = 1 << 10
     val addr3val = 1 << 10
 
-    val tester = new InterpretiveTester(result.serialize)
-    //~ tester.setVerbose()
+    val tester = TreadleTester(Seq(FirrtlSourceAnnotation(result.serialize)))
 
     tester.poke("outer_write_en", 0)
     tester.step()
@@ -74,15 +72,12 @@ class DontReadCombinationally extends MacroCompilerSpec with HasSRAMGenerator wi
   compile(mem, lib, v, synflops = true)
   val result: Circuit = execute(mem, lib, synflops = true)
 
-  it should "run with InterpretedTester" in {
-    pending // Enable this when https://github.com/freechipsproject/firrtl-interpreter/pull/88 is snapshot-published
-
+  it should "run with Treadle" in {
     val addr1 = 0
     val addr1a = 1
     val addr2 = 1 << 10
 
-    val tester = new InterpretiveTester(result.serialize)
-    //~ tester.setVerbose()
+    val tester = TreadleTester(Seq(FirrtlSourceAnnotation(result.serialize)))
 
     tester.poke("outer_write_en", 0)
     tester.step()
@@ -115,6 +110,6 @@ class DontReadCombinationally extends MacroCompilerSpec with HasSRAMGenerator wi
 
     // And upon step it should work again.
     tester.step()
-    tester.expect("outer_addr", 0xaa)
+    tester.expect("outer_dout", 0xaa)
   }
 }

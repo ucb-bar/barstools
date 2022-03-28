@@ -38,7 +38,14 @@ abstract class MacroCompilerSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  private def args(mem: String, lib: Option[String], v: String, synflops: Boolean, useCompiler: Boolean) =
+  private def args(
+    mem:              String,
+    lib:              Option[String],
+    v:                String,
+    synflops:         Boolean,
+    useCompiler:      Boolean,
+    synflopThreshold: Long
+  ) =
     List("-m", mem, "-v", v) ++
       (lib match {
         case None    => Nil
@@ -46,20 +53,28 @@ abstract class MacroCompilerSpec extends AnyFlatSpec with Matchers {
       }) ++
       costMetricCmdLine ++
       (if (synflops) List("--mode", "synflops") else Nil) ++
-      (if (useCompiler) List("--use-compiler") else Nil)
+      (if (useCompiler) List("--use-compiler") else Nil) ++
+      (if (synflopThreshold > 0L) List("--synflop-threshold", s"$synflopThreshold") else Nil)
 
   // Run the full compiler as if from the command line interface.
   // Generates the Verilog; useful in testing since an error will throw an
   // exception.
-  def compile(mem: String, lib: String, v: String, synflops: Boolean): Unit = {
-    compile(mem, Some(lib), v, synflops)
+  def compile(mem: String, lib: String, v: String, synflops: Boolean, synflopThreshold: Long): Unit = {
+    compile(mem, Some(lib), v, synflops, synflopThreshold = synflopThreshold)
   }
-  def compile(mem: String, lib: Option[String], v: String, synflops: Boolean, useCompiler: Boolean = false): Unit = {
+  def compile(
+    mem:              String,
+    lib:              Option[String],
+    v:                String,
+    synflops:         Boolean,
+    useCompiler:      Boolean = false,
+    synflopThreshold: Long = 0L
+  ): Unit = {
     val mem_full = concat(memPrefix, mem)
     val lib_full = concat(libPrefix, lib)
     val v_full = concat(vPrefix, v)
 
-    MacroCompiler.run(args(mem_full, lib_full, v_full, synflops, useCompiler))
+    MacroCompiler.run(args(mem_full, lib_full, v_full, synflops, useCompiler, synflopThreshold))
   }
 
   // Helper functions to write macro libraries to the given files.
@@ -73,14 +88,15 @@ abstract class MacroCompilerSpec extends AnyFlatSpec with Matchers {
 
   // Convenience function for running both compile, execute, and test at once.
   def compileExecuteAndTest(
-    mem:         String,
-    lib:         Option[String],
-    v:           String,
-    output:      String,
-    synflops:    Boolean = false,
-    useCompiler: Boolean = false
+    mem:              String,
+    lib:              Option[String],
+    v:                String,
+    output:           String,
+    synflops:         Boolean = false,
+    useCompiler:      Boolean = false,
+    synflopThreshold: Long = 0
   ): Unit = {
-    compile(mem, lib, v, synflops, useCompiler)
+    compile(mem, lib, v, synflops, useCompiler, synflopThreshold)
     val result = execute(mem, lib, synflops, useCompiler)
     test(result, output)
   }
@@ -93,9 +109,16 @@ abstract class MacroCompilerSpec extends AnyFlatSpec with Matchers {
 
   // Execute the macro compiler and returns a Circuit containing the output of
   // the memory compiler.
-  def execute(memFile: Option[String], libFile: Option[String], synflops: Boolean): Circuit =
+  def execute(memFile: Option[String], libFile: Option[String], synflops: Boolean): Circuit = {
     execute(memFile, libFile, synflops, useCompiler = false)
-  def execute(memFile: Option[String], libFile: Option[String], synflops: Boolean, useCompiler: Boolean): Circuit = {
+  }
+
+  def execute(
+    memFile:     Option[String],
+    libFile:     Option[String],
+    synflops:    Boolean,
+    useCompiler: Boolean
+  ): Circuit = {
     val mem_full = concat(memPrefix, memFile)
     val lib_full = concat(libPrefix, libFile)
 

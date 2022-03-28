@@ -28,7 +28,7 @@ class Masks_FourTypes_NonMaskedMem_NonMaskedLib
   override lazy val libMaskGran: Option[Int] = None
 
   it should "compile, execute, and test" in {
-    compileExecuteAndTest(mem, lib, v, output)
+    compileExecuteAndTest(mem, lib, v, output, synflopThreshold = Int.MaxValue.toLong)
   }
 }
 
