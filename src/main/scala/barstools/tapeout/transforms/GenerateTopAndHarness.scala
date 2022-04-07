@@ -24,8 +24,7 @@ private class GenerateTopAndHarness(annotations: AnnotationSeq) extends LazyLogg
   val harnessOutput:  Option[String] = annotations.collectFirst { case HarnessOutputAnnotation(h) => h }
   val topDotfOut:     Option[String] = annotations.collectFirst { case TopDotfOutAnnotation(h) => h }
   val harnessDotfOut: Option[String] = annotations.collectFirst { case HarnessDotfOutAnnotation(h) => h }
-  // Note: this file name isn't actually used here, we just test to see if the annotaiton exists to run the pass
-  val floorplanFile: Option[String] = annotations.collectFirst { case FloorplanIRFileAnnotation(h) => h }
+  val floorplanFile:  Option[String] = annotations.collectFirst { case FloorplanIRFileAnnotation(h) => h }
 
   val annoFiles: List[String] = annotations.flatMap {
     case InputAnnotationFileAnnotation(f) => Some(f)

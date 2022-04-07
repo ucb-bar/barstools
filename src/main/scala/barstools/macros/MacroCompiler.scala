@@ -118,7 +118,7 @@ object MacroCompilerAnnotation {
     memFormat:     Option[String],
     lib:           Option[String],
     hammerIR:      Option[String],
-    instMap:      Option[String],
+    instMap:       Option[String],
     costMetric:    CostMetric,
     mode:          CompilerMode,
     useCompiler:   Boolean,
@@ -321,9 +321,9 @@ class MacroCompilerPass(
 
     // Depth mapping
     val stmts = ArrayBuffer[Statement]()
-    val outputs = HashMap[String, ArrayBuffer[(Expression, Expression)]]()
-    val selects = HashMap[String, Expression]()
-    val selectRegs = HashMap[String, Expression]()
+    val outputs = mutable.HashMap[String, ArrayBuffer[(Expression, Expression)]]()
+    val selects = mutable.HashMap[String, Expression]()
+    val selectRegs = mutable.HashMap[String, Expression]()
     // Store (instanceName, moduleName) tuples for use by floorplanning
     val insts = ArrayBuffer[(Instance, OfModule)]()
     /* Palmer: If we've got a parallel memory then we've got to take the
@@ -646,11 +646,7 @@ class MacroCompilerPass(
 
           // Try to compile mem against each lib in libs, keeping track of the
           // best compiled version, external lib used, and cost.
-<<<<<<< HEAD:src/main/scala/barstools/macros/MacroCompiler.scala
-          val (best, _) = fullLibs.foldLeft(None: Option[(Module, Macro)], Double.MaxValue) {
-=======
           val (best, cost) = (fullLibs.foldLeft(None: Option[(Module, Macro, Seq[(Instance, OfModule)])], Double.MaxValue)) {
->>>>>>> Add text file that lists the macrocompiler mapping:macros/src/main/scala/barstools/macros/MacroCompiler.scala
             case ((best, cost), lib) if mem.src.ports.size != lib.src.ports.size =>
               /* Palmer: FIXME: This just assumes the Chisel and vendor ports are in the same
                * order, but I'm starting with what actually gets generated. */
@@ -682,28 +678,12 @@ class MacroCompilerPass(
                 )
               else
                 modules
-<<<<<<< HEAD:src/main/scala/barstools/macros/MacroCompiler.scala
-            case Some((mod, bb)) =>
-              hammerIR match {
-                case Some(f) =>
-                  val hammerIRWriter = new FileWriter(new File(f), !firstLib)
-                  if (firstLib) hammerIRWriter.write("[\n")
-                  hammerIRWriter.write(bb.src.toJSON().toString())
-                  hammerIRWriter.write("\n,\n")
-                  hammerIRWriter.close()
-                  firstLib = false
-                case None =>
-              }
-              modules.filterNot(m => m.name == mod.name || m.name == bb.blackbox.name) ++ Seq(mod, bb.blackbox)
-=======
-            }
             case Some((mod, bb, insts)) =>
               // Add hammerIR
               hammerIRBuffer.append(bb.src.toJSON().toString())
               // Add insts
               instMapBuffer.append(mod.name + " " + insts.map(x => x._1.value + ":" + x._2.value).mkString(" "))
               (modules.filterNot(m => m.name == mod.name || m.name == bb.blackbox.name)) ++ Seq(mod, bb.blackbox)
->>>>>>> Add text file that lists the macrocompiler mapping:macros/src/main/scala/barstools/macros/MacroCompiler.scala
           }
         }
       case _ => c.modules
@@ -722,6 +702,7 @@ class MacroCompilerPass(
       writer.write(instMapBuffer.mkString("\n"))
       writer.close()
     }
+    c.copy(modules = modules)
     c.copy(modules = modules)
   }
 }
@@ -954,19 +935,6 @@ object MacroCompiler extends App {
           )
         )
 
-<<<<<<< HEAD:src/main/scala/barstools/macros/MacroCompiler.scala
-        params.get(HammerIR) match {
-          case Some(hammerIRFile: String) =>
-            val lines = FileUtils.getLines(hammerIRFile).toList
-            val hammerIRWriter = new FileWriter(new File(hammerIRFile))
-            // JSON means we need to destroy the last comma :(
-            lines.dropRight(1).foreach(l => hammerIRWriter.write(l + "\n"))
-            hammerIRWriter.write("]\n")
-            hammerIRWriter.close()
-          case None =>
-        }
-=======
->>>>>>> Add text file that lists the macrocompiler mapping:macros/src/main/scala/barstools/macros/MacroCompiler.scala
       } else {
         // Warn user
         System.err.println("WARNING: Empty *.mems.conf file. No memories generated.")
