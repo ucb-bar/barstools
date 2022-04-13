@@ -80,7 +80,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
             Option.empty[InstanceTarget]
           case _ => ???
         }
-        val refTarget = x.targets(1)(0).asInstanceOf[ReferenceTarget]
+        val refTarget = x.targets(1)(0).asInstanceOf[InstanceTarget].asReference
         // Note: This assumes specific behavior from ReplSeqMem, namely that it replaces the Mem reference with
         // a wrapper instance named ${ext} that instantiates an external bbox named ${ext}_ext
         val mem = IRLookup(state.circuit).declaration(refTarget) match {
