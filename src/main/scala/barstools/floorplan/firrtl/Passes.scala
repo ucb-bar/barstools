@@ -87,15 +87,15 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
           case m: firrtl.ir.DefInstance => m.module
           case _ => throw new Exception("Something went wrong, Mems should become ExtModule instances")
         }
-        val ext = mem+"_ext"
+        val ext = mem
         // TODO do we want to replace this in the output annotation file... ?
         val newTarget = InstanceTarget(
           circuit=refTarget.circuit,
           module=refTarget.module,
-          instance=ext,
+          instance="",
           ofModule=ext,
           path=refTarget.path :+ (Instance(refTarget.ref), OfModule(mem)))
-        newRecord(getInstancePath(scopeTarget), Some(getRelativePath(scopeTarget, Some(newTarget))), Some(ext), x)
+        newRecord(getInstancePath(scopeTarget), None, Some(ext), x)
     })
 
     val filename = state.annotations.collectFirst({
