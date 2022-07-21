@@ -5,6 +5,7 @@ test_run_dir/
 *.fir
 *.f
 *.anno.json
+/gnupg-*
 
 ### XilinxISE template
 # intermediate build files
