@@ -20,8 +20,6 @@ jobs:
         uses: olafurpg/setup-scala@v10
       - name: Cache
         uses: coursier/cache-action@v5
-      - name: Get submodules
-        run: git submodule update --init
       - name: Test
         run: sbt test
 

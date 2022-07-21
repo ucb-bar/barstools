@@ -1,15 +1,15 @@
 // See LICENSE for license details.
 
 val defaultVersions = Map(
-  "chisel3" -> "3.5.1",
+  "chisel3" -> "3.5.3",
   "chisel-iotesters" -> "2.5.1"
 )
 
 organization := "edu.berkeley.cs"
-version := "0.4-SNAPSHOT"
-name := "tapeout"
-scalaVersion := "2.12.13"
-crossScalaVersions := Seq("2.12.13", "2.13.6")
+//version := "0.5-SNAPSHOT"
+name := "barstools"
+scalaVersion := "2.12.16"
+crossScalaVersions := Seq("2.12.16", "2.13.8")
 scalacOptions := Seq("-deprecation", "-feature", "-language:reflectiveCalls")
 Test / scalacOptions ++= Seq("-language:reflectiveCalls")
 fork := true
@@ -19,9 +19,9 @@ libraryDependencies ++= Seq("chisel3","chisel-iotesters").map {
 }
 libraryDependencies ++= Seq(
   "com.typesafe.play" %% "play-json" % "2.9.2",
-  "org.scalatest" %% "scalatest" % "3.2.9" % "test",
-  "org.apache.logging.log4j" % "log4j-api" % "2.11.2",
-  "org.apache.logging.log4j" % "log4j-core" % "2.11.2"
+  "org.apache.logging.log4j" % "log4j-api" % "2.18.0",
+  "org.apache.logging.log4j" % "log4j-core" % "2.18.0",
+  "org.scalatest" %% "scalatest" % "3.2.9" % "test"
 )
 addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % defaultVersions("chisel3") cross CrossVersion.full)
 resolvers ++= Seq(
@@ -29,3 +29,4 @@ resolvers ++= Seq(
   Resolver.sonatypeRepo("releases"),
   Resolver.mavenLocal
 )
+enablePlugins(GitVersioning)
