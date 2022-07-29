@@ -13,7 +13,7 @@ class GenerateTopSpec extends AnyFreeSpec with Matchers {
   "Generate top and harness" - {
     "should include the following transforms" in {
       val targetDir = "test_run_dir/generate_top_and_harness"
-      val transformListName = s"$targetDir/ExampleModuleNeesResetInvertTransforms.log"
+      val transformListName = s"$targetDir/ExampleModuleNeedsResetInvertTransforms.log"
       FileUtils.makeDirectory(targetDir)
       (new ChiselStage).emitChirrtl(new ExampleModuleNeedsResetInverted, Array("--target-dir", targetDir))
 
@@ -24,7 +24,11 @@ class GenerateTopSpec extends AnyFreeSpec with Matchers {
           "-ll",
           "info",
           "--log-file",
-          transformListName
+          transformListName,
+          "-o",
+          s"$targetDir/ExampleModuleNeedsResetInverted.top.v",
+          "-tho",
+          s"$targetDir/ExampleModuleNeedsResetInverted.harness.v",
         )
       )
 
