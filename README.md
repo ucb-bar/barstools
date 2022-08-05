@@ -3,7 +3,7 @@ Barstools
 
 ---
 
-![CI Status](https://github.com/ucb-bar/barstools/actions/workflows/run-ci.yml/badge.svg)
+![CI Status](https://github.com/ucb-bar/barstools/actions/workflows/publish.yml/badge.svg)
 
 **Barstools** is a collection of useful utilities for BAR projects
 
