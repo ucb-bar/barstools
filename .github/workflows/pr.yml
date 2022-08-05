@@ -1,0 +1,27 @@
+name: Pull Request
+on:
+  pull_request:
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scala: [ "2.12.15", "2.13.8" ]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: olafurpg/setup-scala@v13
+        with:
+          java-version: openjdk@1.17
+      - uses: coursier/cache-action@v6.3
+      - run: sbt ++${{ matrix.scala }} test
+
+  format:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: olafurpg/setup-scala@v13
+        with:
+          java-version: openjdk@1.17
+      - run: sbt scalafmtCheckAll
