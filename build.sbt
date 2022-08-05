@@ -49,8 +49,7 @@ lazy val publishSettings = Seq(
   publishTo := sonatypePublishToBundle.value,
 
   Test / publishArtifact := false,
-  publishMavenStyle := true,
-  publish / skip := true // disable publishing until a tag is properly set via another PR
+  publishMavenStyle := true
 )
 
 lazy val barstools = (project in file("."))
