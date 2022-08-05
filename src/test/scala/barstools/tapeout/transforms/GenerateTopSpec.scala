@@ -28,7 +28,7 @@ class GenerateTopSpec extends AnyFreeSpec with Matchers {
           "-o",
           s"$targetDir/ExampleModuleNeedsResetInverted.top.v",
           "-tho",
-          s"$targetDir/ExampleModuleNeedsResetInverted.harness.v",
+          s"$targetDir/ExampleModuleNeedsResetInverted.harness.v"
         )
       )
 
