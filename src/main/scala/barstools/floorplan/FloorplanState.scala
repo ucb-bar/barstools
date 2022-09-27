@@ -21,7 +21,8 @@ object FloorplanState {
 
   def fromFile(file: String): FloorplanState = {
     val source = scala.io.Source.fromFile(file)
-    val fpState = deserialize(source.getLines.mkString("\n"))
+    val sourceString = source.getLines.mkString("\n")
+    val fpState = deserialize(sourceString)
     source.close()
     fpState
   }

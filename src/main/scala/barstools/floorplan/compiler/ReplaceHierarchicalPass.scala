@@ -19,6 +19,8 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
     })).toMap
 
     val scope = topMaps(topMod).scope
+    println("top maps keys: " + topMaps.keys)
+    println("top maps :" + topMaps)
     val scopeNameSet = HashSet(state.records.filter(_.scope == scope).map(_.element.name):_*)
 
     val nonScopePaths = topMaps.filterKeys(_ != topMod).values.map(_.scope)
@@ -83,7 +85,7 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
           case t: PlacedHierarchicalTop => ??? // TODO not supported yet
           case _ => ???
         }).map(newE => FloorplanRecord(
-            scope = scope,
+            scope = scope + "type",
             inst = getRelPath(r.inst.map(_ => r.fullPath)),
             ofModule = r.ofModule,
             element = newE
@@ -92,7 +94,8 @@ class ReplaceHierarchicalPass(val topMod: String) extends Pass {
       case e: PlacedHierarchicalTop if r.ofModule != Some(topMod) => Seq()
       case e => Seq(r.copy(
         scope = scope,
-        inst = getRelPath(r.inst.map(_ => r.fullPath)),
+        // not sure why the original way to do it doesn't work here
+        inst = getRelPath(r.inst.map(_ => r.fullPath)), 
         ofModule = r.ofModule,
         element = r.element.mapNames(x => rename(r.scope, x))
       ))

@@ -1,12 +1,15 @@
 // See LICENSE for license details
 package barstools.floorplan.firrtl
 
-import barstools.floorplan.{FloorplanSerialization, FloorplanRecord, FloorplanState}
+import chisel3.UInt
+import barstools.floorplan.{FloorplanSerialization, FloorplanRecord, FloorplanState, HierarchicalBarrier}
 import firrtl.{CircuitState, Transform, DependencyAPIMigration, VerilogEmitter, AnnotationSeq}
 import firrtl.options.{Dependency, RegisteredTransform, ShellOption}
 import firrtl.analyses.{IRLookup}
-import firrtl.annotations.{InstanceTarget, ReferenceTarget, ModuleTarget, Target, IsComponent}
+import firrtl.annotations.{InstanceTarget, ReferenceTarget, ModuleTarget, Target, GenericTarget, IsComponent}
 import firrtl.annotations.TargetToken.{Instance, OfModule}
+
+import java.lang.Exception
 
 // NOTE: If you rename/add this transform, don't forget to update META-INF
 // See the @note in the RegisteredTransform documentation
@@ -46,7 +49,7 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
     def newRecord(path: String, ref: Option[String], ofModule: Option[String], anno: FloorplanAnnotation) =
       FloorplanRecord(path, ref, ofModule, FloorplanSerialization.deserialize(anno.fpir))
 
-    val list = state.annotations.collect({
+    val list: Seq[FloorplanRecord] = state.annotations.collect({
       case x: NoReferenceFloorplanAnnotation =>
         val (scopeTarget, ofModule) = x.target match {
           case y: InstanceTarget => (Some(y), Some(y.ofModule))
@@ -80,24 +83,17 @@ class GenerateFloorplanIRPass extends Transform with RegisteredTransform with De
             Option.empty[InstanceTarget]
           case _ => ???
         }
-        val refTarget = x.targets(1)(0).asInstanceOf[InstanceTarget].asReference
-        // Note: This assumes specific behavior from ReplSeqMem, namely that it replaces the Mem reference with
-        // a wrapper instance named ${ext} that instantiates an external bbox named ${ext}_ext
-        val mem = IRLookup(state.circuit).declaration(refTarget) match {
-          case m: firrtl.ir.DefInstance => m.module
-          case _ => throw new Exception("Something went wrong, Mems should become ExtModule instances")
+        val (instTarget, ofModule) = x.targets(1)(0) match {
+            case y: InstanceTarget => (Some(y), Some(y.ofModule))
+            case y: ModuleTarget => 
+                assert(y.module == state.circuit.main, "ModuleTarget is only supported for the top module")
+                (Option.empty[InstanceTarget], Some(y.module))
+            case _ => ???
         }
-        val ext = mem
-        // TODO do we want to replace this in the output annotation file... ?
-        val newTarget = InstanceTarget(
-          circuit=refTarget.circuit,
-          module=refTarget.module,
-          instance="",
-          ofModule=ext,
-          path=refTarget.path :+ (Instance(refTarget.ref), OfModule(mem)))
-        newRecord(getInstancePath(scopeTarget), None, Some(ext), x)
-    })
+        newRecord(getInstancePath(scopeTarget), Some(getRelativePath(scopeTarget, instTarget)), ofModule, x)
 
+
+    })
     val filename = state.annotations.collectFirst({
       case x: FloorplanIRFileAnnotation => x.value
     }).getOrElse {

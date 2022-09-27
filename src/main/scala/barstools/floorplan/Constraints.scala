@@ -25,6 +25,21 @@ sealed trait Constraint {
       }
       BigDecimal(0)
   }
+  def getConstraint: BigDecimal = this.minimize match {
+      case c: Impossible => throw new Exception("This is not constrined")
+      case c: Unconstrained => BigDecimal(0)
+      case c: Constrained =>
+        c.eq.foreach {x => return x }
+        c.geq.foreach { x =>
+            c.mof.foreach { m =>
+            val n = (x/m).setScale(0, BigDecimal.RoundingMode.UP)
+            m*n
+            }
+            return x
+        }
+        c.leq.foreach {x => return x}
+        BigDecimal(0)
+  }
 
   def isConstrained: Boolean
 }

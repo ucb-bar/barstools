@@ -62,6 +62,7 @@ object FloorplanCompiler extends App {
 
   // TODO make Passes customizable
   val fpStateIn = FloorplanState.fromFiles(opts.inFiles)
+
   val debugWriter = opts.debugFile.map(x => new FileWriter(new File(x)))
   debugWriter.foreach(_.write("Input state:\n\n"))
   val fpStateOut = Pass.all(opts).foldLeft(fpStateIn) { (state, pass) =>
