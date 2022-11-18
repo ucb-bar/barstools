@@ -58,8 +58,21 @@ class ReplaceMemMacroArrayPass(topMod: String) extends Pass {
       val xPadding = (width - (columns*mem0.width)) / paddingColumns
       val xDim = columns + paddingColumns
       val yDim = stackHeight + 1
+      printf("==================================ReplaceMemMacroArrayPass=========================" + "\n")
+      printf("name: " + e.name + "\n")
+      printf("topPadding: " + topPadding + "\n")
+      printf("xPadding: " + xPadding + "\n")
+      printf("height: " + height + "\n")
+      printf("width: " + width + "\n")
+      printf("stackHeight: " + stackHeight + "\n")
+      printf("columns: " + columns + "\n")
+      printf("xDim: " + xDim + ", yDim: " + yDim + "\n")
+      printf("default area: " + defaultArea + "\n")
+      printf("mem0 w and h: " + mem0.width + ", " + mem0.height + "\n")
+      printf("numMems: " + numMems + "\n")
+      printf("default Width: " + defaultWidth + "(" + mem0.width * numMems + " )" + ", default height: " + defaultHeight + "\n")
         
-      if (topPadding <= 0 || xPadding <= 0) {
+      if (topPadding < 0 || xPadding <= 0) {
           throw AspectRatioIncompatibleException("The aspect ratio can not be satisfied. Please try another aspect ratio for module: " + e.name)
       }
 
