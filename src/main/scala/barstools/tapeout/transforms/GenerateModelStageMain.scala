@@ -36,7 +36,16 @@ private class GenerateModelStageMain(annotations: AnnotationSeq) extends LazyLog
   }
 
   def executeStageMain(): Unit = {
-    val annos = new FirrtlStage().execute(Array.empty, annotations)
+    val appendedAnnotations = annotations.filter(_ match {
+      case CompilerNameAnnotation(_) => true
+      case _ => false
+    }).map(_ match {
+      case CompilerNameAnnotation("1") =>
+        Some(RunFirrtlTransformAnnotation(Dependency[SplitTileTransforms]))
+      case _ => None
+    }).flatten
+
+    val annos = new FirrtlStage().execute(Array.empty, annotations ++ appendedAnnotations)
 
     annos.collectFirst { case FirrtlCircuitAnnotation(circuit) => circuit } match {
       case Some(circuit) =>

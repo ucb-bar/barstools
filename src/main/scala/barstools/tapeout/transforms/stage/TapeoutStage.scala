@@ -28,12 +28,31 @@ object OutAnnoAnnotation extends HasShellOptions {
   )
 }
 
+case class CompilerNameAnnotation(name: String) extends NoTargetAnnotation with TapeoutOption
+
+object SplitTileAnnotation extends HasShellOptions {
+  val options: Seq[ShellOption[_]] = Seq(
+    new ShellOption[String](
+      longOption = "split-tile",
+      shortOption = Some("ST"),
+      toAnnotationSeq = (s: String) => {
+        Seq(
+          CompilerNameAnnotation(s)
+        )
+      },
+      helpText = "split-tile",
+      helpValueName = Some("Split tiles as separte Circuits in FIRRTL")
+    )
+  )
+}
+
 trait TapeoutCli {
   this: Shell =>
   parser.note("Tapeout specific options")
 
   Seq(
-    OutAnnoAnnotation
+    OutAnnoAnnotation,
+    SplitTileAnnotation
   ).foreach(_.addOptions(parser))
 }
 
