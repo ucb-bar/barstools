@@ -105,9 +105,12 @@ class SplitTileTransforms extends Transform with DependencyAPIMigration {
       case tname: String =>
         println("ADDING PORTS")
         val tports = tilePorts(tname)
-        m.ports = m.ports ++ tports
-      case _ =>
+        m match {
+          case ExtModule(info, name, ports, defname, params) => ???
+          case mod @ Module(info, name, ports, body) => mod.copy(ports=mod.ports ++ tports)
+          case _ => ???
+        }
+      case _ => ???
     }
-
   }
 }
