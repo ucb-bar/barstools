@@ -41,7 +41,7 @@ private class GenerateModelStageMain(annotations: AnnotationSeq) extends LazyLog
       case _ => false
     }).map(_ match {
       case CompilerNameAnnotation("1") =>
-        Some(RunFirrtlTransformAnnotation(Dependency[SplitTileTransforms]))
+        Some(RunFirrtlTransformAnnotation(Dependency[RemoveTileTransforms]))
       case _ => None
     }).flatten
 
