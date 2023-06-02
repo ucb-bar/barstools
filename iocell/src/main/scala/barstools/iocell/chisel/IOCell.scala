@@ -4,7 +4,7 @@ package barstools.iocell.chisel
 
 import chisel3._
 import chisel3.util.{Cat, HasBlackBoxResource}
-import chisel3.experimental.{Analog, BaseModule, DataMirror, IO}
+import chisel3.experimental.{Analog, BaseModule, DataMirror}
 
 // The following four IO cell bundle types are bare-minimum functional connections
 // for modeling 4 different IO cell scenarios. The intention is that the user
@@ -60,16 +60,35 @@ class DigitalInIOCellBundle extends Bundle {
 }
 
 trait IOCell extends BaseModule {
-  var iocell_name: Option[String] = None
+  var signalName: Option[String] = None
+  var iocellName: Option[String] = None
+
+  @deprecated("Use iocellName")
+  def iocell_name: Option[String] = iocellName
+
+  /**
+   * Set name of signal that this IOCell is for
+   *
+   * This generates a name for the IOCell instance itself.
+   *
+   * @param s signal name for this cell
+   * @return An inherited IOCell with given the proposed name
+   */
+  def named(s: String): this.type = {
+    signalName = Some(s)
+    suggestName(s"iocell_$s")
+  }
 
   /** Set IOCell name
     * @param s Proposed name for the IOCell
     *
     * @return An inherited IOCell with given the proposed name
     */
-  def suggestName(s: String): this.type = {
-    iocell_name = Some(s)
-    super.suggestName(s)
+  override def suggestName(s: => String): this.type = {
+    val sForced = s // evaluate pass-by-name argument *once*
+
+    iocellName = Some(sForced)
+    super.suggestName(sForced)
   }
 }
 
@@ -142,23 +161,25 @@ object IOCell {
   ): (T, Seq[IOCell]) = {
     val padSignal = IO(DataMirror.internal.chiselTypeClone[T](coreSignal)).suggestName(name)
     val resetFn = if (abstractResetAsAsync) toAsyncReset else toSyncReset
-    val iocells = IOCell.generateFromSignal(coreSignal, padSignal, Some(s"iocell_$name"), typeParams, resetFn)
+    val iocells = IOCell.generateFromSignal(coreSignal, padSignal, name, typeParams, resetFn)
     (padSignal, iocells)
   }
 
-  /** Connect two identical signals together by adding IO cells between them and return a Seq
-    * containing all generated IO cells.
-    * @param coreSignal The core-side (internal) signal onto which to connect/add IO cells
-    * @param padSignal The pad-side (external) signal onto which to connect IO cells
-    * @param name An optional name or name prefix to use for naming IO cells
-    * @return A Seq of all generated IO cell instances
-    */
-  val toSyncReset:  (Reset) => Bool = _.asBool()
+  val toSyncReset:  (Reset) => Bool = _.asBool
   val toAsyncReset: (Reset) => AsyncReset = _.asAsyncReset
+
+  /** Connect two identical signals together by adding IO cells between them and return a Seq
+   * containing all generated IO cells.
+   *
+   * @param coreSignal The core-side (internal) signal onto which to connect/add IO cells
+   * @param padSignal  The pad-side (external) signal onto which to connect IO cells
+   * @param name       An optional name or name prefix to use for naming IO cells
+   * @return A Seq of all generated IO cell instances
+   */
   def generateFromSignal[T <: Data, R <: Reset](
     coreSignal:        T,
     padSignal:         T,
-    name:              Option[String] = None,
+    name:              String,
     typeParams:        IOCellTypeParams = GenericIOCellParams(),
     concretizeResetFn: (Reset) => R = toSyncReset
   ): Seq[IOCell] = {
@@ -170,20 +191,14 @@ object IOCell {
     ): Seq[IOCell] = {
       DataMirror.directionOf(coreSignal) match {
         case ActualDirection.Input => {
-          val iocell = typeParams.input()
-          name.foreach(n => {
-            iocell.suggestName(n)
-          })
+          val iocell = typeParams.input().named(name)
           coreSignal := castFromBool(iocell.io.i)
           iocell.io.ie := true.B
           iocell.io.pad := castToBool(padSignal)
           Seq(iocell)
         }
         case ActualDirection.Output => {
-          val iocell = typeParams.output()
-          name.foreach(n => {
-            iocell.suggestName(n)
-          })
+          val iocell = typeParams.output().named(name)
           iocell.io.o := castToBool(coreSignal)
           iocell.io.oe := true.B
           padSignal := castFromBool(iocell.io.pad)
@@ -205,8 +220,7 @@ object IOCell {
             coreSignal.getWidth == 1,
             "Analogs wider than 1 bit are not supported because we can't bit-select Analogs (https://github.com/freechipsproject/chisel3/issues/536)"
           )
-          val iocell = typeParams.analog()
-          name.foreach(n => iocell.suggestName(n))
+          val iocell = typeParams.analog().named(name)
           iocell.io.core <> coreSignal
           padSignal <> iocell.io.pad
           Seq(iocell)
@@ -227,13 +241,7 @@ object IOCell {
           DataMirror.directionOf(coreSignal) match {
             case ActualDirection.Input => {
               val iocells = padSignal.asBools.zipWithIndex.map { case (sig, i) =>
-                val iocell = typeParams.input()
-                // Note that we are relying on chisel deterministically naming this in the index order (which it does)
-                // This has the side-effect of naming index 0 with no _0 suffix, which is how chisel names other signals
-                // An alternative solution would be to suggestName(n + "_" + i)
-                name.foreach(n => {
-                  iocell.suggestName(n)
-                })
+                val iocell = typeParams.input().named(if (padSignal.getWidth > 1) s"${name}_$i" else name)
                 iocell.io.pad := sig
                 iocell.io.ie := true.B
                 iocell
@@ -244,13 +252,7 @@ object IOCell {
             }
             case ActualDirection.Output => {
               val iocells = coreSignal.asBools.zipWithIndex.map { case (sig, i) =>
-                val iocell = typeParams.output()
-                // Note that we are relying on chisel deterministically naming this in the index order (which it does)
-                // This has the side-effect of naming index 0 with no _0 suffix, which is how chisel names other signals
-                // An alternative solution would be to suggestName(n + "_" + i)
-                name.foreach(n => {
-                  iocell.suggestName(n)
-                })
+                val iocell = typeParams.output().named(if (padSignal.getWidth > 1) s"${name}_$i" else name)
                 iocell.io.o := sig
                 iocell.io.oe := true.B
                 iocell
@@ -267,14 +269,14 @@ object IOCell {
       case (coreSignal: Vec[_], padSignal: Vec[_]) => {
         require(padSignal.size == coreSignal.size, "size of Vec for padSignal and coreSignal must be the same")
         coreSignal.zip(padSignal).zipWithIndex.foldLeft(Seq.empty[IOCell]) { case (total, ((core, pad), i)) =>
-          val ios = IOCell.generateFromSignal(core, pad, name.map(_ + "_" + i), typeParams)
+          val ios = IOCell.generateFromSignal(core, pad, s"${name}_$i", typeParams)
           total ++ ios
         }
       }
       case (coreSignal: Record, padSignal: Record) => {
         coreSignal.elements.foldLeft(Seq.empty[IOCell]) { case (total, (eltName, core)) =>
           val pad = padSignal.elements(eltName)
-          val ios = IOCell.generateFromSignal(core, pad, name.map(_ + "_" + eltName), typeParams)
+          val ios = IOCell.generateFromSignal(core, pad, s"${name}_$eltName", typeParams)
           total ++ ios
         }
       }
