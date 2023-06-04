@@ -130,6 +130,13 @@ class GenericDigitalOutIOCell extends GenericIOCell with DigitalOutIOCell {
 }
 
 trait IOCellTypeParams {
+  /**
+   * Custom rules for IO cell instantiation - undefined points are handled by a
+   * default implementation
+   *
+   * Parameters: (name, coreSignal, padSignal)
+   */
+  val custom: PartialFunction[(String, Data, Data), Seq[IOCell]] = PartialFunction.empty
   def analog(): AnalogIOCell
   def gpio():   DigitalGPIOCell
   def input():  DigitalInIOCell
@@ -176,12 +183,12 @@ object IOCell {
    * @param name       An optional name or name prefix to use for naming IO cells
    * @return A Seq of all generated IO cell instances
    */
-  def generateFromSignal[T <: Data, R <: Reset](
-    coreSignal:        T,
-    padSignal:         T,
+  def generateFromSignal(
+    coreSignal:        Data,
+    padSignal:         Data,
     name:              String,
     typeParams:        IOCellTypeParams = GenericIOCellParams(),
-    concretizeResetFn: (Reset) => R = toSyncReset
+    concretizeResetFn: Reset => Reset = toSyncReset
   ): Seq[IOCell] = {
     def genCell[T <: Data](
       castToBool:   (T) => Bool,
@@ -211,8 +218,8 @@ object IOCell {
     def genCellForAsyncReset = genCell[AsyncReset](_.asBool, _.asAsyncReset) _
     def genCellForAbstractReset = genCell[Reset](_.asBool, concretizeResetFn) _
 
-    (coreSignal, padSignal) match {
-      case (coreSignal: Analog, padSignal: Analog) => {
+    val defaultInstantiator: PartialFunction[(String, Data, Data), Seq[IOCell]] = {
+      case (name, coreSignal: Analog, padSignal: Analog) => {
         if (coreSignal.getWidth == 0) {
           Seq()
         } else {
@@ -226,15 +233,15 @@ object IOCell {
           Seq(iocell)
         }
       }
-      case (coreSignal: Clock, padSignal: Clock) => genCellForClock(coreSignal, padSignal)
-      case (coreSignal: AsyncReset, padSignal: AsyncReset) => genCellForAsyncReset(coreSignal, padSignal)
-      case (coreSignal: Bits, padSignal: Bits) => {
+      case (name, coreSignal: Clock, padSignal: Clock) => genCellForClock(coreSignal, padSignal)
+      case (name, coreSignal: AsyncReset, padSignal: AsyncReset) => genCellForAsyncReset(coreSignal, padSignal)
+      case (name, coreSignal: Bits, padSignal: Bits) =>
         require(padSignal.getWidth == coreSignal.getWidth, "padSignal and coreSignal must be the same width")
         if (padSignal.getWidth == 0) {
           // This dummy assignment will prevent invalid firrtl from being emitted
           DataMirror.directionOf(coreSignal) match {
             case ActualDirection.Input => coreSignal := 0.U
-            case _                     => {}
+            case _ => {}
           }
           Seq()
         } else {
@@ -264,24 +271,26 @@ object IOCell {
             case _ => throw new Exception("Bits signal does not have a direction and cannot be matched to IOCell(s)")
           }
         }
-      }
-      case (coreSignal: Reset, padSignal: Reset) => genCellForAbstractReset(coreSignal, padSignal)
-      case (coreSignal: Vec[_], padSignal: Vec[_]) => {
+      case (name, coreSignal: Reset, padSignal: Reset) => genCellForAbstractReset(coreSignal, padSignal)
+      case (name, coreSignal: Vec[_], padSignal: Vec[_]) => {
         require(padSignal.size == coreSignal.size, "size of Vec for padSignal and coreSignal must be the same")
         coreSignal.zip(padSignal).zipWithIndex.foldLeft(Seq.empty[IOCell]) { case (total, ((core, pad), i)) =>
           val ios = IOCell.generateFromSignal(core, pad, s"${name}_$i", typeParams)
           total ++ ios
         }
       }
-      case (coreSignal: Record, padSignal: Record) => {
+      case (name, coreSignal: Record, padSignal: Record) => {
         coreSignal.elements.foldLeft(Seq.empty[IOCell]) { case (total, (eltName, core)) =>
           val pad = padSignal.elements(eltName)
           val ios = IOCell.generateFromSignal(core, pad, s"${name}_$eltName", typeParams)
           total ++ ios
         }
       }
-      case _ => { throw new Exception("Oops, I don't know how to handle this signal.") }
+      case _ => {
+        throw new Exception("Oops, I don't know how to handle this signal.")
+      }
     }
+    typeParams.custom.orElse(defaultInstantiator)(name, coreSignal, padSignal)
   }
 
 }
